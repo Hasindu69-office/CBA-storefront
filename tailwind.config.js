@@ -21,6 +21,8 @@ module.exports = {
         padding: "padding-top padding-right padding-bottom padding-left",
       },
       colors: {
+        brand: "#FF5C0E",
+        "brand-hover": "#e6530c",
         grey: {
           0: "#FFFFFF",
           5: "#F9FAFB",
