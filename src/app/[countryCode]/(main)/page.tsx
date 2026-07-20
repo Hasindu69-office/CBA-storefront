@@ -2,9 +2,11 @@ import { Metadata } from "next"
 
 import FeaturedProducts from "@modules/home/components/featured-products"
 import CategorySlider from "@modules/home/components/category-slider"
+import HomePromoBanner from "@modules/home/components/home-promo-banner"
 import Hero from "@modules/home/components/hero"
 import { listCategorySliderItems } from "@lib/data/category-slider"
 import { listCollections } from "@lib/data/collections"
+import { listHomepageContent } from "@lib/data/homepage"
 import { getRegion } from "@lib/data/regions"
 
 export const metadata: Metadata = {
@@ -20,13 +22,15 @@ export default async function Home(props: {
 
   const { countryCode } = params
 
-  const [region, collectionResult, categorySliderItems] = await Promise.all([
-    getRegion(countryCode),
-    listCollections({
-      fields: "id, handle, title",
-    }),
-    listCategorySliderItems().catch(() => []),
-  ])
+  const [region, collectionResult, categorySliderItems, homepageContent] =
+    await Promise.all([
+      getRegion(countryCode),
+      listCollections({
+        fields: "id, handle, title",
+      }),
+      listCategorySliderItems().catch(() => []),
+      listHomepageContent().catch(() => ({ page: null, sections: [] })),
+    ])
 
   const { collections } = collectionResult
 
@@ -38,7 +42,8 @@ export default async function Home(props: {
     <>
       <Hero />
       <CategorySlider categories={categorySliderItems} />
-      <div className="py-12">
+      <HomePromoBanner sections={homepageContent.sections} />
+      <div>
         <ul className="flex flex-col gap-x-6">
           <FeaturedProducts collections={collections} region={region} />
         </ul>
