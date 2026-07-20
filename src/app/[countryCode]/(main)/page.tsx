@@ -1,7 +1,9 @@
 import { Metadata } from "next"
 
 import FeaturedProducts from "@modules/home/components/featured-products"
+import CategorySlider from "@modules/home/components/category-slider"
 import Hero from "@modules/home/components/hero"
+import { listCategorySliderItems } from "@lib/data/category-slider"
 import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
 
@@ -18,11 +20,15 @@ export default async function Home(props: {
 
   const { countryCode } = params
 
-  const region = await getRegion(countryCode)
+  const [region, collectionResult, categorySliderItems] = await Promise.all([
+    getRegion(countryCode),
+    listCollections({
+      fields: "id, handle, title",
+    }),
+    listCategorySliderItems().catch(() => []),
+  ])
 
-  const { collections } = await listCollections({
-    fields: "id, handle, title",
-  })
+  const { collections } = collectionResult
 
   if (!collections || !region) {
     return null
@@ -31,6 +37,7 @@ export default async function Home(props: {
   return (
     <>
       <Hero />
+      <CategorySlider categories={categorySliderItems} />
       <div className="py-12">
         <ul className="flex flex-col gap-x-6">
           <FeaturedProducts collections={collections} region={region} />
