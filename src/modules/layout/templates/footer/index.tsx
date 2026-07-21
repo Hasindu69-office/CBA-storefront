@@ -104,7 +104,8 @@ export default async function Footer() {
   return (
     <footer className="w-full relative isolate mt-20 pt-10">
       <div
-        className="absolute inset-0 w-full h-full z-0"
+        className="absolute inset-0 w-full h-full z-0 pointer-events-none"
+        aria-hidden="true"
         style={{
           backgroundImage: "url('/images/footerbgimg.png')",
           backgroundSize: "cover",
@@ -122,7 +123,7 @@ export default async function Footer() {
         }}
       />
 
-      <div className="absolute top-0 left-0 w-full flex justify-center -mt-[7.5vw] z-10 pointer-events-none px-4">
+      <div className="absolute top-0 left-0 w-full flex justify-center -mt-[7.5vw] z-30 pointer-events-none px-4">
         <div className="px-4 sm:px-8 py-8 w-full md:w-[46vw] max-w-3xl pointer-events-auto text-center">
           <h2 className="text-3xl font-bold text-black mb-3">
             Subscribe to our newsletter

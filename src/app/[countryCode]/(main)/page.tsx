@@ -49,7 +49,7 @@ export default async function Home(props: {
 
   return (
     <>
-      <Hero />
+      <Hero sections={homepageContent.sections} />
       <CategorySlider categories={categorySliderItems} />
       <HomePromoBanner sections={homepageContent.sections} />
       <FeaturedProductSlider products={featuredProducts} />

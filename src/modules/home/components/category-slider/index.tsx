@@ -55,6 +55,7 @@ const CategorySlider = ({ categories }: CategorySliderProps) => {
 
   return (
     <section
+      id="home-categories"
       className="bg-white py-10 small:py-14"
       aria-labelledby="category-slider-title"
     >
