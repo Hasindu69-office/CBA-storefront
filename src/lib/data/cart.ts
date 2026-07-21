@@ -391,7 +391,7 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
 
   redirect(
     localizedPath(
-      `/${formData.get("shipping_address.country_code")}/checkout?step=delivery`
+      `/${formData.get("shipping_address.country_code")}/checkout?step=payment`
     )
   )
 }
