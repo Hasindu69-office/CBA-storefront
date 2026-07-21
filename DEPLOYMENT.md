@@ -21,6 +21,7 @@ NODE_ENV=production
 PORT=8000
 HOSTNAME=0.0.0.0
 MEDUSA_BACKEND_URL=https://your-backend-domain
+MEDUSA_FILE_BACKEND_URL=https://your-backend-domain/static
 NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=replace-with-publishable-key
 NEXT_PUBLIC_BASE_URL=https://your-storefront-domain
 ```
@@ -36,7 +37,7 @@ MEDUSA_CLOUD_S3_HOSTNAME=replace-with-s3-hostname
 MEDUSA_CLOUD_S3_PATHNAME=replace-with-s3-pathname
 ```
 
-Use the public Coolify/backend URL for `MEDUSA_BACKEND_URL`, not `localhost`, because middleware and server-side rendering run inside the container.
+Use the public Coolify/backend URL for `MEDUSA_BACKEND_URL`, not `localhost`, because middleware and server-side rendering run inside the container. If you override `MEDUSA_FILE_BACKEND_URL`, use the public URL that serves uploaded Medusa files.
 
 In Coolify, make sure these same values are available as build variables/build arguments as well as runtime environment variables. The Dockerfile accepts matching `ARG` names and also exposes them to the standalone Next.js runtime.
 
