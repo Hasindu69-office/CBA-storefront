@@ -1,14 +1,13 @@
 "use client"
 
+import { localizedPath } from "@lib/util/routes"
 import { SearchIcon } from "@modules/layout/components/cba-icons"
-import { useParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { FormEvent, useState } from "react"
 
 export default function CbaSearchForm() {
   const [searchQuery, setSearchQuery] = useState("")
-  const params = useParams()
   const router = useRouter()
-  const countryCode = String(params.countryCode ?? "lk")
 
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -18,7 +17,7 @@ export default function CbaSearchForm() {
       return
     }
 
-    router.push(`/${countryCode}/store?query=${encodeURIComponent(query)}`)
+    router.push(localizedPath(`/store?query=${encodeURIComponent(query)}`))
   }
 
   return (

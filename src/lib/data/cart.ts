@@ -5,6 +5,7 @@ import medusaError from "@lib/util/medusa-error"
 import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
+import { getStoreCountryCode, localizedPath } from "@lib/util/routes"
 import {
   getAuthHeaders,
   getCacheOptions,
@@ -53,6 +54,7 @@ export async function retrieveCart(cartId?: string, fields?: string) {
 }
 
 export async function getOrSetCart(countryCode: string) {
+  countryCode = getStoreCountryCode(countryCode)
   const region = await getRegion(countryCode)
 
   if (!region) {
@@ -131,9 +133,7 @@ export async function addToCart({
     throw new Error("Invalid quantity when adding to cart")
   }
 
-  if (!/^[a-z]{2}$/i.test(countryCode)) {
-    throw new Error("Invalid country code when adding to cart")
-  }
+  countryCode = getStoreCountryCode(countryCode)
 
   const cart = await getOrSetCart(countryCode)
 
@@ -390,7 +390,9 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
   }
 
   redirect(
-    `/${formData.get("shipping_address.country_code")}/checkout?step=delivery`
+    localizedPath(
+      `/${formData.get("shipping_address.country_code")}/checkout?step=delivery`
+    )
   )
 }
 
@@ -427,7 +429,7 @@ export async function placeOrder(cartId?: string) {
     revalidateTag(orderCacheTag)
 
     removeCartId()
-    redirect(`/${countryCode}/order/${cartRes?.order.id}/confirmed`)
+    redirect(localizedPath(`/${countryCode}/order/${cartRes?.order.id}/confirmed`))
   }
 
   return cartRes.cart
@@ -439,6 +441,7 @@ export async function placeOrder(cartId?: string) {
  * @param countryCode
  */
 export async function updateRegion(countryCode: string, currentPath: string) {
+  countryCode = getStoreCountryCode(countryCode)
   const cartId = await getCartId()
   const region = await getRegion(countryCode)
 
@@ -458,7 +461,7 @@ export async function updateRegion(countryCode: string, currentPath: string) {
   const productsCacheTag = await getCacheTag("products")
   revalidateTag(productsCacheTag)
 
-  redirect(`/${countryCode}${currentPath}`)
+  redirect(localizedPath(`/${countryCode}${currentPath}`))
 }
 
 export async function listCartOptions() {

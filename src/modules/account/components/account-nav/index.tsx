@@ -11,6 +11,7 @@ import Package from "@modules/common/icons/package"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { HttpTypes } from "@medusajs/types"
 import { signout } from "@lib/data/customer"
+import { getStoreCountryCode, stripCountryCodeFromPath } from "@lib/util/routes"
 
 const AccountNav = ({
   customer,
@@ -19,6 +20,7 @@ const AccountNav = ({
 }) => {
   const route = usePathname()
   const { countryCode } = useParams() as { countryCode: string }
+  const accountRoute = stripCountryCodeFromPath(route, countryCode)
 
   const handleLogout = async () => {
     await signout(countryCode)
@@ -27,7 +29,7 @@ const AccountNav = ({
   return (
     <div>
       <div className="small:hidden" data-testid="mobile-account-nav">
-        {route !== `/${countryCode}/account` ? (
+        {accountRoute !== "/account" ? (
           <LocalizedClientLink
             href="/account"
             className="flex items-center gap-x-2 text-small-regular py-2"
@@ -181,8 +183,10 @@ const AccountNavLink = ({
   "data-testid": dataTestId,
 }: AccountNavLinkProps) => {
   const { countryCode }: { countryCode: string } = useParams()
+  const currentCountryCode = getStoreCountryCode(countryCode)
+  const currentRoute = stripCountryCodeFromPath(route, currentCountryCode)
 
-  const active = route.split(countryCode)[1] === href
+  const active = currentRoute === href
   return (
     <LocalizedClientLink
       href={href}

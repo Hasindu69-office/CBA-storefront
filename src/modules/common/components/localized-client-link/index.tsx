@@ -1,12 +1,12 @@
 "use client"
 
+import { localizedPath } from "@lib/util/routes"
 import Link from "next/link"
-import { useParams } from "next/navigation"
 import React from "react"
 
 /**
- * Use this component to create a Next.js `<Link />` that persists the current country code in the url,
- * without having to explicitly pass it as a prop.
+ * Use this component for storefront links. The app keeps the Medusa country
+ * code internally, while public URLs stay region-neutral for the single region.
  */
 const LocalizedClientLink = ({
   children,
@@ -20,13 +20,7 @@ const LocalizedClientLink = ({
   passHref?: true
   [x: string]: any
 }) => {
-  const { countryCode } = useParams()
-
-  return (
-    <Link href={`/${countryCode}${href}`} {...props}>
-      {children}
-    </Link>
-  )
+  return <Link href={localizedPath(href)} {...props}>{children}</Link>
 }
 
 export default LocalizedClientLink

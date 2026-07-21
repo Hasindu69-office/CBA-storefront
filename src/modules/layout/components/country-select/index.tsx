@@ -11,6 +11,7 @@ import { Fragment, useEffect, useMemo, useState } from "react"
 import ReactCountryFlag from "react-country-flag"
 
 import { StateType } from "@lib/hooks/use-toggle-state"
+import { getStoreCountryCode } from "@lib/util/routes"
 import { useParams, usePathname } from "next/navigation"
 import { updateRegion } from "@lib/data/cart"
 import { HttpTypes } from "@medusajs/types"
@@ -33,29 +34,32 @@ const CountrySelect = ({ toggleState, regions }: CountrySelectProps) => {
   >(undefined)
 
   const { countryCode } = useParams()
-  const currentPath = usePathname().split(`/${countryCode}`)[1]
+  const currentCountryCode = getStoreCountryCode(countryCode as string)
+  const currentPath = usePathname()
 
   const { state, close } = toggleState
 
   const options = useMemo(() => {
     return regions
       ?.map((r) => {
-        return r.countries?.map((c) => ({
-          country: c.iso_2,
-          region: r.id,
-          label: c.display_name,
-        }))
+        return r.countries
+          ?.filter((c) => c.iso_2 && c.display_name)
+          .map((c) => ({
+            country: c.iso_2!,
+            region: r.id,
+            label: c.display_name!,
+          }))
       })
       .flat()
       .sort((a, b) => (a?.label ?? "").localeCompare(b?.label ?? ""))
   }, [regions])
 
   useEffect(() => {
-    if (countryCode) {
-      const option = options?.find((o) => o?.country === countryCode)
+    if (currentCountryCode) {
+      const option = options?.find((o) => o?.country === currentCountryCode)
       setCurrent(option)
     }
-  }, [options, countryCode])
+  }, [options, currentCountryCode])
 
   const handleChange = (option: CountryOption) => {
     updateRegion(option.country, currentPath)
@@ -67,11 +71,7 @@ const CountrySelect = ({ toggleState, regions }: CountrySelectProps) => {
       <Listbox
         as="span"
         onChange={handleChange}
-        defaultValue={
-          countryCode
-            ? options?.find((o) => o?.country === countryCode)
-            : undefined
-        }
+        defaultValue={options?.find((o) => o?.country === currentCountryCode)}
       >
         <ListboxButton className="py-1 w-full">
           <div className="txt-compact-small flex items-start gap-x-2">
