@@ -127,6 +127,14 @@ export async function addToCart({
     throw new Error("Missing variant ID when adding to cart")
   }
 
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
+    throw new Error("Invalid quantity when adding to cart")
+  }
+
+  if (!/^[a-z]{2}$/i.test(countryCode)) {
+    throw new Error("Invalid country code when adding to cart")
+  }
+
   const cart = await getOrSetCart(countryCode)
 
   if (!cart) {

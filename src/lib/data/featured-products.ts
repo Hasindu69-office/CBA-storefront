@@ -12,6 +12,7 @@ export type FeaturedProductCard = {
     name: string
     slug: string
     logo_url?: string | null
+    logo_alt_text?: string | null
   } | null
   category: { id: string; name: string; handle: string } | null
   default_variant: { id: string; title: string; sku: string | null } | null
@@ -40,11 +41,24 @@ export type FeaturedProductCard = {
       | "unavailable"
     reason: string | null
   }
-  badges: Array<{ key: string; label: string; priority: number }>
+  badges: Array<{
+    key: string
+    label: string
+    priority: number
+    style_token?: BadgeStyleToken | null
+  }>
   rating: { average: number; count: number } | null
   compare_group_keys: string[]
   updated_at: string
 }
+
+export type BadgeStyleToken =
+  | "default"
+  | "accent"
+  | "success"
+  | "warning"
+  | "info"
+  | "neutral"
 
 type FeaturedProductsResponse =
   | {
