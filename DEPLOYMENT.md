@@ -38,6 +38,8 @@ MEDUSA_CLOUD_S3_PATHNAME=replace-with-s3-pathname
 
 Use the public Coolify/backend URL for `MEDUSA_BACKEND_URL`, not `localhost`, because middleware and server-side rendering run inside the container.
 
+In Coolify, make sure these same values are available as build variables/build arguments as well as runtime environment variables. The Dockerfile accepts matching `ARG` names and also exposes them to the standalone Next.js runtime.
+
 ## Dockerfile Notes
 
 The Dockerfile uses three stages:
@@ -47,6 +49,8 @@ The Dockerfile uses three stages:
 3. `runner`: runs the standalone Next.js server with `node server.js` as the non-root `node` user.
 
 The app uses `output: "standalone"` in `next.config.js`, which is required for this runtime layout.
+
+The repository also contains Yarn metadata, but this deployment path intentionally uses `package-lock.json` and `npm ci` because that is the lockfile used by the current Dockerfile and verified local build.
 
 ## Verification
 
