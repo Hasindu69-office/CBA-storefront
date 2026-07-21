@@ -2,6 +2,7 @@ import { Metadata } from "next"
 
 import FeaturedProducts from "@modules/home/components/featured-products"
 import FeaturedProductSlider from "@modules/home/components/featured-product-slider"
+import BestSellingProductsSection from "@modules/home/components/best-selling-products"
 import CategorySlider from "@modules/home/components/category-slider"
 import HomePromoBanner from "@modules/home/components/home-promo-banner"
 import Hero from "@modules/home/components/hero"
@@ -12,9 +13,9 @@ import { listHomepageContent } from "@lib/data/homepage"
 import { getRegion } from "@lib/data/regions"
 
 export const metadata: Metadata = {
-  title: "Medusa Next.js Starter Template",
+  title: "CBA Ebiz",
   description:
-    "A performant frontend ecommerce starter template with Next.js 15 and Medusa.",
+    "CBA Ebiz website",
 }
 
 export default async function Home(props: {
@@ -53,6 +54,7 @@ export default async function Home(props: {
       <CategorySlider categories={categorySliderItems} />
       <HomePromoBanner sections={homepageContent.sections} />
       <FeaturedProductSlider products={featuredProducts} />
+      <BestSellingProductsSection sections={homepageContent.sections} />
       <div>
         <ul className="flex flex-col gap-x-6">
           <FeaturedProducts collections={collections} region={region} />
