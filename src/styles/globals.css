@@ -47,6 +47,36 @@
   input[type="search"]::-webkit-search-results-decoration {
     -webkit-appearance: none;
   }
+
+  @keyframes brand-slider-marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  .brand-slider-track--animated {
+    width: max-content;
+    animation: brand-slider-marquee var(--brand-slider-duration, 24s) linear infinite;
+  }
+
+  .brand-slider-track--animated .brand-slider-group {
+    padding-right: 4rem;
+  }
+
+  .brand-slider-track--animated:hover,
+  .brand-slider-track--animated:focus-within {
+    animation-play-state: paused;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .brand-slider-track--animated {
+      animation: none;
+      transform: none;
+    }
+  }
 }
 
 @layer components {

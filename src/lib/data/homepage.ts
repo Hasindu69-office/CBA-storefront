@@ -1,6 +1,7 @@
 import { sdk } from "@lib/config"
 
 export type HomepageCmsItem = {
+  id?: string
   title?: string | null
   subtitle?: string | null
   body_html?: string | null
@@ -15,6 +16,8 @@ export type HomepageCmsItem = {
     metadata?: Record<string, unknown> | null
   } | null
   config?: Record<string, unknown>
+  resolved?: Record<string, unknown> | null
+  resolved_categories?: Array<Record<string, unknown>>
   sort_order: number
 }
 
