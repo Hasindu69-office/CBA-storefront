@@ -1,6 +1,7 @@
 import { sdk } from "@lib/config"
 
 export type HomepageCmsItem = {
+  id?: string
   title?: string | null
   subtitle?: string | null
   body_html?: string | null
