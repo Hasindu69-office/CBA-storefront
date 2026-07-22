@@ -15,6 +15,8 @@ export type HomepageCmsItem = {
     metadata?: Record<string, unknown> | null
   } | null
   config?: Record<string, unknown>
+  resolved?: Record<string, unknown> | null
+  resolved_categories?: Array<Record<string, unknown>>
   sort_order: number
 }
 
