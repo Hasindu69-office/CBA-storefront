@@ -47,6 +47,13 @@ export type FeaturedProductCard = {
     priority: number
     style_token?: BadgeStyleToken | null
   }>
+  benefits?: {
+    free_delivery: boolean
+    warranty: {
+      duration_months: number
+      label: string
+    } | null
+  }
   rating: { average: number; count: number } | null
   compare_group_keys: string[]
   updated_at: string

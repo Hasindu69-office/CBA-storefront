@@ -180,8 +180,9 @@ export const FeaturedProductCardItem = ({
     product.inventory.purchasable &&
     product.price.status === "available"
   const displayBadges = product.badges
-    .filter((badge) => !isFeaturedBadge(badge))
+    .filter((badge) => !isFeaturedBadge(badge) && !isBenefitBadge(badge))
     .slice(0, 2)
+  const benefitItems = productCardBenefits(product)
 
   const handleAddToCart = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
@@ -243,7 +244,7 @@ export const FeaturedProductCardItem = ({
       data-featured-product-card
       className="group flex h-[568px] min-w-0 snap-start flex-col overflow-hidden rounded-[8px] border border-[#e5e7eb] bg-white transition-colors hover:border-brand/50"
     >
-      <div className="relative h-[300px] flex-shrink-0 overflow-hidden rounded-t-[8px] bg-[#f7f7f8]">
+      <div className="relative h-[300px] flex-shrink-0 overflow-hidden rounded-t-[8px] bg-white">
         <LocalizedClientLink
           href={`/products/${product.handle}`}
           className="block h-full w-full"
@@ -266,13 +267,13 @@ export const FeaturedProductCardItem = ({
         </LocalizedClientLink>
 
         {!!displayBadges.length && (
-          <div className="absolute left-4 top-4 flex max-w-[calc(100%-84px)] flex-wrap gap-2">
+          <div className="absolute left-4 top-6 flex max-w-[calc(100%-84px)] flex-wrap gap-2">
             {displayBadges.map((badge) => (
               <span
                 key={badge.key}
                 className={`${badgeColorClassName(
                   badge
-                )} min-w-[86px] rounded-[6px] px-4 py-2 text-center text-[12px] font-bold uppercase leading-5 text-white`}
+                )} min-w-[78px] rounded-[6px] px-3 py-1.5 text-center text-[11px] font-bold uppercase leading-4 text-white`}
               >
                 {badge.label}
               </span>
@@ -291,6 +292,35 @@ export const FeaturedProductCardItem = ({
           <HeartIcon size={21} strokeWidth={1.8} />
         </button>
 
+        {product.price.discount_percentage !== null && (
+          <div className="absolute right-5 top-[74px] z-10 flex h-[58px] w-[58px] flex-col items-center justify-center rounded-full bg-[#ff2d55] text-center text-white shadow-[0_10px_24px_rgba(255,45,85,0.28)]">
+            <span className="text-[17px] font-bold leading-[18px]">
+              {product.price.discount_percentage}%
+            </span>
+            <span className="text-[9px] font-bold uppercase leading-[11px]">
+              Off
+            </span>
+          </div>
+        )}
+
+        {!!benefitItems.length && (
+          <div className="absolute bottom-2 left-3 right-3 z-10 flex h-10 items-center justify-center overflow-hidden rounded-[6px] bg-[#fff3ed] pt-1 text-[#ff5c0e] shadow-sm">
+            {benefitItems.map((item, index) => (
+              <div
+                key={item.key}
+                className="flex min-w-0 flex-1 translate-y-px items-center justify-center gap-2 px-2"
+              >
+                {index > 0 && (
+                  <span className="mr-2 h-5 w-px flex-shrink-0 bg-[#ffc5ae]" />
+                )}
+                {item.icon}
+                <span className="truncate text-[11px] font-bold uppercase leading-4">
+                  {item.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col px-3 py-4">
@@ -488,14 +518,79 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
           {original}
         </span>
       )}
-      {product.price.discount_percentage !== null && (
-        <span className="text-[12px] font-semibold leading-5 text-brand">
-          {product.price.discount_percentage}% off
-        </span>
-      )}
     </div>
   )
 }
+
+function isBenefitBadge(badge: FeaturedProductCard["badges"][number]) {
+  const key = normalizeBadgeValue(badge.key)
+  return key === "free-shipping"
+}
+
+function productCardBenefits(product: FeaturedProductCard) {
+  const benefits: Array<{
+    key: string
+    label: string
+    icon: ReactNode
+  }> = []
+
+  if (product.benefits?.free_delivery || hasFreeShippingBadge(product.badges)) {
+    benefits.push({
+      key: "free-delivery",
+      label: "Free Delivery",
+      icon: <DeliveryIcon />,
+    })
+  }
+
+  if (product.benefits?.warranty?.label) {
+    benefits.push({
+      key: "warranty",
+      label: product.benefits.warranty.label,
+      icon: <WarrantyIcon />,
+    })
+  }
+
+  return benefits
+}
+
+function hasFreeShippingBadge(badges: FeaturedProductCard["badges"]) {
+  return badges.some((badge) => normalizeBadgeValue(badge.key) === "free-shipping")
+}
+
+const DeliveryIcon = () => (
+  <svg
+    aria-hidden="true"
+    className="h-5 w-5 flex-shrink-0"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 7h11v9H3z" />
+    <path d="M14 10h3l3 3v3h-6z" />
+    <circle cx="7" cy="18" r="2" />
+    <circle cx="17" cy="18" r="2" />
+    <path d="M5 5h6" />
+  </svg>
+)
+
+const WarrantyIcon = () => (
+  <svg
+    aria-hidden="true"
+    className="h-5 w-5 flex-shrink-0"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 3l7 3v5c0 4.5-2.8 8.4-7 10-4.2-1.6-7-5.5-7-10V6z" />
+    <path d="M9 12l2 2 4-5" />
+  </svg>
+)
 
 function formatPrice(amount: number, currencyCode: string) {
   return convertToLocale({
