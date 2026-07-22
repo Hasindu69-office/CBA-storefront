@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 
 import FeaturedProductSlider from "@modules/home/components/featured-product-slider"
+import BrandAutoSlider from "@modules/home/components/brand-auto-slider"
 import BestSellingProductsSection from "@modules/home/components/best-selling-products"
 import TopSellingProductsSection from "@modules/home/components/top-selling-products"
 import InformationColumnsSection from "@modules/home/components/information-columns"
@@ -58,6 +59,7 @@ export default async function Home(props: {
       <BestSellingProductsSection sections={homepageContent.sections} />
       <TopSellingProductsSection sections={homepageContent.sections} />
       <InformationColumnsSection sections={homepageContent.sections} />
+      <BrandAutoSlider sections={homepageContent.sections} />
     </>
   )
 }
