@@ -1,7 +1,9 @@
 "use client"
 
-import { MouseEvent, useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import type { MouseEvent, ReactNode } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 
 import type { FeaturedProductCard } from "@lib/data/featured-products"
@@ -17,9 +19,21 @@ import {
 
 type FeaturedProductSliderProps = {
   products: FeaturedProductCard[]
+  title?: string
+  description?: string | null
+  ctaLabel?: string | null
+  ctaHref?: string | null
+  titleId?: string
 }
 
-const FeaturedProductSlider = ({ products }: FeaturedProductSliderProps) => {
+const FeaturedProductSlider = ({
+  products,
+  title = "Featured Products",
+  description,
+  ctaLabel = "View All Products",
+  ctaHref = "/store",
+  titleId = "featured-products-title",
+}: FeaturedProductSliderProps) => {
   const scrollerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -65,25 +79,32 @@ const FeaturedProductSlider = ({ products }: FeaturedProductSliderProps) => {
   return (
     <section
       className="bg-white py-10 small:py-14"
-      aria-labelledby="featured-products-title"
+      aria-labelledby={titleId}
     >
       <div className="content-container">
         <div className="mb-8 flex items-start justify-between gap-6 small:mb-10">
           <div className="min-w-0">
             <h2
-              id="featured-products-title"
+              id={titleId}
               className="text-[30px] font-bold leading-[1.15] tracking-normal text-black small:text-[34px]"
             >
-              Featured Products
+              {title}
             </h2>
+            {description && (
+              <p className="mt-3 max-w-[620px] text-[15px] leading-6 tracking-normal text-[#52525b]">
+                {description}
+              </p>
+            )}
             <div className="mt-4 h-px w-[220px] bg-[#cfcfcf] small:w-[295px]" />
           </div>
-          <LocalizedClientLink
-            href="/store"
-            className="hidden h-11 min-w-[156px] items-center justify-center rounded border border-[#dedee5] bg-white px-6 text-[14px] font-semibold text-[#333333] transition-colors hover:border-brand hover:text-brand small:flex"
-          >
-            View All Products
-          </LocalizedClientLink>
+          {ctaLabel && ctaHref && (
+            <ProductSliderCta
+              href={ctaHref}
+              className="hidden h-11 min-w-[156px] items-center justify-center rounded border border-[#dedee5] bg-white px-6 text-[14px] font-semibold text-[#333333] transition-colors hover:border-brand hover:text-brand small:flex"
+            >
+              {ctaLabel}
+            </ProductSliderCta>
+          )}
         </div>
 
         <div
@@ -99,18 +120,49 @@ const FeaturedProductSlider = ({ products }: FeaturedProductSliderProps) => {
           ))}
         </div>
 
-        <LocalizedClientLink
-          href="/store"
-          className="mt-7 flex h-11 items-center justify-center rounded border border-[#dedee5] bg-white px-6 text-[14px] font-semibold text-[#333333] transition-colors hover:border-brand hover:text-brand small:hidden"
-        >
-          View All Products
-        </LocalizedClientLink>
+        {ctaLabel && ctaHref && (
+          <ProductSliderCta
+            href={ctaHref}
+            className="mt-7 flex h-11 items-center justify-center rounded border border-[#dedee5] bg-white px-6 text-[14px] font-semibold text-[#333333] transition-colors hover:border-brand hover:text-brand small:hidden"
+          >
+            {ctaLabel}
+          </ProductSliderCta>
+        )}
       </div>
     </section>
   )
 }
 
-const FeaturedProductCardItem = ({
+const ProductSliderCta = ({
+  href,
+  className,
+  children,
+}: {
+  href: string
+  className: string
+  children: ReactNode
+}) => {
+  if (/^https?:\/\//i.test(href)) {
+    return (
+      <Link
+        href={href}
+        className={className}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {children}
+      </Link>
+    )
+  }
+
+  return (
+    <LocalizedClientLink href={href} className={className}>
+      {children}
+    </LocalizedClientLink>
+  )
+}
+
+export const FeaturedProductCardItem = ({
   product,
   priority,
 }: {
@@ -220,7 +272,7 @@ const FeaturedProductCardItem = ({
                 key={badge.key}
                 className={`${badgeColorClassName(
                   badge
-                )} min-w-[86px] rounded-[6px] px-4 py-2 text-center text-[13px] font-bold uppercase leading-5 text-white`}
+                )} min-w-[86px] rounded-[6px] px-4 py-2 text-center text-[12px] font-bold uppercase leading-5 text-white`}
               >
                 {badge.label}
               </span>
@@ -297,7 +349,7 @@ const FeaturedProductCardItem = ({
             type="button"
             onClick={handleAddToCart}
             disabled={!isPurchasable || isAddingToCart}
-            className="mt-4 flex h-[46px] w-full items-center justify-center gap-2 rounded-[8px] border border-brand bg-white px-4 text-[13px] font-bold uppercase tracking-normal text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white"
+            className="mt-4 flex h-[40px] w-full items-center justify-center gap-2 rounded-[8px] border border-brand bg-white px-4 text-[13px] font-bold uppercase tracking-normal text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white"
           >
             <ShoppingCartIcon size={18} />
             {isAddingToCart ? "Adding..." : "Add to cart"}
