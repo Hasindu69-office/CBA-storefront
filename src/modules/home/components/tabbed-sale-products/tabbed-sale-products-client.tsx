@@ -142,19 +142,9 @@ const TabbedSaleProductsClient = ({
 
             <div className="flex flex-col gap-4 medium:items-start">
               <Countdown endsAt={banner.offerEndsAt} />
-              <FeaturedPrice
-                product={
-                  banner.product ??
-                  activeTab?.products.find(
-                    (item) =>
-                      item.price.status === "available" &&
-                      item.price.calculated_amount !== null
-                  ) ??
-                  null
-                }
-              />
+              <FeaturedPrice product={banner.product} />
               <SaleCta
-                href={banner.ctaUrl}
+                href={banner.productUrl ?? banner.ctaUrl}
                 className="flex h-11 w-full max-w-[300px] items-center justify-center gap-2 rounded-[8px] border border-brand bg-white px-5 text-[13px] font-bold uppercase text-brand transition-colors hover:bg-brand hover:text-white"
               >
                 <ShoppingCartIcon size={16} />
