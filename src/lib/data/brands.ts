@@ -43,3 +43,23 @@ export const listHomepageBrands = async ({ limit = 24 }: { limit?: number }) => 
       )
     )
 }
+
+export const listStoreBrands = async ({ limit = 100 }: { limit?: number } = {}) => {
+  const safeLimit = Number.isInteger(limit)
+    ? Math.min(Math.max(limit, 1), 100)
+    : 100
+
+  return sdk.client
+    .fetch<BrandListResponse>("/store/cba/v1/brands", {
+      cache: "no-store",
+      query: {
+        sort: "list_sort_order",
+        limit: safeLimit,
+      },
+    })
+    .then((payload) =>
+      payload.brands.filter(
+        (brand) => Boolean(brand.id) && Boolean(brand.name?.trim())
+      )
+    )
+}

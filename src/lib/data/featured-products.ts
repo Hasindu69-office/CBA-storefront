@@ -22,6 +22,8 @@ export type FeaturedProductCard = {
     original_amount: number | null
     has_discount: boolean
     discount_percentage: number | null
+    sale_starts_at?: string | null
+    sale_ends_at?: string | null
     tax_inclusive: boolean | null
     status: "available" | "unavailable" | "context_required" | "error"
     reason: string | null

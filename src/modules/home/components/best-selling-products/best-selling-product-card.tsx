@@ -18,11 +18,13 @@ import {
 type BestSellingProductCardProps = {
   product: FeaturedProductCard
   priority: boolean
+  variant?: "raised" | "flat"
 }
 
 const BestSellingProductCard = ({
   product,
   priority,
+  variant = "raised",
 }: BestSellingProductCardProps) => {
   const router = useRouter()
   const countryCode = useParams().countryCode as string
@@ -96,7 +98,11 @@ const BestSellingProductCard = ({
   return (
     <article
       data-best-selling-product-card
-      className="group flex h-[374px] w-[220px] flex-none snap-start flex-col overflow-hidden rounded-[8px] border border-[#ededed] bg-white shadow-[0_12px_28px_rgba(0,0,0,0.16)] transition-shadow hover:shadow-[0_0_24px_rgba(255,92,24,0.72)] small:h-[382px] small:w-full small:max-w-[194px] medium:max-w-[200px] large:max-w-[218px]"
+      className={`group flex h-[374px] w-[220px] flex-none snap-start flex-col overflow-hidden rounded-[8px] border border-[#ededed] bg-white transition-shadow small:h-[382px] small:w-full small:max-w-[194px] medium:max-w-[200px] large:max-w-[218px] ${
+        variant === "flat"
+          ? "shadow-none hover:shadow-none"
+          : "shadow-[0_12px_28px_rgba(0,0,0,0.16)] hover:shadow-[0_0_24px_rgba(255,92,24,0.72)]"
+      }`}
     >
       <div className="relative h-[154px] flex-shrink-0 overflow-hidden rounded-t-[8px] border-b border-[#f0f0f0] bg-white small:h-[158px] large:h-[168px]">
         <LocalizedClientLink
@@ -265,12 +271,23 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
   }
 
   return (
-    <span className="min-w-0 max-w-[calc(100%-54px)] truncate text-[13px] font-bold leading-6 text-black large:text-[14px]">
-      {convertToLocale({
-        amount: product.price.calculated_amount,
-        currency_code: product.price.currency_code,
-        maximumFractionDigits: 2,
-      })}
+    <span className="flex min-w-0 max-w-[calc(100%-54px)] flex-col">
+      <span className="truncate text-[13px] font-bold leading-5 text-black large:text-[14px]">
+        {convertToLocale({
+          amount: product.price.calculated_amount,
+          currency_code: product.price.currency_code,
+          maximumFractionDigits: 2,
+        })}
+      </span>
+      {product.price.has_discount && product.price.original_amount !== null && (
+        <span className="truncate text-[11px] font-medium leading-4 text-[#8a8a8f] line-through">
+          {convertToLocale({
+            amount: product.price.original_amount,
+            currency_code: product.price.currency_code,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      )}
     </span>
   )
 }

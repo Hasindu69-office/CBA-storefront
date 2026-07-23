@@ -10,6 +10,7 @@ import CategoryShowcase from "@modules/home/components/category-showcase"
 import CategorySlider from "@modules/home/components/category-slider"
 import HomePromoBanner from "@modules/home/components/home-promo-banner"
 import Hero from "@modules/home/components/hero"
+import TabbedSaleProductsSection from "@modules/home/components/tabbed-sale-products"
 import { listCategorySliderItems } from "@lib/data/category-slider"
 import { listCollections } from "@lib/data/collections"
 import { listFeaturedProductCards } from "@lib/data/featured-products"
@@ -55,6 +56,7 @@ export default async function Home(props: {
   return (
     <>
       <Hero sections={homepageContent.sections} />
+      <TabbedSaleProductsSection sections={homepageContent.sections} />
       <CategorySlider categories={categorySliderItems} />
       <HomePromoBanner sections={homepageContent.sections} />
       <FeaturedProductSlider products={featuredProducts} />
