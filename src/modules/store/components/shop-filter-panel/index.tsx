@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 
 import type { ShopSidebarPromoContent } from "@lib/data/shop-banner"
 import type { StorefrontBrand } from "@lib/data/brands"
@@ -112,14 +112,9 @@ export default function ShopFilterPanel({
     const nextFilters: StoreSearchFilters = JSON.parse(
       JSON.stringify(selectedFilters)
     )
-    const values = new Set(nextFilters[key] ?? [])
-    if (values.has(value)) {
-      values.delete(value)
-    } else {
-      values.add(value)
-    }
-    if (values.size) {
-      nextFilters[key] = Array.from(values)
+    const values = toggleFilterValue(key, nextFilters[key] ?? [], value)
+    if (values.length) {
+      nextFilters[key] = values
     } else {
       delete nextFilters[key]
     }
@@ -131,6 +126,29 @@ export default function ShopFilterPanel({
         params.delete("filters")
       }
     })
+  }
+
+  function toggleFilterValue(key: string, currentValues: string[], value: string) {
+    if (key === "average_rating_bucket") {
+      const score = ratingBucketValue(value)
+      const hasValue = currentValues.some(
+        (currentValue) => ratingBucketValue(currentValue) === score
+      )
+      if (hasValue) {
+        return currentValues.filter(
+          (currentValue) => ratingBucketValue(currentValue) !== score
+        )
+      }
+      return [...currentValues, value]
+    }
+
+    const values = new Set(currentValues)
+    if (values.has(value)) {
+      values.delete(value)
+    } else {
+      values.add(value)
+    }
+    return Array.from(values)
   }
 
   function resetAll() {
@@ -371,7 +389,9 @@ export default function ShopFilterPanel({
                 </h3>
                 <div className="mt-4 flex flex-col gap-3">
                   {facet.options.slice(0, 8).map((option) => {
-                    const checked = selectedFilters[facet.key]?.includes(
+                    const checked = filterOptionSelected(
+                      facet.key,
+                      selectedFilters[facet.key],
                       option.value
                     )
                     return (
@@ -385,8 +405,8 @@ export default function ShopFilterPanel({
                           onChange={() => toggleFilter(facet.key, option.value)}
                           className="h-4 w-4 rounded border-[#d4d4d8] accent-brand"
                         />
-                        <span className="min-w-0 flex-1 truncate">
-                          {optionLabel(facet.key, option.value)}
+                        <span className="min-w-0 flex-1">
+                          {optionDisplay(facet.key, option.value)}
                         </span>
                         <span className="text-[#9ca3af]">({option.count})</span>
                       </label>
@@ -500,12 +520,84 @@ function optionLabel(key: string, value: string) {
   if (key === "average_rating_bucket") {
     return {
       "4.5_plus": "4.5 and up",
+      "4.5-plus": "4.5 and up",
       "4_plus": "4.0 and up",
+      "4-plus": "4.0 and up",
       "3_plus": "3.0 and up",
+      "3-plus": "3.0 and up",
       below_3: "Below 3.0",
+      "below-3": "Below 3.0",
     }[value] ?? facetLabel(value)
   }
   return facetLabel(value)
+}
+
+function optionDisplay(key: string, value: string): ReactNode {
+  if (key === "average_rating_bucket") {
+    return <RatingFacetOption value={value} />
+  }
+
+  return (
+    <span className="block truncate">
+      {optionLabel(key, value)}
+    </span>
+  )
+}
+
+function RatingFacetOption({ value }: { value: string }) {
+  const rating = ratingBucketValue(value)
+  const label = optionLabel("average_rating_bucket", value)
+
+  return (
+    <span
+      className="flex items-center gap-0.5"
+      aria-label={label}
+      title={label}
+    >
+      {Array.from({ length: 5 }, (_, index) => {
+        const filled = index < rating
+        return (
+          <span
+            key={index}
+            aria-hidden="true"
+            className={`text-[17px] leading-none ${
+              filled ? "text-brand" : "text-[#d4d4d8]"
+            }`}
+          >
+            ★
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
+function ratingBucketValue(value: string) {
+  return {
+    "4.5_plus": 5,
+    "4.5-plus": 5,
+    "4_plus": 4,
+    "4-plus": 4,
+    "3_plus": 3,
+    "3-plus": 3,
+    below_3: 2,
+    "below-3": 2,
+  }[value] ?? 0
+}
+
+function filterOptionSelected(
+  key: string,
+  selectedValues: string[] | undefined,
+  optionValue: string
+) {
+  if (!selectedValues?.length) {
+    return false
+  }
+  if (key !== "average_rating_bucket") {
+    return selectedValues.includes(optionValue)
+  }
+  const optionScore = ratingBucketValue(optionValue)
+  return selectedValues.some((value) => ratingBucketValue(value) === optionScore)
 }
 
 function normalizePriceInput(value: string, max: number) {

@@ -164,10 +164,10 @@ export function parseStoreFilters(value?: string): StoreSearchFilters {
     }
     const filters: StoreSearchFilters = {}
     for (const [key, item] of Object.entries(parsed)) {
-      const safeKey = normalizeFilterToken(key)
+      const safeKey = normalizeStoreFilterKey(key)
       if (!safeKey) continue
       const values = (Array.isArray(item) ? item : [item])
-        .map((value) => normalizeFilterToken(String(value)))
+        .map((value) => normalizeStoreFilterValue(safeKey, String(value)))
         .filter(Boolean)
       if (values.length) {
         filters[safeKey] = Array.from(new Set(values)).slice(0, 20)
@@ -213,8 +213,32 @@ function normalizeFilterToken(value: string) {
   return value
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9.]+/g, "-")
+    .replace(/[^a-z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
+}
+
+function normalizeStoreFilterKey(value: string) {
+  const normalized = normalizeFilterToken(value)
+  if (normalized === "average-rating-bucket") {
+    return "average_rating_bucket"
+  }
+  if (normalized === "stock-status") {
+    return "stock_status"
+  }
+  return normalized
+}
+
+function normalizeStoreFilterValue(key: string, value: string) {
+  const normalized = normalizeFilterToken(value)
+  if (key === "average_rating_bucket") {
+    return {
+      "4.5-plus": "4.5_plus",
+      "4-plus": "4_plus",
+      "3-plus": "3_plus",
+      "below-3": "below_3",
+    }[normalized] ?? normalized
+  }
+  return normalized
 }
 
 function cleanQuery(query: Record<string, unknown>) {
