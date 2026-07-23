@@ -265,12 +265,23 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
   }
 
   return (
-    <span className="min-w-0 max-w-[calc(100%-54px)] truncate text-[13px] font-bold leading-6 text-black large:text-[14px]">
-      {convertToLocale({
-        amount: product.price.calculated_amount,
-        currency_code: product.price.currency_code,
-        maximumFractionDigits: 2,
-      })}
+    <span className="flex min-w-0 max-w-[calc(100%-54px)] flex-col">
+      <span className="truncate text-[13px] font-bold leading-5 text-black large:text-[14px]">
+        {convertToLocale({
+          amount: product.price.calculated_amount,
+          currency_code: product.price.currency_code,
+          maximumFractionDigits: 2,
+        })}
+      </span>
+      {product.price.has_discount && product.price.original_amount !== null && (
+        <span className="truncate text-[11px] font-medium leading-4 text-[#8a8a8f] line-through">
+          {convertToLocale({
+            amount: product.price.original_amount,
+            currency_code: product.price.currency_code,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      )}
     </span>
   )
 }
