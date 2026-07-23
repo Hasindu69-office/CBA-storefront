@@ -6,7 +6,7 @@ import Image from "next/image"
 import Link from "next/link"
 
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import BestSellingProductCard from "@modules/home/components/best-selling-products/best-selling-product-card"
+import { FeaturedProductCardItem } from "@modules/home/components/featured-product-slider"
 import {
   HeartIcon,
   ShoppingCartIcon,
@@ -91,7 +91,7 @@ const TabbedSaleProductsClient = ({
             backgroundPosition: "center",
           }}
         >
-          <div className="grid min-h-[228px] gap-4 px-6 py-6 medium:grid-cols-[1fr_320px_300px] medium:items-center medium:px-8 large:grid-cols-[1fr_420px_340px]">
+          <div className="grid min-h-[228px] gap-4 px-6 py-6 medium:grid-cols-[36%_30%_34%] medium:items-center medium:px-8 large:grid-cols-[34%_32%_34%]">
             <div className="min-w-0">
               <div className="inline-flex items-center gap-2 rounded-full border border-[#ffd7c6] bg-white px-3 py-1.5 text-[11px] font-bold uppercase text-brand shadow-sm">
                 <span aria-hidden="true">ϟ</span>
@@ -99,24 +99,24 @@ const TabbedSaleProductsClient = ({
               </div>
               <h2
                 id="tabbed-sale-products-title"
-                className="mt-4 text-[28px] font-bold leading-[1.12] tracking-normal text-black small:text-[34px]"
+                className="mt-4 text-[28px] font-bold leading-[1.12] tracking-normal text-black small:text-[32px] medium:whitespace-nowrap large:text-[34px]"
               >
                 {banner.headline}
               </h2>
-              <p className="mt-2 max-w-[520px] text-[15px] leading-6 text-[#555560]">
+              <p className="mt-2 max-w-[520px] text-[14px] leading-6 text-[#555560] small:text-[15px]">
                 {banner.description}
               </p>
               {!!banner.points.length && (
-                <div className="mt-5 grid gap-3 small:grid-cols-3 medium:max-w-[500px]">
+                <div className="mt-5 flex flex-nowrap items-center gap-x-3 overflow-hidden medium:max-w-[500px] large:gap-x-4">
                   {banner.points.map((point) => (
                     <div
                       key={`${point.icon}-${point.label}`}
-                      className="flex min-h-[48px] items-center gap-3 rounded-[8px] bg-white/80 px-3 py-2 text-[#2f2f38] shadow-sm"
+                      className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2.5 text-[#2f2f38]"
                     >
-                      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[8px] bg-[#fff0e9] text-brand">
+                      <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[8px] bg-[#fff0e9] text-brand">
                         <PointIcon icon={point.icon} />
                       </span>
-                      <span className="text-[12px] font-semibold leading-4">
+                      <span className="min-w-0 text-[11px] font-semibold leading-[15px] large:text-[12px] large:leading-4">
                         {point.label}
                       </span>
                     </div>
@@ -168,7 +168,7 @@ const TabbedSaleProductsClient = ({
         {visibility.tabs && activeTab && activeTab.products.length ? (
           <div className="mt-5 grid gap-4 small:grid-cols-2 medium:grid-cols-4">
             {activeTab.products.slice(0, 4).map((product, index) => (
-              <BestSellingProductCard
+              <FeaturedProductCardItem
                 key={product.id}
                 product={product}
                 priority={index < 4}
@@ -223,7 +223,7 @@ function Countdown({ endsAt }: { endsAt: string | null }) {
 
 function TimeBox({ value, label }: { value: number; label: string }) {
   return (
-    <div className="flex h-[58px] min-w-[72px] flex-col items-center justify-center rounded-[8px] bg-white text-center">
+    <div className="flex h-[58px] min-w-[72px] flex-col items-center justify-center rounded-[8px] bg-[#fef2ea] text-center">
       <span className="text-[22px] font-bold leading-6 text-brand">
         {String(value).padStart(2, "0")}
       </span>
@@ -244,12 +244,12 @@ function FeaturedPrice({
   }
 
   return (
-    <div>
-      <p className="text-[24px] font-bold leading-8 text-black">
+    <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+      <p className="whitespace-nowrap text-[24px] font-bold leading-8 text-black">
         {formatAmount(product.price.calculated_amount, product.price.currency_code)}
       </p>
       {product.price.original_amount !== null && product.price.has_discount && (
-        <p className="text-[13px] font-medium text-[#9a9aa2] line-through">
+        <p className="whitespace-nowrap text-[13px] font-medium text-[#9a9aa2] line-through">
           {formatAmount(product.price.original_amount, product.price.currency_code)}
         </p>
       )}
@@ -290,15 +290,64 @@ function TabIcon({ tabKey }: { tabKey: TabbedSaleTab["key"] }) {
 
 function PointIcon({ icon }: { icon: string }) {
   if (icon === "shield") {
-    return <span aria-hidden="true">▱</span>
+    return <ShieldCheckIcon />
   }
   if (icon === "headphones") {
-    return <span aria-hidden="true">◉</span>
+    return <HeadsetIcon />
   }
   if (icon === "rocket") {
-    return <span aria-hidden="true">↗</span>
+    return <RocketIcon />
   }
-  return <span aria-hidden="true">ϟ</span>
+  return <LightningIcon />
+}
+
+const pointIconProps = {
+  "aria-hidden": true,
+  className: "h-[18px] w-[18px]",
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.8,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+}
+
+function RocketIcon() {
+  return (
+    <svg {...pointIconProps}>
+      <path d="M4.5 16.5c-1 1-1.3 3-.8 3.8.8.5 2.8.2 3.8-.8" />
+      <path d="M8 16 5.5 13.5c.9-2.5 2.7-4.1 5.3-4.8l4.5-4.5c1.5-1.5 3.6-2 5.7-1.4.6 2.1.1 4.2-1.4 5.7L15 13c-.7 2.6-2.3 4.4-4.8 5.3L8 16Z" />
+      <circle cx="15.5" cy="8.5" r="1.6" />
+    </svg>
+  )
+}
+
+function ShieldCheckIcon() {
+  return (
+    <svg {...pointIconProps}>
+      <path d="M12 3.2 19 6v5.1c0 4.4-2.8 8-7 9.7-4.2-1.7-7-5.3-7-9.7V6l7-2.8Z" />
+      <path d="m8.8 12 2 2 4.4-4.7" />
+    </svg>
+  )
+}
+
+function HeadsetIcon() {
+  return (
+    <svg {...pointIconProps}>
+      <path d="M4 13v-1a8 8 0 0 1 16 0v1" />
+      <path d="M4 13h3v5H5.5A1.5 1.5 0 0 1 4 16.5V13Z" />
+      <path d="M20 13h-3v5h1.5a1.5 1.5 0 0 0 1.5-1.5V13Z" />
+      <path d="M16.5 18.5c-.8 1.1-2.2 1.7-4.5 1.7" />
+    </svg>
+  )
+}
+
+function LightningIcon() {
+  return (
+    <svg {...pointIconProps}>
+      <path d="M13 2 5 13h6l-1 9 8-12h-6l1-8Z" />
+    </svg>
+  )
 }
 
 function formatAmount(amount: number, currencyCode: string) {
