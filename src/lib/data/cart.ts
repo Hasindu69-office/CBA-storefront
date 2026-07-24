@@ -17,6 +17,8 @@ import {
 import { getRegion } from "./regions"
 import { getLocale } from "@lib/data/locale-actions"
 
+const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
+
 /**
  * Retrieves a cart by its ID. If no ID is provided, it will use the cart ID from the cookies.
  * @param cartId - optional - The ID of the cart to retrieve.
@@ -394,6 +396,63 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
       `/${formData.get("shipping_address.country_code")}/checkout?step=payment`
     )
   )
+}
+
+export async function addBundleToCart({
+  items,
+  countryCode,
+}: {
+  items: Array<{ variantId: string; quantity: number }>
+  countryCode: string
+}) {
+  const normalizedItems = items
+    .map((item) => ({
+      variantId: item.variantId,
+      quantity: Number(item.quantity),
+    }))
+    .filter((item) => item.variantId)
+
+  if (!normalizedItems.length || normalizedItems.length > 6) {
+    throw new Error("Invalid bundle selection.")
+  }
+
+  for (const item of normalizedItems) {
+    if (!SAFE_MEDUSA_ID_PATTERN.test(item.variantId)) {
+      throw new Error("Invalid bundle item.")
+    }
+    if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99) {
+      throw new Error("Invalid bundle quantity.")
+    }
+  }
+
+  countryCode = getStoreCountryCode(countryCode)
+  const cart = await getOrSetCart(countryCode)
+
+  if (!cart) {
+    throw new Error("Error retrieving or creating cart")
+  }
+
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  for (const item of normalizedItems) {
+    await sdk.store.cart.createLineItem(
+      cart.id,
+      {
+        variant_id: item.variantId,
+        quantity: item.quantity,
+      },
+      {},
+      headers
+    )
+  }
+
+  const cartCacheTag = await getCacheTag("carts")
+  revalidateTag(cartCacheTag)
+
+  const fulfillmentCacheTag = await getCacheTag("fulfillment")
+  revalidateTag(fulfillmentCacheTag)
 }
 
 /**

@@ -31,6 +31,16 @@ export async function addFeaturedProductToWishlist({
   productId: string
   variantId: string
 }): Promise<WishlistActionResult> {
+  return addProductToWishlist({ productId, variantId })
+}
+
+export async function addProductToWishlist({
+  productId,
+  variantId,
+}: {
+  productId: string
+  variantId: string
+}): Promise<WishlistActionResult> {
   if (!isSafeMedusaId(productId) || !isSafeMedusaId(variantId)) {
     return { success: false, message: "Product selection is invalid." }
   }

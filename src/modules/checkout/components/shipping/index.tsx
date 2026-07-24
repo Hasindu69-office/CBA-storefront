@@ -21,7 +21,7 @@ type ShippingProps = {
   availableShippingMethods: HttpTypes.StoreCartShippingOption[] | null
 }
 
-function formatAddress(address: HttpTypes.StoreCartAddress) {
+function formatAddress(address?: HttpTypes.StoreCartAddress) {
   if (!address) {
     return ""
   }
@@ -45,6 +45,14 @@ function formatAddress(address: HttpTypes.StoreCartAddress) {
   }
 
   return ret
+}
+
+function fulfillmentSetType(option: HttpTypes.StoreCartShippingOption) {
+  return (option as any).service_zone?.fulfillment_set?.type
+}
+
+function fulfillmentSetAddress(option: HttpTypes.StoreCartShippingOption) {
+  return (option as any).service_zone?.fulfillment_set?.location?.address
 }
 
 const Shipping: React.FC<ShippingProps> = ({
@@ -71,11 +79,11 @@ const Shipping: React.FC<ShippingProps> = ({
   const isOpen = searchParams.get("step") === "delivery"
 
   const _shippingMethods = availableShippingMethods?.filter(
-    (sm) => sm.service_zone?.fulfillment_set?.type !== "pickup"
+    (sm) => fulfillmentSetType(sm) !== "pickup"
   )
 
   const _pickupMethods = availableShippingMethods?.filter(
-    (sm) => sm.service_zone?.fulfillment_set?.type === "pickup"
+    (sm) => fulfillmentSetType(sm) === "pickup"
   )
 
   const hasPickupOptions = !!_pickupMethods?.length
@@ -341,10 +349,7 @@ const Shipping: React.FC<ShippingProps> = ({
                                 {option.name}
                               </span>
                               <span className="text-base-regular text-ui-fg-muted">
-                                {formatAddress(
-                                  option.service_zone?.fulfillment_set?.location
-                                    ?.address
-                                )}
+                                {formatAddress(fulfillmentSetAddress(option))}
                               </span>
                             </div>
                           </div>

@@ -1,72 +1,54 @@
-import React, { Suspense } from "react"
-
-import ImageGallery from "@modules/products/components/image-gallery"
-import ProductActions from "@modules/products/components/product-actions"
-import ProductOnboardingCta from "@modules/products/components/product-onboarding-cta"
-import ProductTabs from "@modules/products/components/product-tabs"
-import RelatedProducts from "@modules/products/components/related-products"
-import ProductInfo from "@modules/products/templates/product-info"
-import SkeletonRelatedProducts from "@modules/skeletons/templates/skeleton-related-products"
+import { getProductDetail, getProductReviews } from "@lib/data/product-detail"
+import { listProductCardsByIds } from "@lib/data/tabbed-sale-products"
+import CbaProductDetail from "@modules/products/templates/cba-product-detail"
 import { notFound } from "next/navigation"
 import { HttpTypes } from "@medusajs/types"
-
-import ProductActionsWrapper from "./product-actions-wrapper"
 
 type ProductTemplateProps = {
   product: HttpTypes.StoreProduct
   region: HttpTypes.StoreRegion
   countryCode: string
   images: HttpTypes.StoreProductImage[]
+  selectedVariantId?: string
 }
 
-const ProductTemplate: React.FC<ProductTemplateProps> = ({
+export default async function ProductTemplate({
   product,
-  region,
   countryCode,
   images,
-}) => {
+  selectedVariantId,
+}: ProductTemplateProps) {
   if (!product || !product.id) {
     return notFound()
   }
 
+  const detail = await getProductDetail(product.id, selectedVariantId)
+  const reviews = await getProductReviews(product.id, { limit: 5 })
+  const bundleIds = uniqueRelatedIds(detail)
+  const bundleProducts = await listProductCardsByIds(bundleIds).catch(() => [])
+
   return (
-    <>
-      <div
-        className="content-container  flex flex-col small:flex-row small:items-start py-6 relative"
-        data-testid="product-container"
-      >
-        <div className="flex flex-col small:sticky small:top-48 small:py-0 small:max-w-[300px] w-full py-8 gap-y-6">
-          <ProductInfo product={product} />
-          <ProductTabs product={product} />
-        </div>
-        <div className="block w-full relative">
-          <ImageGallery images={images} />
-        </div>
-        <div className="flex flex-col small:sticky small:top-48 small:py-0 small:max-w-[300px] w-full py-8 gap-y-12">
-          <ProductOnboardingCta />
-          <Suspense
-            fallback={
-              <ProductActions
-                disabled={true}
-                product={product}
-                region={region}
-              />
-            }
-          >
-            <ProductActionsWrapper id={product.id} region={region} />
-          </Suspense>
-        </div>
-      </div>
-      <div
-        className="content-container my-16 small:my-32"
-        data-testid="related-products-container"
-      >
-        <Suspense fallback={<SkeletonRelatedProducts />}>
-          <RelatedProducts product={product} countryCode={countryCode} />
-        </Suspense>
-      </div>
-    </>
+    <CbaProductDetail
+      product={product}
+      countryCode={countryCode}
+      images={images}
+      detail={detail}
+      reviews={reviews}
+      bundleProducts={bundleProducts.slice(0, 2)}
+    />
   )
 }
 
-export default ProductTemplate
+function uniqueRelatedIds(detail: Awaited<ReturnType<typeof getProductDetail>>) {
+  if (!detail) {
+    return []
+  }
+
+  const ordered = [
+    ...detail.relationships.cross_sell,
+    ...detail.relationships.accessory,
+    ...detail.relationships.related,
+  ]
+
+  return Array.from(new Set(ordered.map((product) => product.id))).slice(0, 4)
+}
