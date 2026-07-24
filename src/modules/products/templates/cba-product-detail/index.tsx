@@ -1,7 +1,8 @@
 "use client"
 
-import { addBundleToCart, addToCart } from "@lib/data/cart"
+import { addToCart } from "@lib/data/cart"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
+import type { PdpBannerContent } from "@lib/data/pdp-banners"
 import type {
   ProductDetailResponse,
   ProductReviewsResponse,
@@ -11,6 +12,10 @@ import { getProductPrice } from "@lib/util/get-product-price"
 import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import FrequentlyBoughtTogether from "@modules/products/components/frequently-bought-together"
+import PdpSidebarBanners from "@modules/products/components/pdp-sidebar-banners"
+import ProductUpgrades from "@modules/products/components/product-upgrades"
+import RelatedProductsSection from "@modules/products/components/related-products-section"
 import {
   HeartIcon,
   ShoppingCartIcon,
@@ -18,8 +23,6 @@ import {
 import { isEqual } from "lodash"
 import Image from "next/image"
 import {
-  Dispatch,
-  SetStateAction,
   useMemo,
   useState,
   useTransition,
@@ -31,7 +34,11 @@ type CbaProductDetailProps = {
   images: HttpTypes.StoreProductImage[]
   detail: ProductDetailResponse | null
   reviews: ProductReviewsResponse
-  bundleProducts: FeaturedProductCard[]
+  crossSellProducts: FeaturedProductCard[]
+  accessoryProducts: FeaturedProductCard[]
+  upSellProducts: FeaturedProductCard[]
+  relatedProducts: FeaturedProductCard[]
+  pdpBanners: PdpBannerContent
 }
 
 type ActionState = {
@@ -70,7 +77,11 @@ export default function CbaProductDetail({
   images,
   detail,
   reviews,
-  bundleProducts,
+  crossSellProducts,
+  accessoryProducts,
+  upSellProducts,
+  relatedProducts,
+  pdpBanners,
 }: CbaProductDetailProps) {
   const galleryImages = images.length ? images : product.thumbnail
     ? [{ id: "thumbnail", url: product.thumbnail } as HttpTypes.StoreProductImage]
@@ -87,9 +98,6 @@ export default function CbaProductDetail({
     type: null,
     message: "",
   })
-  const [bundleSelection, setBundleSelection] = useState<Record<string, boolean>>(
-    () => Object.fromEntries(bundleProducts.map((item) => [item.id, true]))
-  )
   const [isPending, startTransition] = useTransition()
 
   const selectedVariant = useMemo(() => {
@@ -125,10 +133,24 @@ export default function CbaProductDetail({
     : selectedPrice.cheapestPrice
   const reviewCount = detail?.review_summary?.total_reviews ?? 0
   const rating = detail?.review_summary?.average_rating ?? null
-  const selectedBundle = bundleProducts.filter((item) => bundleSelection[item.id])
-  const bundleTotal = selectedBundle.reduce((total, item) => {
-    return total + (item.price.calculated_amount ?? 0)
-  }, price?.calculated_price_number ?? 0)
+  const mainProductImage = activeImage || product.thumbnail || galleryImages[0]?.url || null
+  const hasPdpSidebarBanners = Boolean(pdpBanners.primary || pdpBanners.secondary)
+  const hasCompanionContent =
+    crossSellProducts.length > 0 ||
+    accessoryProducts.length > 0 ||
+    upSellProducts.length > 0
+  const bundleSectionProps = {
+    product,
+    countryCode,
+    mainImage: mainProductImage,
+    mainPrice: price?.calculated_price_number ?? null,
+    currencyCode: price?.currency_code ?? "lkr",
+    mainVariantId: selectedVariant?.id,
+    mainPurchasable: inStock && isValidVariant,
+    mainValid: isValidVariant,
+    quantity,
+    onActionMessage: setActionState,
+  }
   const shortDescription =
     detail?.catalog_profile?.short_description ?? product.description ?? ""
   const bulletSpecs =
@@ -189,36 +211,6 @@ export default function CbaProductDetail({
         type: result.success ? "success" : "error",
         message: result.message,
       })
-    })
-  }
-
-  function submitBundle() {
-    const items = [
-      selectedVariant?.id ? { variantId: selectedVariant.id, quantity } : null,
-      ...selectedBundle
-        .map((item) =>
-          item.default_variant?.id
-            ? { variantId: item.default_variant.id, quantity: 1 }
-            : null
-        )
-        .filter(Boolean),
-    ].filter(Boolean) as Array<{ variantId: string; quantity: number }>
-
-    if (!items.length) {
-      setActionState({ type: "error", message: "Select bundle products first." })
-      return
-    }
-
-    startTransition(async () => {
-      try {
-        await addBundleToCart({ items, countryCode })
-        setActionState({ type: "success", message: "Bundle added to cart." })
-      } catch (error) {
-        setActionState({
-          type: "error",
-          message: error instanceof Error ? error.message : "Could not add bundle.",
-        })
-      }
     })
   }
 
@@ -416,16 +408,43 @@ export default function CbaProductDetail({
           </aside>
         </section>
 
-        <BundleSection
-          product={product}
-          price={price}
-          bundleProducts={bundleProducts}
-          selected={bundleSelection}
-          setSelected={setBundleSelection}
-          total={bundleTotal}
-          onAdd={submitBundle}
-          disabled={isPending || !selectedVariant}
-        />
+        {(hasCompanionContent || hasPdpSidebarBanners) && (
+          <section
+            className={
+              hasCompanionContent && hasPdpSidebarBanners
+                ? "mt-12 grid gap-4 small:grid-cols-[1fr_280px]"
+                : hasCompanionContent
+                  ? "mt-12"
+                  : "mt-12 flex justify-end"
+            }
+          >
+            {hasCompanionContent && (
+              <div className="space-y-8">
+                {crossSellProducts.length > 0 && (
+                  <FrequentlyBoughtTogether
+                    {...bundleSectionProps}
+                    companions={crossSellProducts}
+                  />
+                )}
+                {accessoryProducts.length > 0 && (
+                  <FrequentlyBoughtTogether
+                    {...bundleSectionProps}
+                    title="Accessories"
+                    companions={accessoryProducts}
+                  />
+                )}
+                {upSellProducts.length > 0 && (
+                  <ProductUpgrades products={upSellProducts} />
+                )}
+              </div>
+            )}
+            {hasPdpSidebarBanners && (
+              <div className={hasCompanionContent ? undefined : "w-full max-w-[280px]"}>
+                <PdpSidebarBanners banners={pdpBanners} />
+              </div>
+            )}
+          </section>
+        )}
 
         <ProductTabs
           activeTab={activeTab}
@@ -434,6 +453,8 @@ export default function CbaProductDetail({
           detail={detail}
           reviews={reviews}
         />
+
+        <RelatedProductsSection products={relatedProducts} />
       </div>
     </main>
   )
@@ -602,114 +623,6 @@ function ProductMeta({
           <span className="font-black">Brand:</span>{" "}
           <span className="text-green-600">{brandName}</span>
         </p>
-      )}
-    </div>
-  )
-}
-
-function BundleSection({
-  product,
-  price,
-  bundleProducts,
-  selected,
-  setSelected,
-  total,
-  onAdd,
-  disabled,
-}: {
-  product: HttpTypes.StoreProduct
-  price: ReturnType<typeof getProductPrice>["cheapestPrice"]
-  bundleProducts: FeaturedProductCard[]
-  selected: Record<string, boolean>
-  setSelected: Dispatch<SetStateAction<Record<string, boolean>>>
-  total: number
-  onAdd: () => void
-  disabled: boolean
-}) {
-  if (!bundleProducts.length) {
-    return null
-  }
-
-  const currencyCode = price?.currency_code ?? bundleProducts[0]?.price.currency_code ?? "lkr"
-
-  return (
-    <section className="mt-12 grid gap-4 small:grid-cols-[1fr_330px]">
-      <div className="rounded-rounded border border-gray-200 p-7">
-        <h2 className="text-lg font-black uppercase">Frequently Bought Together</h2>
-        <div className="mt-7 flex flex-wrap items-center gap-5">
-          <BundleProductImage title={product.title} image={product.thumbnail} />
-          {bundleProducts.map((item) => (
-            <div key={item.id} className="flex items-center gap-5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-circle bg-gray-100 text-lg font-bold">
-                +
-              </span>
-              <BundleProductImage title={item.title} image={item.thumbnail?.url} />
-            </div>
-          ))}
-        </div>
-        <div className="mt-6 space-y-2 text-sm">
-          {bundleProducts.map((item) => (
-            <label key={item.id} className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={Boolean(selected[item.id])}
-                onChange={(event) =>
-                  setSelected((current) => ({
-                    ...current,
-                    [item.id]: event.target.checked,
-                  }))
-                }
-              />
-              <span>
-                {item.title}{" "}
-                {item.price.calculated_amount !== null && (
-                  <strong className="text-brand">
-                    {convertToLocale({
-                      amount: item.price.calculated_amount,
-                      currency_code: item.price.currency_code,
-                    })}
-                  </strong>
-                )}
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-      <div className="rounded-rounded border border-gray-200 p-7">
-        <p className="text-xs font-bold uppercase text-gray-500">Total Price</p>
-        <p className="mt-2 text-3xl font-black">
-          {convertToLocale({ amount: total, currency_code: currencyCode })}
-        </p>
-        <button
-          type="button"
-          onClick={onAdd}
-          disabled={disabled}
-          className="mt-5 h-12 w-full rounded-base border border-brand text-xs font-bold uppercase text-brand hover:bg-brand hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Add to cart
-        </button>
-      </div>
-    </section>
-  )
-}
-
-function BundleProductImage({
-  title,
-  image,
-}: {
-  title: string
-  image?: string | null
-}) {
-  return (
-    <div className="relative h-32 w-32 rounded-base bg-gray-50">
-      {image && (
-        <Image
-          src={image}
-          alt={title}
-          fill
-          sizes="128px"
-          className="object-contain p-3"
-        />
       )}
     </div>
   )

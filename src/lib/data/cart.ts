@@ -6,6 +6,7 @@ import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
 import { getStoreCountryCode, localizedPath } from "@lib/util/routes"
+import { listProductCardsByIds } from "@lib/data/tabbed-sale-products"
 import {
   getAuthHeaders,
   getCacheOptions,
@@ -402,26 +403,47 @@ export async function addBundleToCart({
   items,
   countryCode,
 }: {
-  items: Array<{ variantId: string; quantity: number }>
+  items: Array<{ variantId: string; quantity: number; productId: string }>
   countryCode: string
 }) {
   const normalizedItems = items
     .map((item) => ({
       variantId: item.variantId,
+      productId: item.productId,
       quantity: Number(item.quantity),
     }))
-    .filter((item) => item.variantId)
+    .filter((item) => item.variantId && item.productId)
 
   if (!normalizedItems.length || normalizedItems.length > 6) {
     throw new Error("Invalid bundle selection.")
   }
 
   for (const item of normalizedItems) {
-    if (!SAFE_MEDUSA_ID_PATTERN.test(item.variantId)) {
+    if (
+      !SAFE_MEDUSA_ID_PATTERN.test(item.variantId) ||
+      !SAFE_MEDUSA_ID_PATTERN.test(item.productId)
+    ) {
       throw new Error("Invalid bundle item.")
     }
     if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99) {
       throw new Error("Invalid bundle quantity.")
+    }
+  }
+
+  const productIds = Array.from(new Set(normalizedItems.map((item) => item.productId)))
+  const productCards = await listProductCardsByIds(productIds).catch(() => [])
+  const cardsByProductId = new Map(productCards.map((card) => [card.product_id, card]))
+
+  for (const item of normalizedItems) {
+    const card = cardsByProductId.get(item.productId)
+    if (!card) {
+      throw new Error("One or more bundle products are unavailable.")
+    }
+
+    if (card.default_variant?.id === item.variantId) {
+      if (!card.inventory.purchasable || card.price.status !== "available") {
+        throw new Error(`${card.title} is not available to purchase.`)
+      }
     }
   }
 
@@ -436,16 +458,43 @@ export async function addBundleToCart({
     ...(await getAuthHeaders()),
   }
 
-  for (const item of normalizedItems) {
-    await sdk.store.cart.createLineItem(
-      cart.id,
-      {
-        variant_id: item.variantId,
-        quantity: item.quantity,
-      },
-      {},
-      headers
-    )
+  const beforeCart = await retrieveCart(cart.id, "*items")
+  const beforeLineIds = new Set(
+    beforeCart?.items?.map((lineItem) => lineItem.id).filter(Boolean) ?? []
+  )
+  const addedLineIds: string[] = []
+
+  try {
+    for (const item of normalizedItems) {
+      await sdk.store.cart.createLineItem(
+        cart.id,
+        {
+          variant_id: item.variantId,
+          quantity: item.quantity,
+        },
+        {},
+        headers
+      )
+
+      const currentCart = await retrieveCart(cart.id, "*items")
+      const newLineIds =
+        currentCart?.items
+          ?.map((lineItem) => lineItem.id)
+          .filter((lineId): lineId is string => Boolean(lineId && !beforeLineIds.has(lineId))) ??
+        []
+
+      for (const lineId of newLineIds) {
+        if (!addedLineIds.includes(lineId)) {
+          addedLineIds.push(lineId)
+          beforeLineIds.add(lineId)
+        }
+      }
+    }
+  } catch (error) {
+    for (const lineId of addedLineIds) {
+      await sdk.store.cart.deleteLineItem(cart.id, lineId, {}, headers).catch(() => null)
+    }
+    throw error instanceof Error ? error : new Error("Could not add bundle to cart.")
   }
 
   const cartCacheTag = await getCacheTag("carts")

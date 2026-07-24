@@ -24,6 +24,7 @@ type FeaturedProductSliderProps = {
   ctaLabel?: string | null
   ctaHref?: string | null
   titleId?: string
+  embedded?: boolean
 }
 
 const FeaturedProductSlider = ({
@@ -33,6 +34,7 @@ const FeaturedProductSlider = ({
   ctaLabel = "View All Products",
   ctaHref = "/store",
   titleId = "featured-products-title",
+  embedded = false,
 }: FeaturedProductSliderProps) => {
   const scrollerRef = useRef<HTMLDivElement>(null)
 
@@ -76,59 +78,78 @@ const FeaturedProductSlider = ({
     return null
   }
 
-  return (
-    <section
-      className="bg-white py-10 small:py-14"
-      aria-labelledby={titleId}
-    >
-      <div className="content-container">
-        <div className="mb-8 flex items-start justify-between gap-6 small:mb-10">
-          <div className="min-w-0">
-            <h2
-              id={titleId}
-              className="text-[30px] font-bold leading-[1.15] tracking-normal text-black small:text-[34px]"
+  const sectionClassName = embedded
+    ? "mt-12 border-t border-gray-200 pt-10"
+    : "bg-white py-10 small:py-14"
+
+  const content = (
+    <>
+      <div className="mb-8 flex items-start justify-between gap-6 small:mb-10">
+        <div className="min-w-0">
+          <h2
+            id={titleId}
+            className={
+              embedded
+                ? "text-lg font-black uppercase text-black"
+                : "text-[30px] font-bold leading-[1.15] tracking-normal text-black small:text-[34px]"
+            }
+          >
+            {title}
+          </h2>
+          {description && (
+            <p
+              className={
+                embedded
+                  ? "mt-2 text-sm text-gray-500"
+                  : "mt-3 max-w-[620px] text-[15px] leading-6 tracking-normal text-[#52525b]"
+              }
             >
-              {title}
-            </h2>
-            {description && (
-              <p className="mt-3 max-w-[620px] text-[15px] leading-6 tracking-normal text-[#52525b]">
-                {description}
-              </p>
-            )}
-            <div className="mt-4 h-px w-[220px] bg-[#cfcfcf] small:w-[295px]" />
-          </div>
-          {ctaLabel && ctaHref && (
-            <ProductSliderCta
-              href={ctaHref}
-              className="hidden h-11 min-w-[156px] items-center justify-center rounded border border-[#dedee5] bg-white px-6 text-[14px] font-semibold text-[#333333] transition-colors hover:border-brand hover:text-brand small:flex"
-            >
-              {ctaLabel}
-            </ProductSliderCta>
+              {description}
+            </p>
           )}
+          {!embedded && <div className="mt-4 h-px w-[220px] bg-[#cfcfcf] small:w-[295px]" />}
         </div>
-
-        <div
-          ref={scrollerRef}
-          className="no-scrollbar grid auto-cols-[minmax(300px,calc(100vw_-_48px))] grid-flow-col gap-5 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-2 pr-1 small:auto-cols-[calc((100%_-_40px)_/_3)] medium:auto-cols-[calc((100%_-_60px)_/_4)]"
-        >
-          {products.map((product, index) => (
-            <FeaturedProductCardItem
-              key={product.id}
-              product={product}
-              priority={index < 4}
-            />
-          ))}
-        </div>
-
         {ctaLabel && ctaHref && (
           <ProductSliderCta
             href={ctaHref}
-            className="mt-7 flex h-11 items-center justify-center rounded border border-[#dedee5] bg-white px-6 text-[14px] font-semibold text-[#333333] transition-colors hover:border-brand hover:text-brand small:hidden"
+            className="hidden h-11 min-w-[156px] items-center justify-center rounded border border-[#dedee5] bg-white px-6 text-[14px] font-semibold text-[#333333] transition-colors hover:border-brand hover:text-brand small:flex"
           >
             {ctaLabel}
           </ProductSliderCta>
         )}
       </div>
+
+      <div
+        ref={scrollerRef}
+        className={
+          embedded
+            ? "no-scrollbar grid auto-cols-[minmax(220px,calc((100%_-_20px)_/_2))] grid-flow-col gap-5 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 small:auto-cols-[calc((100%_-_40px)_/_3)] medium:auto-cols-[calc((100%_-_60px)_/_4)]"
+            : "no-scrollbar grid auto-cols-[minmax(300px,calc(100vw_-_48px))] grid-flow-col gap-5 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-2 pr-1 small:auto-cols-[calc((100%_-_40px)_/_3)] medium:auto-cols-[calc((100%_-_60px)_/_4)]"
+        }
+      >
+        {products.map((product, index) => (
+          <FeaturedProductCardItem
+            key={product.id}
+            product={product}
+            priority={index < 4}
+          />
+        ))}
+      </div>
+
+      {ctaLabel && ctaHref && (
+        <ProductSliderCta
+          href={ctaHref}
+          className="mt-7 flex h-11 items-center justify-center rounded border border-[#dedee5] bg-white px-6 text-[14px] font-semibold text-[#333333] transition-colors hover:border-brand hover:text-brand small:hidden"
+        >
+          {ctaLabel}
+        </ProductSliderCta>
+      )}
+    </>
+  )
+
+  return (
+    <section className={sectionClassName} aria-labelledby={titleId}>
+      {embedded ? content : <div className="content-container">{content}</div>}
     </section>
   )
 }

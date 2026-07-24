@@ -1,5 +1,11 @@
 import { getProductDetail, getProductReviews } from "@lib/data/product-detail"
-import { listProductCardsByIds } from "@lib/data/tabbed-sale-products"
+import {
+  listAccessoryCompanionCards,
+  listCrossSellCompanionCards,
+  listRelatedProductCards,
+  listUpSellCompanionCards,
+} from "@lib/data/product-relationship-cards"
+import { listPdpBannerContent } from "@lib/data/pdp-banners"
 import CbaProductDetail from "@modules/products/templates/cba-product-detail"
 import { notFound } from "next/navigation"
 import { HttpTypes } from "@medusajs/types"
@@ -22,10 +28,23 @@ export default async function ProductTemplate({
     return notFound()
   }
 
-  const detail = await getProductDetail(product.id, selectedVariantId)
-  const reviews = await getProductReviews(product.id, { limit: 5 })
-  const bundleIds = uniqueRelatedIds(detail)
-  const bundleProducts = await listProductCardsByIds(bundleIds).catch(() => [])
+  const [detail, reviews, pdpBanners] = await Promise.all([
+    getProductDetail(product.id, selectedVariantId),
+    getProductReviews(product.id, { limit: 5 }),
+    listPdpBannerContent(),
+  ])
+
+  const [crossSellProducts, accessoryProducts, upSellProducts, relatedProducts] =
+    await Promise.all([
+      listCrossSellCompanionCards(detail),
+      listAccessoryCompanionCards(detail),
+      listUpSellCompanionCards(detail),
+      listRelatedProductCards(product.id, detail, {
+        countryCode,
+        categoryIds:
+          product.categories?.map((category) => category.id).filter(Boolean) ?? [],
+      }),
+    ])
 
   return (
     <CbaProductDetail
@@ -34,21 +53,11 @@ export default async function ProductTemplate({
       images={images}
       detail={detail}
       reviews={reviews}
-      bundleProducts={bundleProducts.slice(0, 2)}
+      crossSellProducts={crossSellProducts}
+      accessoryProducts={accessoryProducts}
+      upSellProducts={upSellProducts}
+      relatedProducts={relatedProducts}
+      pdpBanners={pdpBanners}
     />
   )
-}
-
-function uniqueRelatedIds(detail: Awaited<ReturnType<typeof getProductDetail>>) {
-  if (!detail) {
-    return []
-  }
-
-  const ordered = [
-    ...detail.relationships.cross_sell,
-    ...detail.relationships.accessory,
-    ...detail.relationships.related,
-  ]
-
-  return Array.from(new Set(ordered.map((product) => product.id))).slice(0, 4)
 }
