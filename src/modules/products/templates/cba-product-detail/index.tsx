@@ -81,6 +81,8 @@ export default function CbaProductDetail({
   )
   const [quantity, setQuantity] = useState(1)
   const [activeTab, setActiveTab] = useState("description")
+  const [isWishlisted, setIsWishlisted] = useState(false)
+  const [isCompared, setIsCompared] = useState(false)
   const [actionState, setActionState] = useState<ActionState>({
     type: null,
     message: "",
@@ -180,6 +182,9 @@ export default function CbaProductDetail({
         productId: product.id,
         variantId: selectedVariant.id,
       })
+      if (result.success) {
+        setIsWishlisted(true)
+      }
       setActionState({
         type: result.success ? "success" : "error",
         message: result.message,
@@ -227,6 +232,7 @@ export default function CbaProductDetail({
         MAX_COMPARE_ITEMS
       )
       window.localStorage.setItem("cba_compare_products", JSON.stringify(next))
+      setIsCompared(true)
       setActionState({ type: "success", message: "Added to compare." })
     } catch {
       setActionState({ type: "error", message: "Compare is unavailable." })
@@ -247,16 +253,7 @@ export default function CbaProductDetail({
           />
 
           <div className="min-w-0">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              {detail?.badges.map((badge) => (
-                <span
-                  key={badge.code}
-                  className="rounded-base bg-[#ff5c0e]/10 px-3 py-1 text-[11px] font-bold uppercase text-brand"
-                >
-                  {badge.label}
-                </span>
-              ))}
-            </div>
+
             <div className="flex items-center gap-2 text-xs">
               <Stars rating={rating ?? 0} />
               <span className="font-semibold">
@@ -333,7 +330,7 @@ export default function CbaProductDetail({
               />
               <span>{inStock ? "In stock" : "Out of stock"}</span>
             </div>
-            <div className="mt-4 grid grid-cols-[44px_1fr_44px] overflow-hidden rounded-base border border-gray-200 bg-white">
+            <div className="mt-4 grid w-full grid-cols-[44px_1fr_44px] overflow-hidden rounded-base border border-gray-200 bg-white">
               <button
                 type="button"
                 className="h-11 text-xl font-bold"
@@ -346,7 +343,7 @@ export default function CbaProductDetail({
               <input
                 value={quantity}
                 onChange={(event) => clampQuantity(Number(event.target.value))}
-                className="h-11 border-x border-gray-200 text-center text-sm font-bold outline-none"
+                className="h-11 w-full border-x border-gray-200 text-center text-sm font-bold outline-none"
                 inputMode="numeric"
                 aria-label="Quantity"
               />
@@ -376,14 +373,20 @@ export default function CbaProductDetail({
                 className="flex items-center gap-2 hover:text-brand"
                 disabled={isPending}
               >
-                <HeartIcon size={15} className="text-green-600" />
-                Wishlist
+                <HeartIcon
+                  size={15}
+                  fill={isWishlisted ? "currentColor" : "none"}
+                  className="text-green-600"
+                />
+                {isWishlisted ? "Wishlist added" : "Wishlist"}
               </button>
+              <span className="text-gray-300">|</span>
               <button
                 type="button"
                 onClick={addToCompare}
-                className="hover:text-brand"
+                className="flex items-center gap-2 hover:text-brand"
               >
+                <CompareIcon size={15} className={isCompared ? "text-brand" : "text-gray-500"} />
                 Compare
               </button>
             </div>
@@ -943,9 +946,14 @@ function InfoRow({ label, value }: { label: string; value?: string | number | nu
 function Stars({ rating }: { rating: number }) {
   const rounded = Math.round(rating)
   return (
-    <span className="text-brand" aria-label={`${rating} out of 5 stars`}>
+    <span className="inline-flex items-center gap-0.5 text-xs" aria-label={`${rating} out of 5 stars`}>
       {Array.from({ length: 5 }).map((_, index) => (
-        <span key={index}>{index < rounded ? "*" : "*"}</span>
+        <span
+          key={index}
+          className={index < rounded ? "text-brand" : "text-gray-300"}
+        >
+          ★
+        </span>
       ))}
     </span>
   )
@@ -995,4 +1003,25 @@ function colorValue(value: string) {
   if (normalized.includes("red")) return "#d9483b"
   if (normalized.includes("green")) return "#4f9a5b"
   return "#d8d8d8"
+}
+
+function CompareIcon({ size = 15, className }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+      <path d="M16 3h5v5" />
+      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+      <path d="M8 21H3v-5" />
+    </svg>
+  )
 }
