@@ -769,7 +769,9 @@ function DescriptionContent({
   product: HttpTypes.StoreProduct
   detail: ProductDetailResponse | null
 }) {
-  if (!detail?.detail_sections.length) {
+  const richDescription = findRichDescription(detail)
+
+  if (!richDescription?.body_html) {
     return (
       <p className="max-w-5xl text-sm leading-7 text-gray-700">
         {product.description || "Product description is not available."}
@@ -778,126 +780,33 @@ function DescriptionContent({
   }
 
   return (
-    <div className="space-y-9">
-      {detail.detail_sections.map((section) => (
-        <DescriptionSection key={section.id} section={section} />
-      ))}
-    </div>
+    <div
+      className="pdp-rich-description max-w-5xl text-sm leading-7 text-gray-700 [&_a]:font-semibold [&_a]:text-brand [&_blockquote]:border-l-4 [&_blockquote]:border-brand [&_blockquote]:pl-4 [&_blockquote]:text-gray-600 [&_h2]:mb-4 [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-black [&_h2]:leading-tight [&_h2]:text-gray-950 [&_h3]:mb-3 [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-black [&_h3]:text-gray-950 [&_h4]:mb-2 [&_h4]:mt-5 [&_h4]:text-base [&_h4]:font-black [&_h4]:text-gray-950 [&_hr]:my-8 [&_img]:my-6 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-rounded [&_li]:my-1 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-4 [&_strong]:font-black [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6"
+      dangerouslySetInnerHTML={{ __html: richDescription.body_html }}
+    />
   )
 }
 
-function DescriptionSection({
-  section,
-}: {
-  section: ProductDetailResponse["detail_sections"][number]
-}) {
-  if (section.layout === "image_grid") {
-    return (
-      <article>
-        <div className="grid gap-4 small:grid-cols-2">
-          {(section.images ?? [])
-            .filter((image) => image.url)
-            .slice(0, 2)
-            .map((image, index) => (
-              <SectionImage
-                key={`${image.url}-${index}`}
-                imageUrl={image.url}
-                altText={image.alt_text ?? section.title ?? "Product detail image"}
-                aspectClassName="aspect-[4/3]"
-              />
-            ))}
-        </div>
-      </article>
-    )
-  }
-
-  if (section.layout === "image_full") {
-    return section.media_url ? (
-      <article>
-        <SectionImage
-          imageUrl={section.media_url}
-          altText={section.media_alt_text ?? "Product detail image"}
-          aspectClassName="aspect-[16/7]"
-        />
-      </article>
-    ) : null
-  }
-
-  if (section.layout === "image_left" || section.layout === "image_right") {
-    return (
-      <article className="grid gap-6 small:grid-cols-2 small:items-center">
-        {section.media_url && section.layout === "image_left" && (
-          <SectionImage
-            imageUrl={section.media_url}
-            altText={section.media_alt_text ?? section.title ?? "Product detail image"}
-            aspectClassName="aspect-[4/3]"
-          />
-        )}
-        <SectionCopy section={section} />
-        {section.media_url && section.layout === "image_right" && (
-          <SectionImage
-            imageUrl={section.media_url}
-            altText={section.media_alt_text ?? section.title ?? "Product detail image"}
-            aspectClassName="aspect-[4/3]"
-          />
-        )}
-      </article>
-    )
-  }
-
-  return (
-    <article className="space-y-4">
-      <SectionCopy section={section} />
-    </article>
-  )
-}
-
-function SectionCopy({
-  section,
-}: {
-  section: ProductDetailResponse["detail_sections"][number]
-}) {
-  if (!section.title && !section.subtitle && !section.body_html) {
+function findRichDescription(detail: ProductDetailResponse | null) {
+  if (!detail?.detail_sections.length) {
     return null
   }
 
   return (
-    <div>
-      {section.title && <h3 className="text-lg font-black">{section.title}</h3>}
-      {section.subtitle && (
-        <p className="mt-2 text-sm text-gray-500">{section.subtitle}</p>
-      )}
-      {section.body_html && (
-        <div
-          className="mt-4 max-w-5xl text-sm leading-7 text-gray-700"
-          dangerouslySetInnerHTML={{ __html: section.body_html }}
-        />
-      )}
-    </div>
-  )
-}
-
-function SectionImage({
-  imageUrl,
-  altText,
-  aspectClassName,
-}: {
-  imageUrl: string
-  altText: string
-  aspectClassName: string
-}) {
-  return (
-    <div
-      className={`relative overflow-hidden rounded-rounded bg-gray-100 ${aspectClassName}`}
-    >
-      <Image
-        src={imageUrl}
-        alt={altText}
-        fill
-        sizes="(max-width: 1024px) 92vw, 1120px"
-        className="object-cover"
-      />
-    </div>
+    detail.detail_sections.find(
+      (section) =>
+        section.type === "description" &&
+        section.layout === "text" &&
+        section.sort_order === 0 &&
+        Boolean(section.body_html)
+    ) ??
+    detail.detail_sections.find(
+      (section) =>
+        section.type === "description" &&
+        section.layout === "text" &&
+        Boolean(section.body_html)
+    ) ??
+    null
   )
 }
 
