@@ -1,5 +1,6 @@
 import { listCategories } from "@lib/data/categories"
 import { retrieveCart } from "@lib/data/cart"
+import { retrieveWishlistCount } from "@lib/data/wishlist"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CbaSearchForm from "@modules/layout/components/cba-search-form"
@@ -47,9 +48,10 @@ function cartItemCount(cart: HttpTypes.StoreCart | null) {
 }
 
 export default async function Nav() {
-  const [categories, cart] = await Promise.all([
+  const [categories, cart, wishlistCount] = await Promise.all([
     listCategories().catch(() => []),
     retrieveCart().catch(() => null),
+    retrieveWishlistCount().catch(() => 0),
   ])
 
   const navCategories = topLevelCategories(categories)
@@ -170,7 +172,9 @@ export default async function Nav() {
                 <HeartIcon size={26} strokeWidth={1.5} className="text-black" />
                 <div className="hidden medium:block leading-tight">
                   <p className="font-semibold text-black text-[15px]">Wishlist</p>
-                  <p className="text-gray-400 text-[12px] mt-0.5">0 items</p>
+                  <p className="text-gray-400 text-[12px] mt-0.5">
+                    {wishlistCount} {wishlistCount === 1 ? "item" : "items"}
+                  </p>
                 </div>
               </LocalizedClientLink>
 
