@@ -9,6 +9,7 @@ import {
   type WishlistItem,
 } from "@lib/data/wishlist"
 import { convertToLocale } from "@lib/util/money"
+import { openSideCart } from "@lib/util/side-cart-event"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { HeartIcon, ShoppingCartIcon } from "@modules/layout/components/cba-icons"
 import Image from "next/image"
@@ -99,6 +100,7 @@ export default function WishlistTemplate({
       setStatus("error", "Select at least one available item.")
       return
     }
+    openSideCart({ pendingMessage: "Adding item to cart.", refresh: false })
     startTransition(async () => {
       const result = await addWishlistItemsToCart({
         countryCode,
@@ -108,7 +110,11 @@ export default function WishlistTemplate({
         })),
       })
       setStatus(result.success ? "success" : "error", result.message)
-      router.refresh()
+      if (result.success) {
+        openSideCart({ pendingMessage: "Updating cart.", refresh: true })
+      } else {
+        openSideCart({ pendingMessage: null, refresh: false })
+      }
     })
   }
 

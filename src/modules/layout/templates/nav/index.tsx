@@ -1,9 +1,10 @@
 import { listCategories } from "@lib/data/categories"
-import { retrieveCart } from "@lib/data/cart"
+import { listCartOptions, retrieveCart } from "@lib/data/cart"
 import { retrieveWishlistCount } from "@lib/data/wishlist"
-import { HttpTypes } from "@medusajs/types"
+import { HttpTypes, StoreCartShippingOption } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CbaSearchForm from "@modules/layout/components/cba-search-form"
+import SideCart from "@modules/layout/components/side-cart"
 import {
   ChevronDownIcon,
   CoinsIcon,
@@ -12,7 +13,6 @@ import {
   HeartIcon,
   LayoutGridIcon,
   PhoneIcon,
-  ShoppingCartIcon,
   TruckIcon,
   UserIcon,
 } from "@modules/layout/components/cba-icons"
@@ -39,20 +39,20 @@ function topLevelCategories(categories: HttpTypes.StoreProductCategory[]) {
   return categories.filter((category) => !category.parent_category).slice(0, 7)
 }
 
-function cartItemCount(cart: HttpTypes.StoreCart | null) {
-  return (
-    cart?.items?.reduce((total, item) => {
-      return total + item.quantity
-    }, 0) ?? 0
-  )
-}
-
 export default async function Nav() {
   const [categories, cart, wishlistCount] = await Promise.all([
     listCategories().catch(() => []),
     retrieveCart().catch(() => null),
     retrieveWishlistCount().catch(() => 0),
   ])
+  let shippingOptions: StoreCartShippingOption[] = []
+
+  if (cart) {
+    const cartOptions = await listCartOptions().catch(() => ({
+      shipping_options: [],
+    }))
+    shippingOptions = cartOptions.shipping_options
+  }
 
   const navCategories = topLevelCategories(categories)
   const navLinks = navCategories.length
@@ -68,8 +68,6 @@ export default async function Nav() {
         href: `/categories/${category.handle}`,
       }))
     : fallbackDropdownItems.map((label) => ({ label, href: "/store" }))
-
-  const itemCount = cartItemCount(cart)
 
   return (
     <div className="relative z-50 bg-white shadow-sm">
@@ -178,23 +176,11 @@ export default async function Nav() {
                 </div>
               </LocalizedClientLink>
 
-              <LocalizedClientLink
-                href="/cart"
-                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-                data-testid="nav-cart-link"
-              >
-                <ShoppingCartIcon
-                  size={26}
-                  strokeWidth={1.5}
-                  className="text-black"
-                />
-                <div className="hidden medium:block leading-tight">
-                  <p className="font-semibold text-black text-[15px]">Cart</p>
-                  <p className="text-gray-400 text-[12px] mt-0.5">
-                    {itemCount} {itemCount === 1 ? "item" : "items"}
-                  </p>
-                </div>
-              </LocalizedClientLink>
+              <SideCart
+                cart={cart}
+                shippingOptions={shippingOptions}
+                wishlistCount={wishlistCount}
+              />
             </div>
           </div>
         </div>

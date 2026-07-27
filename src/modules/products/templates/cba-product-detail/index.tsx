@@ -10,6 +10,7 @@ import type {
 import { addProductToWishlist } from "@lib/data/wishlist"
 import { getProductPrice } from "@lib/util/get-product-price"
 import { convertToLocale } from "@lib/util/money"
+import { openSideCart } from "@lib/util/side-cart-event"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import ProductCompanionZone from "@modules/products/components/product-companion-zone"
@@ -172,6 +173,7 @@ export default function CbaProductDetail({
       return
     }
 
+    openSideCart({ pendingMessage: "Adding item to cart.", refresh: false })
     startTransition(async () => {
       try {
         await addToCart({
@@ -180,7 +182,9 @@ export default function CbaProductDetail({
           countryCode,
         })
         setActionState({ type: "success", message: "Added to cart." })
+        openSideCart({ pendingMessage: "Updating cart.", refresh: true })
       } catch (error) {
+        openSideCart({ pendingMessage: null, refresh: false })
         setActionState({
           type: "error",
           message: error instanceof Error ? error.message : "Could not add to cart.",
