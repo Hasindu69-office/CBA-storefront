@@ -12,9 +12,8 @@ import { getProductPrice } from "@lib/util/get-product-price"
 import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import FrequentlyBoughtTogether from "@modules/products/components/frequently-bought-together"
+import ProductCompanionZone from "@modules/products/components/product-companion-zone"
 import PdpSidebarBanners from "@modules/products/components/pdp-sidebar-banners"
-import ProductUpgrades from "@modules/products/components/product-upgrades"
 import RelatedProductsSection from "@modules/products/components/related-products-section"
 import {
   HeartIcon,
@@ -419,28 +418,23 @@ export default function CbaProductDetail({
             }
           >
             {hasCompanionContent && (
-              <div className="space-y-8">
-                {crossSellProducts.length > 0 && (
-                  <FrequentlyBoughtTogether
-                    {...bundleSectionProps}
-                    companions={crossSellProducts}
-                  />
-                )}
-                {accessoryProducts.length > 0 && (
-                  <FrequentlyBoughtTogether
-                    {...bundleSectionProps}
-                    title="Accessories"
-                    companions={accessoryProducts}
-                  />
-                )}
-                {upSellProducts.length > 0 && (
-                  <ProductUpgrades products={upSellProducts} />
-                )}
-              </div>
+              <ProductCompanionZone
+                {...bundleSectionProps}
+                crossSellProducts={crossSellProducts}
+                accessoryProducts={accessoryProducts}
+                upSellProducts={upSellProducts}
+              />
             )}
             {hasPdpSidebarBanners && (
-              <div className={hasCompanionContent ? undefined : "w-full max-w-[280px]"}>
-                <PdpSidebarBanners banners={pdpBanners} />
+              <div
+                className={
+                  hasCompanionContent ? "h-full min-h-0" : "w-full max-w-[280px]"
+                }
+              >
+                <PdpSidebarBanners
+                  banners={pdpBanners}
+                  matchCompanionHeight={hasCompanionContent}
+                />
               </div>
             )}
           </section>
