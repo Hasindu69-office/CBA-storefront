@@ -39,6 +39,10 @@ const BestSellingProductCard = ({
   const displayBadges = product.badges
     .filter((badge) => !isFeaturedBadge(badge))
     .slice(0, 1)
+  const sizeClassName =
+    variant === "flat"
+      ? "h-[374px] w-full max-w-[230px] flex-none small:h-[382px]"
+      : "h-[374px] w-[220px] flex-none small:h-[382px] small:w-full small:max-w-[194px] medium:max-w-[200px] large:max-w-[218px]"
 
   const handleAddToCart = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
@@ -98,7 +102,7 @@ const BestSellingProductCard = ({
   return (
     <article
       data-best-selling-product-card
-      className={`group flex h-[374px] w-[220px] flex-none snap-start flex-col overflow-hidden rounded-[8px] border border-[#ededed] bg-white transition-shadow small:h-[382px] small:w-full small:max-w-[194px] medium:max-w-[200px] large:max-w-[218px] ${
+      className={`group flex ${sizeClassName} snap-start flex-col overflow-hidden rounded-[8px] border border-[#ededed] bg-white transition-shadow ${
         variant === "flat"
           ? "shadow-none hover:shadow-none"
           : "shadow-[0_12px_28px_rgba(0,0,0,0.16)] hover:shadow-[0_0_24px_rgba(255,92,24,0.72)]"
@@ -204,7 +208,7 @@ const BestSellingProductCard = ({
           {inventoryLabel(product.inventory.status)}
         </div>
 
-        <div className="mt-auto -mx-3 flex min-h-[70px] items-center justify-between gap-2 border-t border-[#e5e7eb] px-3 pt-2.5 large:-mx-4 large:px-4">
+        <div className="mt-auto -mx-3 flex min-h-[70px] items-center justify-between gap-3 border-t border-[#e5e7eb] px-3 pt-2.5 large:-mx-4 large:px-4">
           <ProductCardPrice product={product} />
           <button
             type="button"
@@ -264,15 +268,15 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
     product.price.calculated_amount === null
   ) {
     return (
-      <p className="min-w-0 max-w-[calc(100%-54px)] text-[14px] font-bold leading-5 text-black">
+      <p className="min-w-0 flex-1 text-[13px] font-bold leading-5 text-black">
         Contact for price
       </p>
     )
   }
 
   return (
-    <span className="flex min-w-0 max-w-[calc(100%-54px)] flex-col">
-      <span className="truncate text-[13px] font-bold leading-5 text-black large:text-[14px]">
+    <span className="flex min-w-0 flex-1 flex-col">
+      <span className="whitespace-normal break-words text-[13px] font-bold leading-5 text-black">
         {convertToLocale({
           amount: product.price.calculated_amount,
           currency_code: product.price.currency_code,

@@ -250,14 +250,17 @@ function safeStorefrontPath(value: unknown) {
     : ""
 }
 
-function heroTextAlignConfig(value: unknown, index: number) {
+function heroTextAlignConfig(
+  value: unknown,
+  index: number
+): "left" | "center" | "right" {
   if (value === "left" || value === "center" || value === "right") {
     return value
   }
   return index === 2 ? "center" : "left"
 }
 
-function heroTextColorConfig(value: unknown, index: number) {
+function heroTextColorConfig(value: unknown, index: number): "black" | "white" {
   if (value === "black" || value === "white") {
     return value
   }

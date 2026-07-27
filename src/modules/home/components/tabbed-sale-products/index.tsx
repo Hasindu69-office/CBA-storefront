@@ -40,6 +40,7 @@ export type TabbedSaleBanner = {
   backgroundUrl: string
   imageAlt: string
   product: FeaturedProductCard | null
+  productUrl: string | null
 }
 
 export type TabbedSaleProductsVisibility = {
@@ -162,6 +163,7 @@ function bannerFromSection(
       firstProduct?.title ||
       "Sale product image",
     product: bannerProduct,
+    productUrl: bannerProduct?.handle ? `/products/${bannerProduct.handle}` : null,
   }
 }
 

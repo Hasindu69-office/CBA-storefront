@@ -24,7 +24,24 @@ type WishlistActionResult =
   | { success: true; message: string }
   | { success: false; message: string }
 
+type BulkWishlistActionResult = {
+  success: boolean
+  message: string
+  addedCount: number
+  failedCount: number
+}
+
 export async function addFeaturedProductToWishlist({
+  productId,
+  variantId,
+}: {
+  productId: string
+  variantId: string
+}): Promise<WishlistActionResult> {
+  return addProductToWishlist({ productId, variantId })
+}
+
+export async function addProductToWishlist({
   productId,
   variantId,
 }: {
@@ -70,6 +87,65 @@ export async function addFeaturedProductToWishlist({
           ? error.message
           : "Wishlist request could not be completed.",
     }
+  }
+}
+
+export async function addProductsToWishlist(
+  items: Array<{ productId: string; variantId: string }>
+): Promise<BulkWishlistActionResult> {
+  const normalizedItems = items
+    .filter(
+      (item) =>
+        isSafeMedusaId(item.productId) && isSafeMedusaId(item.variantId)
+    )
+    .slice(0, 6)
+
+  if (!normalizedItems.length) {
+    return {
+      success: false,
+      message: "Select at least one valid product.",
+      addedCount: 0,
+      failedCount: 0,
+    }
+  }
+
+  const results = await Promise.allSettled(
+    normalizedItems.map((item) =>
+      addProductToWishlist({
+        productId: item.productId,
+        variantId: item.variantId,
+      })
+    )
+  )
+
+  const addedCount = results.filter(
+    (result) => result.status === "fulfilled" && result.value.success
+  ).length
+  const failedCount = normalizedItems.length - addedCount
+
+  if (addedCount === normalizedItems.length) {
+    return {
+      success: true,
+      message: "Added all selected products to wishlist.",
+      addedCount,
+      failedCount,
+    }
+  }
+
+  if (addedCount > 0) {
+    return {
+      success: true,
+      message: `Added ${addedCount} of ${normalizedItems.length} products to wishlist.`,
+      addedCount,
+      failedCount,
+    }
+  }
+
+  return {
+    success: false,
+    message: "Could not add selected products to wishlist.",
+    addedCount,
+    failedCount,
   }
 }
 

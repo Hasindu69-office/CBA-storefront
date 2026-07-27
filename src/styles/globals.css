@@ -79,6 +79,34 @@
   }
 }
 
+.pdp-rich-description .pdp-image-grid {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.pdp-rich-description .pdp-image-grid img {
+  aspect-ratio: 4 / 3;
+  height: 100%;
+  margin: 0;
+  object-fit: cover;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .pdp-rich-description .pdp-image-grid[data-columns="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pdp-rich-description .pdp-image-grid[data-columns="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pdp-rich-description .pdp-image-grid[data-columns="4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 @layer components {
   .content-container {
     @apply w-[92%] small:w-[80%] max-w-[1440px] mx-auto;

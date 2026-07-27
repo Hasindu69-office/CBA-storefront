@@ -6,6 +6,7 @@ import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
 import { getStoreCountryCode, localizedPath } from "@lib/util/routes"
+import { listProductCardsByIds } from "@lib/data/tabbed-sale-products"
 import {
   getAuthHeaders,
   getCacheOptions,
@@ -16,6 +17,151 @@ import {
 } from "./cookies"
 import { getRegion } from "./regions"
 import { getLocale } from "@lib/data/locale-actions"
+
+const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
+const SAFE_PROMOTION_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{0,63}$/
+
+function assertSafeMedusaId(id: string, label: string) {
+  if (!SAFE_MEDUSA_ID_PATTERN.test(id)) {
+    throw new Error(`${label} is invalid`)
+  }
+}
+
+function assertSafeQuantity(quantity: number) {
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
+    throw new Error("Quantity must be between 1 and 99")
+  }
+}
+
+function normalizePromotionCodes(codes: string[]) {
+  const normalizedCodes = codes
+    .map((code) => code.trim().toUpperCase())
+    .filter(Boolean)
+
+  const uniqueCodes = Array.from(new Set(normalizedCodes))
+
+  if (uniqueCodes.length !== normalizedCodes.length) {
+    throw new Error("Promotion code is already applied")
+  }
+
+  for (const code of uniqueCodes) {
+    if (!SAFE_PROMOTION_CODE_PATTERN.test(code)) {
+      throw new Error("Promotion code is invalid")
+    }
+  }
+
+  return uniqueCodes
+}
+
+function stringField(formData: FormData, name: string) {
+  return String(formData.get(name) ?? "").trim()
+}
+
+function firstAvailableField(formData: FormData, names: string[]) {
+  for (const name of names) {
+    const value = stringField(formData, name)
+    if (value) {
+      return value
+    }
+  }
+  return ""
+}
+
+function splitFullName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  return {
+    first_name: parts[0] ?? "",
+    last_name: parts.slice(1).join(" ") || parts[0] || "",
+  }
+}
+
+function validateCheckoutAddressPayload(payload: {
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+  address_1: string
+  city: string
+  province: string
+  postal_code: string
+  country_code: string
+}) {
+  if (!payload.first_name || !payload.last_name) {
+    return "Full name is required."
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+    return "Enter a valid email address."
+  }
+  if (!/^[0-9+\-\s()]{7,20}$/.test(payload.phone)) {
+    return "Enter a valid phone number."
+  }
+  if (!payload.address_1) {
+    return "Street address is required."
+  }
+  if (!payload.city) {
+    return "City is required."
+  }
+  if (!payload.province) {
+    return "District is required."
+  }
+  if (!/^[A-Za-z0-9\s-]{3,16}$/.test(payload.postal_code)) {
+    return "Enter a valid postal code."
+  }
+  if (payload.country_code.toLowerCase() !== "lk") {
+    return "Delivery is currently available only in Sri Lanka."
+  }
+  return null
+}
+
+function checkoutAddressData(formData: FormData) {
+  const fullName = stringField(formData, "full_name")
+  const splitName = splitFullName(fullName)
+  const firstName =
+    firstAvailableField(formData, ["shipping_address.first_name"]) ||
+    splitName.first_name
+  const lastName =
+    firstAvailableField(formData, ["shipping_address.last_name"]) ||
+    splitName.last_name
+
+  const payload = {
+    first_name: firstName,
+    last_name: lastName,
+    address_1: firstAvailableField(formData, ["shipping_address.address_1"]),
+    address_2: firstAvailableField(formData, ["shipping_address.address_2"]),
+    company: firstAvailableField(formData, ["shipping_address.company"]),
+    postal_code: firstAvailableField(formData, [
+      "shipping_address.postal_code",
+    ]),
+    city: firstAvailableField(formData, ["shipping_address.city"]),
+    country_code:
+      firstAvailableField(formData, ["shipping_address.country_code"]) || "lk",
+    province: firstAvailableField(formData, ["shipping_address.province"]),
+    phone: firstAvailableField(formData, ["shipping_address.phone"]),
+  }
+  const email = firstAvailableField(formData, ["email"])
+  const deliveryInstructions = stringField(formData, "delivery_instructions")
+  const validationError = validateCheckoutAddressPayload({
+    ...payload,
+    email,
+  })
+
+  if (validationError) {
+    throw new Error(validationError)
+  }
+
+  const cartData = {
+    shipping_address: payload,
+    billing_address: payload,
+    email,
+    metadata: deliveryInstructions
+      ? {
+          cba_delivery_instructions: deliveryInstructions.slice(0, 500),
+        }
+      : undefined,
+  } as any
+
+  return cartData
+}
 
 /**
  * Retrieves a cart by its ID. If no ID is provided, it will use the cart ID from the cookies.
@@ -175,6 +321,8 @@ export async function updateLineItem({
   if (!lineId) {
     throw new Error("Missing lineItem ID when updating line item")
   }
+  assertSafeMedusaId(lineId, "Line item ID")
+  assertSafeQuantity(quantity)
 
   const cartId = await getCartId()
 
@@ -202,6 +350,7 @@ export async function deleteLineItem(lineId: string) {
   if (!lineId) {
     throw new Error("Missing lineItem ID when deleting line item")
   }
+  assertSafeMedusaId(lineId, "Line item ID")
 
   const cartId = await getCartId()
 
@@ -265,6 +414,7 @@ export async function initiatePaymentSession(
 
 export async function applyPromotions(codes: string[]) {
   const cartId = await getCartId()
+  const promoCodes = normalizePromotionCodes(codes)
 
   if (!cartId) {
     throw new Error("No existing cart found")
@@ -275,7 +425,7 @@ export async function applyPromotions(codes: string[]) {
   }
 
   return sdk.store.cart
-    .update(cartId, { promo_codes: codes }, {}, headers)
+    .update(cartId, { promo_codes: promoCodes }, {}, headers)
     .then(async () => {
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
@@ -333,9 +483,25 @@ export async function submitPromotionForm(
   currentState: unknown,
   formData: FormData
 ) {
-  const code = formData.get("code") as string
+  const code = String(formData.get("code") ?? "").trim()
+  if (!code) {
+    return "Enter a promotion code"
+  }
+
   try {
     await applyPromotions([code])
+  } catch (e: any) {
+    return e.message
+  }
+}
+
+export async function saveCheckoutDetails(
+  currentState: unknown,
+  formData: FormData
+) {
+  try {
+    await updateCart(checkoutAddressData(formData))
+    return null
   } catch (e: any) {
     return e.message
   }
@@ -347,44 +513,12 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
     if (!formData) {
       throw new Error("No form data found when setting addresses")
     }
-    const cartId = getCartId()
+    const cartId = await getCartId()
     if (!cartId) {
       throw new Error("No existing cart found when setting addresses")
     }
 
-    const data = {
-      shipping_address: {
-        first_name: formData.get("shipping_address.first_name"),
-        last_name: formData.get("shipping_address.last_name"),
-        address_1: formData.get("shipping_address.address_1"),
-        address_2: "",
-        company: formData.get("shipping_address.company"),
-        postal_code: formData.get("shipping_address.postal_code"),
-        city: formData.get("shipping_address.city"),
-        country_code: formData.get("shipping_address.country_code"),
-        province: formData.get("shipping_address.province"),
-        phone: formData.get("shipping_address.phone"),
-      },
-      email: formData.get("email"),
-    } as any
-
-    const sameAsBilling = formData.get("same_as_billing")
-    if (sameAsBilling === "on") data.billing_address = data.shipping_address
-
-    if (sameAsBilling !== "on")
-      data.billing_address = {
-        first_name: formData.get("billing_address.first_name"),
-        last_name: formData.get("billing_address.last_name"),
-        address_1: formData.get("billing_address.address_1"),
-        address_2: "",
-        company: formData.get("billing_address.company"),
-        postal_code: formData.get("billing_address.postal_code"),
-        city: formData.get("billing_address.city"),
-        country_code: formData.get("billing_address.country_code"),
-        province: formData.get("billing_address.province"),
-        phone: formData.get("billing_address.phone"),
-      }
-    await updateCart(data)
+    await updateCart(checkoutAddressData(formData))
   } catch (e: any) {
     return e.message
   }
@@ -394,6 +528,111 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
       `/${formData.get("shipping_address.country_code")}/checkout?step=payment`
     )
   )
+}
+
+export async function addBundleToCart({
+  items,
+  countryCode,
+}: {
+  items: Array<{ variantId: string; quantity: number; productId: string }>
+  countryCode: string
+}) {
+  const normalizedItems = items
+    .map((item) => ({
+      variantId: item.variantId,
+      productId: item.productId,
+      quantity: Number(item.quantity),
+    }))
+    .filter((item) => item.variantId && item.productId)
+
+  if (!normalizedItems.length || normalizedItems.length > 6) {
+    throw new Error("Invalid bundle selection.")
+  }
+
+  for (const item of normalizedItems) {
+    if (
+      !SAFE_MEDUSA_ID_PATTERN.test(item.variantId) ||
+      !SAFE_MEDUSA_ID_PATTERN.test(item.productId)
+    ) {
+      throw new Error("Invalid bundle item.")
+    }
+    if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99) {
+      throw new Error("Invalid bundle quantity.")
+    }
+  }
+
+  const productIds = Array.from(new Set(normalizedItems.map((item) => item.productId)))
+  const productCards = await listProductCardsByIds(productIds).catch(() => [])
+  const cardsByProductId = new Map(productCards.map((card) => [card.product_id, card]))
+
+  for (const item of normalizedItems) {
+    const card = cardsByProductId.get(item.productId)
+    if (!card) {
+      throw new Error("One or more bundle products are unavailable.")
+    }
+
+    if (card.default_variant?.id === item.variantId) {
+      if (!card.inventory.purchasable || card.price.status !== "available") {
+        throw new Error(`${card.title} is not available to purchase.`)
+      }
+    }
+  }
+
+  countryCode = getStoreCountryCode(countryCode)
+  const cart = await getOrSetCart(countryCode)
+
+  if (!cart) {
+    throw new Error("Error retrieving or creating cart")
+  }
+
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  const beforeCart = await retrieveCart(cart.id, "*items")
+  const beforeLineIds = new Set(
+    beforeCart?.items?.map((lineItem) => lineItem.id).filter(Boolean) ?? []
+  )
+  const addedLineIds: string[] = []
+
+  try {
+    for (const item of normalizedItems) {
+      await sdk.store.cart.createLineItem(
+        cart.id,
+        {
+          variant_id: item.variantId,
+          quantity: item.quantity,
+        },
+        {},
+        headers
+      )
+
+      const currentCart = await retrieveCart(cart.id, "*items")
+      const newLineIds =
+        currentCart?.items
+          ?.map((lineItem) => lineItem.id)
+          .filter((lineId): lineId is string => Boolean(lineId && !beforeLineIds.has(lineId))) ??
+        []
+
+      for (const lineId of newLineIds) {
+        if (!addedLineIds.includes(lineId)) {
+          addedLineIds.push(lineId)
+          beforeLineIds.add(lineId)
+        }
+      }
+    }
+  } catch (error) {
+    for (const lineId of addedLineIds) {
+      await sdk.store.cart.deleteLineItem(cart.id, lineId, {}, headers).catch(() => null)
+    }
+    throw error instanceof Error ? error : new Error("Could not add bundle to cart.")
+  }
+
+  const cartCacheTag = await getCacheTag("carts")
+  revalidateTag(cartCacheTag)
+
+  const fulfillmentCacheTag = await getCacheTag("fulfillment")
+  revalidateTag(fulfillmentCacheTag)
 }
 
 /**
