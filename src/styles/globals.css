@@ -57,6 +57,21 @@
     }
   }
 
+  @keyframes order-success-check-draw {
+    from {
+      stroke-dashoffset: 44;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .order-success-icon__check {
+    stroke-dasharray: 44;
+    stroke-dashoffset: 44;
+    animation: order-success-check-draw 520ms ease-out 180ms forwards;
+  }
+
   .brand-slider-track--animated {
     width: max-content;
     animation: brand-slider-marquee var(--brand-slider-duration, 24s) linear infinite;
@@ -75,6 +90,11 @@
     .brand-slider-track--animated {
       animation: none;
       transform: none;
+    }
+
+    .order-success-icon__check {
+      animation: none;
+      stroke-dashoffset: 0;
     }
   }
 }
