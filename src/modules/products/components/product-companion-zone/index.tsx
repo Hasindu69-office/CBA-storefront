@@ -3,6 +3,7 @@
 import { addBundleToCart } from "@lib/data/cart"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import { addProductsToWishlist } from "@lib/data/wishlist"
+import { openSideCart } from "@lib/util/side-cart-event"
 import BundleOfferPanel from "@modules/products/components/bundle-offer/bundle-offer-panel"
 import {
   BUNDLE_CATEGORIES,
@@ -153,6 +154,7 @@ export default function ProductCompanionZone({
       return
     }
 
+    openSideCart({ pendingMessage: "Adding bundle to cart.", refresh: false })
     startTransition(async () => {
       try {
         await addBundleToCart({
@@ -163,7 +165,9 @@ export default function ProductCompanionZone({
           type: "success",
           message: "Bundle added to cart.",
         })
+        openSideCart({ pendingMessage: "Updating cart.", refresh: true })
       } catch (error) {
+        openSideCart({ pendingMessage: null, refresh: false })
         onActionMessage?.({
           type: "error",
           message:

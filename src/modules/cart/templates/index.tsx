@@ -32,7 +32,10 @@ const CartTemplate = ({
             </div>
           </div>
         ) : (
-          <div className="rounded-md border border-gray-100 bg-white px-6 py-14 text-center shadow-sm">
+          <div className="flex flex-col">
+            <h1 className="text-center text-[32px] small:text-[36px] font-bold leading-tight text-[#111111]">
+              Cart
+            </h1>
             <EmptyCartMessage />
           </div>
         )}

@@ -2,12 +2,13 @@
 
 import { MouseEvent, useState } from "react"
 import Image from "next/image"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 
 import { addToCart } from "@lib/data/cart"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import { addFeaturedProductToWishlist } from "@lib/data/wishlist"
 import { convertToLocale } from "@lib/util/money"
+import { openSideCart } from "@lib/util/side-cart-event"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import PlaceholderImage from "@modules/common/icons/placeholder-image"
 import {
@@ -26,7 +27,6 @@ const BestSellingProductCard = ({
   priority,
   variant = "raised",
 }: BestSellingProductCardProps) => {
-  const router = useRouter()
   const countryCode = useParams().countryCode as string
   const [isAddingToCart, setIsAddingToCart] = useState(false)
   const [isAddingToWishlist, setIsAddingToWishlist] = useState(false)
@@ -58,6 +58,7 @@ const BestSellingProductCard = ({
       return
     }
 
+    openSideCart({ pendingMessage: "Adding item to cart.", refresh: false })
     setIsAddingToCart(true)
     setStatusMessage("")
 
@@ -68,8 +69,9 @@ const BestSellingProductCard = ({
         countryCode,
       })
       setStatusMessage("Added to cart.")
-      router.refresh()
+      openSideCart({ pendingMessage: "Updating cart.", refresh: true })
     } catch (error) {
+      openSideCart({ pendingMessage: null, refresh: false })
       setStatusMessage(
         error instanceof Error ? error.message : "Could not add to cart."
       )

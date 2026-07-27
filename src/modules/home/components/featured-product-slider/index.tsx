@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react"
 import type { MouseEvent, ReactNode } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import { addToCart } from "@lib/data/cart"
 import { addFeaturedProductToWishlist } from "@lib/data/wishlist"
 import { convertToLocale } from "@lib/util/money"
+import { openSideCart } from "@lib/util/side-cart-event"
 import PlaceholderImage from "@modules/common/icons/placeholder-image"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import {
@@ -190,7 +191,6 @@ export const FeaturedProductCardItem = ({
   product: FeaturedProductCard
   priority: boolean
 }) => {
-  const router = useRouter()
   const countryCode = useParams().countryCode as string
   const [isAddingToCart, setIsAddingToCart] = useState(false)
   const [isAddingToWishlist, setIsAddingToWishlist] = useState(false)
@@ -219,6 +219,7 @@ export const FeaturedProductCardItem = ({
       return
     }
 
+    openSideCart({ pendingMessage: "Adding item to cart.", refresh: false })
     setIsAddingToCart(true)
     setStatusMessage("")
 
@@ -229,8 +230,9 @@ export const FeaturedProductCardItem = ({
         countryCode,
       })
       setStatusMessage("Added to cart.")
-      router.refresh()
+      openSideCart({ pendingMessage: "Updating cart.", refresh: true })
     } catch (error) {
+      openSideCart({ pendingMessage: null, refresh: false })
       setStatusMessage(
         error instanceof Error ? error.message : "Could not add to cart."
       )

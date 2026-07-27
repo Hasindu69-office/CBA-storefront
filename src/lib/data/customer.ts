@@ -4,6 +4,7 @@ import { sdk } from "@lib/config"
 import medusaError from "@lib/util/medusa-error"
 import { HttpTypes } from "@medusajs/types"
 import { revalidateTag } from "next/cache"
+import { headers as nextHeaders } from "next/headers"
 import { redirect } from "next/navigation"
 import { localizedPath } from "@lib/util/routes"
 import {
@@ -15,6 +16,11 @@ import {
   removeCartId,
   setAuthToken,
 } from "./cookies"
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const PHONE_PATTERN = /^[+()\d\s-]{7,24}$/
+const OAUTH_PROVIDERS = ["google", "facebook", "apple"] as const
+type OAuthProvider = (typeof OAUTH_PROVIDERS)[number]
 
 export const retrieveCustomer =
   async (): Promise<HttpTypes.StoreCustomer | null> => {
@@ -61,12 +67,17 @@ export const updateCustomer = async (body: HttpTypes.StoreUpdateCustomer) => {
 }
 
 export async function signup(_currentState: unknown, formData: FormData) {
-  const password = formData.get("password") as string
+  const password = text(formData.get("password"))
+  const confirmPassword = text(formData.get("confirm_password"))
   const customerForm = {
-    email: formData.get("email") as string,
-    first_name: formData.get("first_name") as string,
-    last_name: formData.get("last_name") as string,
-    phone: formData.get("phone") as string,
+    email: text(formData.get("email")).toLowerCase(),
+    first_name: text(formData.get("first_name")),
+    last_name: text(formData.get("last_name")),
+    phone: text(formData.get("phone")),
+  }
+  const validationError = validateSignup(customerForm, password, confirmPassword, formData)
+  if (validationError) {
+    return validationError
   }
 
   try {
@@ -75,10 +86,8 @@ export async function signup(_currentState: unknown, formData: FormData) {
       password: password,
     })
 
-    await setAuthToken(token as string)
-
     const headers = {
-      ...(await getAuthHeaders()),
+      authorization: `Bearer ${token as string}`,
     }
 
     const { customer: createdCustomer } = await sdk.store.customer.create(
@@ -97,17 +106,25 @@ export async function signup(_currentState: unknown, formData: FormData) {
     const customerCacheTag = await getCacheTag("customers")
     revalidateTag(customerCacheTag)
 
-    await transferCart()
+    await transferCart().catch((error) => {
+      console.error("Customer signup succeeded, but cart transfer failed.", safeServerError(error))
+    })
 
     return createdCustomer
   } catch (error: any) {
-    return error.toString()
+    console.error("Customer signup failed.", safeServerError(error))
+    return authErrorMessage(error)
   }
 }
 
 export async function login(_currentState: unknown, formData: FormData) {
-  const email = formData.get("email") as string
-  const password = formData.get("password") as string
+  const email = text(formData.get("email")).toLowerCase()
+  const password = text(formData.get("password"))
+
+  const validationError = validateLogin(email, password)
+  if (validationError) {
+    return validationError
+  }
 
   try {
     await sdk.auth
@@ -118,13 +135,107 @@ export async function login(_currentState: unknown, formData: FormData) {
         revalidateTag(customerCacheTag)
       })
   } catch (error: any) {
-    return error.toString()
+    return authErrorMessage(error)
   }
 
   try {
     await transferCart()
   } catch (error: any) {
-    return error.toString()
+    return authErrorMessage(error)
+  }
+}
+
+export async function startOAuthLogin(_currentState: unknown, formData: FormData) {
+  const provider = text(formData.get("provider")) as OAuthProvider
+  const countryCode = text(formData.get("country_code")) || "lk"
+
+  if (!OAUTH_PROVIDERS.includes(provider)) {
+    return "This sign-on provider is not supported."
+  }
+
+  const callbackUrl = `${await storefrontOrigin()}/${countryCode}/account/oauth/callback?provider=${provider}`
+  let location = ""
+
+  try {
+    const result = await sdk.auth.login("customer", provider, {
+      callback_url: callbackUrl,
+    })
+    if (typeof result === "string") {
+      await setAuthToken(result)
+      await transferCart()
+      redirect(localizedPath(`/${countryCode}/account`))
+    }
+    if (!("location" in result) || !result.location) {
+      return "This sign-on provider requires additional verification."
+    }
+    location = result.location
+  } catch (error) {
+    if (isNextRedirect(error)) {
+      throw error
+    }
+    return authErrorMessage(error)
+  }
+
+  redirect(location)
+}
+
+export async function completeOAuthLogin({
+  provider,
+  query,
+  countryCode,
+}: {
+  provider: string
+  query: Record<string, string>
+  countryCode: string
+}) {
+  if (!OAUTH_PROVIDERS.includes(provider as OAuthProvider)) {
+    redirect(localizedPath(`/${countryCode}/account?auth_error=unsupported_provider`))
+  }
+
+  try {
+    const tokenResult = await sdk.auth.callback("customer", provider, query)
+    if (typeof tokenResult !== "string") {
+      redirect(localizedPath(`/${countryCode}/account?auth_error=additional_verification_required`))
+    }
+
+    await setAuthToken(tokenResult)
+    const existingCustomer = await retrieveCustomer()
+
+    if (!existingCustomer) {
+      const profile = decodeAuthProfile(tokenResult)
+      if (!profile.email) {
+        await removeAuthToken()
+        redirect(localizedPath(`/${countryCode}/account?auth_error=missing_email`))
+      }
+
+      const headers = {
+        ...(await getAuthHeaders()),
+      }
+
+      await sdk.store.customer.create(
+        {
+          email: profile.email,
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+        },
+        {},
+        headers
+      )
+
+      const refreshed = await sdk.auth.refresh(headers)
+      await setAuthToken(refreshed.token)
+    }
+
+    const customerCacheTag = await getCacheTag("customers")
+    revalidateTag(customerCacheTag)
+    await transferCart()
+    redirect(localizedPath(`/${countryCode}/account`))
+  } catch (error) {
+    if (isNextRedirect(error)) {
+      throw error
+    }
+    await removeAuthToken()
+    redirect(localizedPath(`/${countryCode}/account?auth_error=oauth_failed`))
   }
 }
 
@@ -157,6 +268,109 @@ export async function transferCart() {
 
   const cartCacheTag = await getCacheTag("carts")
   revalidateTag(cartCacheTag)
+}
+
+function validateLogin(email: string, password: string) {
+  if (!EMAIL_PATTERN.test(email)) {
+    return "Enter a valid email address."
+  }
+  if (!password) {
+    return "Password is required."
+  }
+  return null
+}
+
+function validateSignup(
+  customer: { email: string; first_name: string; last_name: string; phone: string },
+  password: string,
+  confirmPassword: string,
+  formData: FormData
+) {
+  if (!customer.first_name || !customer.last_name) {
+    return "First name and last name are required."
+  }
+  if (!EMAIL_PATTERN.test(customer.email)) {
+    return "Enter a valid email address."
+  }
+  if (customer.phone && !PHONE_PATTERN.test(customer.phone)) {
+    return "Enter a valid phone number."
+  }
+  if (!isStrongPassword(password)) {
+    return "Password must be at least 8 characters and include letters and numbers."
+  }
+  if (password !== confirmPassword) {
+    return "Passwords do not match."
+  }
+  if (formData.get("terms") !== "on") {
+    return "You must agree to the terms and privacy policy."
+  }
+  return null
+}
+
+function isStrongPassword(value: string) {
+  return value.length >= 8 && /[A-Za-z]/.test(value) && /\d/.test(value)
+}
+
+function authErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "")
+  if (/email.*exist|already.*email|duplicate/i.test(message)) {
+    return "An account already exists with this email address."
+  }
+  if (/invalid|unauthorized|password|credentials|identity/i.test(message)) {
+    return "Please check your account details and try again."
+  }
+  if (/duplicate|already exists/i.test(message)) {
+    return "An account already exists with this email address."
+  }
+  if (/network|fetch|ECONNREFUSED|ENOTFOUND|timeout/i.test(message)) {
+    return "We could not reach the account service. Please try again."
+  }
+  return "We could not complete the request. Please try again."
+}
+
+function safeServerError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "")
+  return message.replace(/Bearer\s+[A-Za-z0-9._-]+/g, "Bearer [redacted]")
+    .replace(/password[^,}\s]*/gi, "password=[redacted]")
+    .slice(0, 500)
+}
+
+async function storefrontOrigin() {
+  if (process.env.NEXT_PUBLIC_STOREFRONT_URL) {
+    return process.env.NEXT_PUBLIC_STOREFRONT_URL.replace(/\/+$/, "")
+  }
+  const headers = await nextHeaders()
+  const host = headers.get("x-forwarded-host") ?? headers.get("host") ?? "localhost:8000"
+  const proto = headers.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")
+  return `${proto}://${host}`
+}
+
+function decodeAuthProfile(token: string) {
+  const payload = token.split(".")[1]
+  if (!payload) {
+    return { email: "", first_name: "", last_name: "" }
+  }
+  const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
+    user_metadata?: Record<string, unknown>
+  }
+  const metadata = parsed.user_metadata ?? {}
+  const name = text(metadata.name)
+  const firstName = text(metadata.given_name) || name.split(" ")[0] || ""
+  const lastName = text(metadata.family_name) || name.split(" ").slice(1).join(" ")
+  return {
+    email: text(metadata.email).toLowerCase(),
+    first_name: firstName,
+    last_name: lastName,
+  }
+}
+
+function text(value: unknown) {
+  return typeof value === "string" ? value.trim() : ""
+}
+
+function isNextRedirect(error: unknown) {
+  return typeof (error as { digest?: unknown })?.digest === "string" &&
+    String((error as { digest: string }).digest).startsWith("NEXT_REDIRECT")
 }
 
 export const addCustomerAddress = async (
