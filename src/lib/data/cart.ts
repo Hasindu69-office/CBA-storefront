@@ -19,6 +19,39 @@ import { getRegion } from "./regions"
 import { getLocale } from "@lib/data/locale-actions"
 
 const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
+const SAFE_PROMOTION_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{0,63}$/
+
+function assertSafeMedusaId(id: string, label: string) {
+  if (!SAFE_MEDUSA_ID_PATTERN.test(id)) {
+    throw new Error(`${label} is invalid`)
+  }
+}
+
+function assertSafeQuantity(quantity: number) {
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
+    throw new Error("Quantity must be between 1 and 99")
+  }
+}
+
+function normalizePromotionCodes(codes: string[]) {
+  const normalizedCodes = codes
+    .map((code) => code.trim().toUpperCase())
+    .filter(Boolean)
+
+  const uniqueCodes = Array.from(new Set(normalizedCodes))
+
+  if (uniqueCodes.length !== normalizedCodes.length) {
+    throw new Error("Promotion code is already applied")
+  }
+
+  for (const code of uniqueCodes) {
+    if (!SAFE_PROMOTION_CODE_PATTERN.test(code)) {
+      throw new Error("Promotion code is invalid")
+    }
+  }
+
+  return uniqueCodes
+}
 
 /**
  * Retrieves a cart by its ID. If no ID is provided, it will use the cart ID from the cookies.
@@ -178,6 +211,8 @@ export async function updateLineItem({
   if (!lineId) {
     throw new Error("Missing lineItem ID when updating line item")
   }
+  assertSafeMedusaId(lineId, "Line item ID")
+  assertSafeQuantity(quantity)
 
   const cartId = await getCartId()
 
@@ -205,6 +240,7 @@ export async function deleteLineItem(lineId: string) {
   if (!lineId) {
     throw new Error("Missing lineItem ID when deleting line item")
   }
+  assertSafeMedusaId(lineId, "Line item ID")
 
   const cartId = await getCartId()
 
@@ -268,6 +304,7 @@ export async function initiatePaymentSession(
 
 export async function applyPromotions(codes: string[]) {
   const cartId = await getCartId()
+  const promoCodes = normalizePromotionCodes(codes)
 
   if (!cartId) {
     throw new Error("No existing cart found")
@@ -278,7 +315,7 @@ export async function applyPromotions(codes: string[]) {
   }
 
   return sdk.store.cart
-    .update(cartId, { promo_codes: codes }, {}, headers)
+    .update(cartId, { promo_codes: promoCodes }, {}, headers)
     .then(async () => {
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
@@ -336,7 +373,11 @@ export async function submitPromotionForm(
   currentState: unknown,
   formData: FormData
 ) {
-  const code = formData.get("code") as string
+  const code = String(formData.get("code") ?? "").trim()
+  if (!code) {
+    return "Enter a promotion code"
+  }
+
   try {
     await applyPromotions([code])
   } catch (e: any) {
