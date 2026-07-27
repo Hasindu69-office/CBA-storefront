@@ -159,7 +159,14 @@ export async function middleware(request: NextRequest) {
       ? `/${countryCode}`
       : `/${countryCode}${request.nextUrl.pathname}`
 
-  const response = NextResponse.rewrite(rewriteUrl)
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set("x-cba-pathname", request.nextUrl.pathname)
+
+  const response = NextResponse.rewrite(rewriteUrl, {
+    request: {
+      headers: requestHeaders,
+    },
+  })
   if (!cacheIdCookie) {
     response.cookies.set("_medusa_cache_id", cacheId, {
       maxAge: 60 * 60 * 24,
