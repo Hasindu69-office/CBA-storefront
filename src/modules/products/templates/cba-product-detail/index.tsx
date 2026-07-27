@@ -45,8 +45,6 @@ type ActionState = {
   message: string
 }
 
-const MAX_COMPARE_ITEMS = 4
-
 function optionsAsKeymap(
   variantOptions: HttpTypes.StoreProductVariant["options"]
 ) {
@@ -92,7 +90,6 @@ export default function CbaProductDetail({
   const [quantity, setQuantity] = useState(1)
   const [activeTab, setActiveTab] = useState("description")
   const [isWishlisted, setIsWishlisted] = useState(false)
-  const [isCompared, setIsCompared] = useState(false)
   const [actionState, setActionState] = useState<ActionState>({
     type: null,
     message: "",
@@ -211,23 +208,6 @@ export default function CbaProductDetail({
         message: result.message,
       })
     })
-  }
-
-  function addToCompare() {
-    try {
-      const current = JSON.parse(
-        window.localStorage.getItem("cba_compare_products") ?? "[]"
-      ) as string[]
-      const next = [product.id, ...current.filter((id) => id !== product.id)].slice(
-        0,
-        MAX_COMPARE_ITEMS
-      )
-      window.localStorage.setItem("cba_compare_products", JSON.stringify(next))
-      setIsCompared(true)
-      setActionState({ type: "success", message: "Added to compare." })
-    } catch {
-      setActionState({ type: "error", message: "Compare is unavailable." })
-    }
   }
 
   return (
@@ -372,14 +352,13 @@ export default function CbaProductDetail({
                 {isWishlisted ? "Wishlist added" : "Wishlist"}
               </button>
               <span className="text-gray-300">|</span>
-              <button
-                type="button"
-                onClick={addToCompare}
+              <LocalizedClientLink
+                href="/compare"
                 className="flex items-center gap-2 hover:text-brand"
               >
-                <CompareIcon size={15} className={isCompared ? "text-brand" : "text-gray-500"} />
+                <ScaleIcon size={15} className="text-gray-500" />
                 Compare
-              </button>
+              </LocalizedClientLink>
             </div>
             {detail?.warranty?.summary && (
               <p className="mt-5 border-t border-gray-200 pt-4 text-xs text-gray-600">
@@ -912,7 +891,7 @@ function colorValue(value: string) {
   return "#d8d8d8"
 }
 
-function CompareIcon({ size = 15, className }: { size?: number; className?: string }) {
+function ScaleIcon({ size = 15, className }: { size?: number; className?: string }) {
   return (
     <svg
       width={size}
@@ -925,10 +904,11 @@ function CompareIcon({ size = 15, className }: { size?: number; className?: stri
       strokeLinejoin="round"
       className={className}
     >
-      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-      <path d="M16 3h5v5" />
-      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-      <path d="M8 21H3v-5" />
+      <path d="m16 16 3-8 3 8c-.9.7-1.9 1-3 1s-2.1-.3-3-1Z" />
+      <path d="m2 16 3-8 3 8c-.9.7-1.9 1-3 1s-2.1-.3-3-1Z" />
+      <path d="M7 21h10" />
+      <path d="M12 3v18" />
+      <path d="M3 8h18" />
     </svg>
   )
 }
