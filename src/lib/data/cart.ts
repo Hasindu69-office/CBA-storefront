@@ -53,6 +53,116 @@ function normalizePromotionCodes(codes: string[]) {
   return uniqueCodes
 }
 
+function stringField(formData: FormData, name: string) {
+  return String(formData.get(name) ?? "").trim()
+}
+
+function firstAvailableField(formData: FormData, names: string[]) {
+  for (const name of names) {
+    const value = stringField(formData, name)
+    if (value) {
+      return value
+    }
+  }
+  return ""
+}
+
+function splitFullName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  return {
+    first_name: parts[0] ?? "",
+    last_name: parts.slice(1).join(" ") || parts[0] || "",
+  }
+}
+
+function validateCheckoutAddressPayload(payload: {
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+  address_1: string
+  city: string
+  province: string
+  postal_code: string
+  country_code: string
+}) {
+  if (!payload.first_name || !payload.last_name) {
+    return "Full name is required."
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+    return "Enter a valid email address."
+  }
+  if (!/^[0-9+\-\s()]{7,20}$/.test(payload.phone)) {
+    return "Enter a valid phone number."
+  }
+  if (!payload.address_1) {
+    return "Street address is required."
+  }
+  if (!payload.city) {
+    return "City is required."
+  }
+  if (!payload.province) {
+    return "District is required."
+  }
+  if (!/^[A-Za-z0-9\s-]{3,16}$/.test(payload.postal_code)) {
+    return "Enter a valid postal code."
+  }
+  if (payload.country_code.toLowerCase() !== "lk") {
+    return "Delivery is currently available only in Sri Lanka."
+  }
+  return null
+}
+
+function checkoutAddressData(formData: FormData) {
+  const fullName = stringField(formData, "full_name")
+  const splitName = splitFullName(fullName)
+  const firstName =
+    firstAvailableField(formData, ["shipping_address.first_name"]) ||
+    splitName.first_name
+  const lastName =
+    firstAvailableField(formData, ["shipping_address.last_name"]) ||
+    splitName.last_name
+
+  const payload = {
+    first_name: firstName,
+    last_name: lastName,
+    address_1: firstAvailableField(formData, ["shipping_address.address_1"]),
+    address_2: firstAvailableField(formData, ["shipping_address.address_2"]),
+    company: firstAvailableField(formData, ["shipping_address.company"]),
+    postal_code: firstAvailableField(formData, [
+      "shipping_address.postal_code",
+    ]),
+    city: firstAvailableField(formData, ["shipping_address.city"]),
+    country_code:
+      firstAvailableField(formData, ["shipping_address.country_code"]) || "lk",
+    province: firstAvailableField(formData, ["shipping_address.province"]),
+    phone: firstAvailableField(formData, ["shipping_address.phone"]),
+  }
+  const email = firstAvailableField(formData, ["email"])
+  const deliveryInstructions = stringField(formData, "delivery_instructions")
+  const validationError = validateCheckoutAddressPayload({
+    ...payload,
+    email,
+  })
+
+  if (validationError) {
+    throw new Error(validationError)
+  }
+
+  const cartData = {
+    shipping_address: payload,
+    billing_address: payload,
+    email,
+    metadata: deliveryInstructions
+      ? {
+          cba_delivery_instructions: deliveryInstructions.slice(0, 500),
+        }
+      : undefined,
+  } as any
+
+  return cartData
+}
+
 /**
  * Retrieves a cart by its ID. If no ID is provided, it will use the cart ID from the cookies.
  * @param cartId - optional - The ID of the cart to retrieve.
@@ -385,50 +495,30 @@ export async function submitPromotionForm(
   }
 }
 
+export async function saveCheckoutDetails(
+  currentState: unknown,
+  formData: FormData
+) {
+  try {
+    await updateCart(checkoutAddressData(formData))
+    return null
+  } catch (e: any) {
+    return e.message
+  }
+}
+
 // TODO: Pass a POJO instead of a form entity here
 export async function setAddresses(currentState: unknown, formData: FormData) {
   try {
     if (!formData) {
       throw new Error("No form data found when setting addresses")
     }
-    const cartId = getCartId()
+    const cartId = await getCartId()
     if (!cartId) {
       throw new Error("No existing cart found when setting addresses")
     }
 
-    const data = {
-      shipping_address: {
-        first_name: formData.get("shipping_address.first_name"),
-        last_name: formData.get("shipping_address.last_name"),
-        address_1: formData.get("shipping_address.address_1"),
-        address_2: "",
-        company: formData.get("shipping_address.company"),
-        postal_code: formData.get("shipping_address.postal_code"),
-        city: formData.get("shipping_address.city"),
-        country_code: formData.get("shipping_address.country_code"),
-        province: formData.get("shipping_address.province"),
-        phone: formData.get("shipping_address.phone"),
-      },
-      email: formData.get("email"),
-    } as any
-
-    const sameAsBilling = formData.get("same_as_billing")
-    if (sameAsBilling === "on") data.billing_address = data.shipping_address
-
-    if (sameAsBilling !== "on")
-      data.billing_address = {
-        first_name: formData.get("billing_address.first_name"),
-        last_name: formData.get("billing_address.last_name"),
-        address_1: formData.get("billing_address.address_1"),
-        address_2: "",
-        company: formData.get("billing_address.company"),
-        postal_code: formData.get("billing_address.postal_code"),
-        city: formData.get("billing_address.city"),
-        country_code: formData.get("billing_address.country_code"),
-        province: formData.get("billing_address.province"),
-        phone: formData.get("billing_address.phone"),
-      }
-    await updateCart(data)
+    await updateCart(checkoutAddressData(formData))
   } catch (e: any) {
     return e.message
   }
