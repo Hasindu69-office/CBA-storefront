@@ -2,8 +2,8 @@ import { Metadata } from "next"
 
 import Overview from "@modules/account/components/overview"
 import { notFound } from "next/navigation"
-import { retrieveCustomer } from "@lib/data/customer"
-import { listOrders } from "@lib/data/orders"
+import { retrieveAccountDashboard } from "@lib/data/account-dashboard"
+import { listFeaturedProductCards } from "@lib/data/featured-products"
 
 export const metadata: Metadata = {
   title: "Account",
@@ -11,12 +11,19 @@ export const metadata: Metadata = {
 }
 
 export default async function OverviewTemplate() {
-  const customer = await retrieveCustomer().catch(() => null)
-  const orders = (await listOrders().catch(() => null)) || null
+  const [dashboard, recommendedProducts] = await Promise.all([
+    retrieveAccountDashboard(5),
+    listFeaturedProductCards(4).catch(() => []),
+  ])
 
-  if (!customer) {
+  if (!dashboard) {
     notFound()
   }
 
-  return <Overview customer={customer} orders={orders} />
+  return (
+    <Overview
+      dashboard={dashboard}
+      recommendedProducts={recommendedProducts}
+    />
+  )
 }

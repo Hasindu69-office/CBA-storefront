@@ -29,10 +29,13 @@ import { CardElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import {
+  useCallback,
   useEffect,
+  useRef,
   useState,
   useTransition,
   type FormEvent,
+  type RefObject,
   type ReactNode,
 } from "react"
 import CartProgress from "@modules/cart/templates/cart-progress"
@@ -107,6 +110,38 @@ export default function CbaCheckoutTemplate({
     activeSession?.provider_id ?? paymentMethods[0]?.id ?? ""
   )
   const [cardComplete, setCardComplete] = useState(false)
+  const addressFormRef = useRef<HTMLFormElement>(null)
+  const [checkoutDetailsError, setCheckoutDetailsError] = useState<string | null>(
+    null
+  )
+  const [isSavingCheckoutDetails, setIsSavingCheckoutDetails] = useState(false)
+
+  const saveCurrentCheckoutDetails = useCallback(async () => {
+    const form = addressFormRef.current
+    if (!form) {
+      return "Delivery details are not ready."
+    }
+
+    setIsSavingCheckoutDetails(true)
+    setCheckoutDetailsError(null)
+
+    let result: string | null = null
+    try {
+      result = await saveCheckoutDetails(null, new FormData(form))
+    } catch (err) {
+      result =
+        err instanceof Error ? err.message : "Could not save delivery details."
+    } finally {
+      setIsSavingCheckoutDetails(false)
+    }
+
+    if (result) {
+      setCheckoutDetailsError(result)
+      return result
+    }
+
+    return null
+  }, [])
 
   useEffect(() => {
     if (activeSession?.provider_id) {
@@ -123,14 +158,28 @@ export default function CbaCheckoutTemplate({
 
       <div className="mt-10 grid grid-cols-1 gap-6 small:grid-cols-[minmax(0,1fr)_360px] medium:grid-cols-[minmax(0,1fr)_400px]">
         <section className="rounded-md border border-gray-100 bg-white p-5 shadow-sm small:p-7">
-          <ShippingInformationForm cart={cart} customer={customer} />
-          <DeliveryMethodSelector cart={cart} shippingMethods={shippingMethods} />
+          <ShippingInformationForm
+            cart={cart}
+            customer={customer}
+            formRef={addressFormRef}
+            error={checkoutDetailsError}
+            isSaving={isSavingCheckoutDetails}
+            saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+          />
+          <DeliveryMethodSelector
+            cart={cart}
+            shippingMethods={shippingMethods}
+            isSavingCheckoutDetails={isSavingCheckoutDetails}
+            saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+          />
           <PaymentMethodSelector
             cart={cart}
             paymentMethods={paymentMethods}
             selectedPaymentMethod={selectedPaymentMethod}
             setSelectedPaymentMethod={setSelectedPaymentMethod}
             setCardComplete={setCardComplete}
+            isSavingCheckoutDetails={isSavingCheckoutDetails}
+            saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
           />
         </section>
 
@@ -139,6 +188,8 @@ export default function CbaCheckoutTemplate({
             cart={cart as CbaCheckoutCart}
             cardComplete={cardComplete}
             selectedPaymentMethod={selectedPaymentMethod}
+            isSavingCheckoutDetails={isSavingCheckoutDetails}
+            saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
           />
         </aside>
       </div>
@@ -149,36 +200,39 @@ export default function CbaCheckoutTemplate({
 function ShippingInformationForm({
   cart,
   customer,
+  formRef,
+  error,
+  isSaving,
+  saveCurrentCheckoutDetails,
 }: {
   cart: HttpTypes.StoreCart
   customer: HttpTypes.StoreCustomer | null
+  formRef: RefObject<HTMLFormElement | null>
+  error: string | null
+  isSaving: boolean
+  saveCurrentCheckoutDetails: () => Promise<string | null>
 }) {
-  const router = useRouter()
   const initialFullName = [
     cart.shipping_address?.first_name,
     cart.shipping_address?.last_name,
   ]
     .filter(Boolean)
     .join(" ")
-  const [message, setMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const formData = new FormData(event.currentTarget)
-    setMessage(null)
     startTransition(async () => {
-      const result = await saveCheckoutDetails(null, formData)
-      if (result) {
-        setMessage(result)
-        return
-      }
-      router.refresh()
+      await saveCurrentCheckoutDetails()
     })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="border-b border-gray-100 pb-6">
+    <form
+      ref={formRef}
+      onSubmit={handleSubmit}
+      className="border-b border-gray-100 pb-6"
+    >
       <SectionTitle
         icon={<MapPin className="text-brand" />}
         title="Shipping Information"
@@ -272,16 +326,14 @@ function ShippingInformationForm({
           />
           Save this address for future orders
         </label>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="h-10 rounded-md bg-[#252a33] px-5 text-[14px] font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isPending ? "Saving..." : "Save delivery details"}
-        </button>
+        {(isSaving || isPending) && (
+          <span className="text-[13px] font-semibold text-[#6b7280]">
+            Saving delivery details...
+          </span>
+        )}
       </div>
-      {message && (
-        <p className="mt-3 text-small-regular text-red-600">{message}</p>
+      {error && (
+        <p className="mt-3 text-small-regular text-red-600">{error}</p>
       )}
     </form>
   )
@@ -335,9 +387,13 @@ function Field({
 function DeliveryMethodSelector({
   cart,
   shippingMethods,
+  isSavingCheckoutDetails,
+  saveCurrentCheckoutDetails,
 }: {
   cart: HttpTypes.StoreCart
   shippingMethods: HttpTypes.StoreCartShippingOption[]
+  isSavingCheckoutDetails: boolean
+  saveCurrentCheckoutDetails: () => Promise<string | null>
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -372,6 +428,13 @@ function DeliveryMethodSelector({
     setError(null)
     startTransition(async () => {
       try {
+        const checkoutDetailsError = await saveCurrentCheckoutDetails()
+        if (checkoutDetailsError) {
+          setSelected(cart.shipping_methods?.at(-1)?.shipping_option_id ?? "")
+          setError(checkoutDetailsError)
+          return
+        }
+
         await setShippingMethod({ cartId: cart.id, shippingMethodId: methodId })
         router.refresh()
       } catch (err) {
@@ -409,7 +472,9 @@ function DeliveryMethodSelector({
               role="radio"
               aria-checked={checked}
               onClick={() => selectMethod(method.id)}
-              disabled={isPending || method.insufficient_inventory}
+              disabled={
+                isPending || isSavingCheckoutDetails || method.insufficient_inventory
+              }
               className={`flex min-h-[66px] items-center gap-4 rounded-md border px-4 text-left transition ${
                 checked
                   ? "border-brand bg-brand/5"
@@ -454,12 +519,16 @@ function PaymentMethodSelector({
   selectedPaymentMethod,
   setSelectedPaymentMethod,
   setCardComplete,
+  isSavingCheckoutDetails,
+  saveCurrentCheckoutDetails,
 }: {
   cart: HttpTypes.StoreCart
   paymentMethods: HttpTypes.StorePaymentProvider[]
   selectedPaymentMethod: string
   setSelectedPaymentMethod: (method: string) => void
   setCardComplete: (complete: boolean) => void
+  isSavingCheckoutDetails: boolean
+  saveCurrentCheckoutDetails: () => Promise<string | null>
 }) {
   const router = useRouter()
   const activeSession = selectedPaymentSession(cart)
@@ -467,11 +536,19 @@ function PaymentMethodSelector({
   const [error, setError] = useState<string | null>(null)
 
   const selectPayment = (providerId: string) => {
+    const previousPaymentMethod = selectedPaymentMethod
     setSelectedPaymentMethod(providerId)
     setCardComplete(false)
     setError(null)
     startTransition(async () => {
       try {
+        const checkoutDetailsError = await saveCurrentCheckoutDetails()
+        if (checkoutDetailsError) {
+          setSelectedPaymentMethod(previousPaymentMethod)
+          setError(checkoutDetailsError)
+          return
+        }
+
         await initiatePaymentSession(cart, { provider_id: providerId })
         router.refresh()
       } catch (err) {
@@ -504,7 +581,7 @@ function PaymentMethodSelector({
                 role="radio"
                 aria-checked={checked}
                 onClick={() => selectPayment(method.id)}
-                disabled={isPending}
+                disabled={isPending || isSavingCheckoutDetails}
                 className={`flex min-h-[42px] w-full items-center gap-4 border-b border-gray-100 px-4 text-left last:border-b-0 ${
                   checked ? "bg-brand/5 ring-1 ring-inset ring-brand" : ""
                 } disabled:cursor-not-allowed disabled:opacity-60`}
@@ -551,10 +628,14 @@ function CheckoutOrderSummary({
   cart,
   selectedPaymentMethod,
   cardComplete,
+  isSavingCheckoutDetails,
+  saveCurrentCheckoutDetails,
 }: {
   cart: CbaCheckoutCart
   selectedPaymentMethod: string
   cardComplete: boolean
+  isSavingCheckoutDetails: boolean
+  saveCurrentCheckoutDetails: () => Promise<string | null>
 }) {
   const itemCount = cart.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
   const discount = cart.discount_subtotal ?? cart.discount_total ?? 0
@@ -620,6 +701,8 @@ function CheckoutOrderSummary({
             cart={cart}
             selectedPaymentMethod={selectedPaymentMethod}
             cardComplete={cardComplete}
+            isSavingCheckoutDetails={isSavingCheckoutDetails}
+            saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
           />
         </div>
       </section>
@@ -695,10 +778,14 @@ function PlaceOrderControl({
   cart,
   selectedPaymentMethod,
   cardComplete,
+  isSavingCheckoutDetails,
+  saveCurrentCheckoutDetails,
 }: {
   cart: HttpTypes.StoreCart
   selectedPaymentMethod: string
   cardComplete: boolean
+  isSavingCheckoutDetails: boolean
+  saveCurrentCheckoutDetails: () => Promise<string | null>
 }) {
   const activeSession = selectedPaymentSession(cart)
   const baseReady =
@@ -711,13 +798,19 @@ function PlaceOrderControl({
     return (
       <StripePlaceOrderButton
         cart={cart}
-        disabled={!baseReady || !cardComplete}
+        disabled={!baseReady || !cardComplete || isSavingCheckoutDetails}
+        saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
       />
     )
   }
 
   if (isManual(activeSession?.provider_id) || activeSession?.provider_id) {
-    return <ManualPlaceOrderButton disabled={!baseReady} />
+    return (
+      <ManualPlaceOrderButton
+        disabled={!baseReady || isSavingCheckoutDetails}
+        saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+      />
+    )
   }
 
   return (
@@ -740,9 +833,11 @@ function PlaceOrderControl({
 function StripePlaceOrderButton({
   cart,
   disabled,
+  saveCurrentCheckoutDetails,
 }: {
   cart: HttpTypes.StoreCart
   disabled: boolean
+  saveCurrentCheckoutDetails: () => Promise<string | null>
 }) {
   const stripe = useStripe()
   const elements = useElements()
@@ -755,6 +850,13 @@ function StripePlaceOrderButton({
   const submit = async () => {
     setIsPending(true)
     setError(null)
+    const checkoutDetailsError = await saveCurrentCheckoutDetails()
+    if (checkoutDetailsError) {
+      setError(checkoutDetailsError)
+      setIsPending(false)
+      return
+    }
+
     const card = elements?.getElement("card")
     if (!stripe || !elements || !card || !session?.data.client_secret) {
       setIsPending(false)
@@ -814,13 +916,26 @@ function StripePlaceOrderButton({
   )
 }
 
-function ManualPlaceOrderButton({ disabled }: { disabled: boolean }) {
+function ManualPlaceOrderButton({
+  disabled,
+  saveCurrentCheckoutDetails,
+}: {
+  disabled: boolean
+  saveCurrentCheckoutDetails: () => Promise<string | null>
+}) {
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const submit = async () => {
     setIsPending(true)
     setError(null)
+    const checkoutDetailsError = await saveCurrentCheckoutDetails()
+    if (checkoutDetailsError) {
+      setError(checkoutDetailsError)
+      setIsPending(false)
+      return
+    }
+
     await placeOrder().catch((err) => {
       setError(err instanceof Error ? err.message : "Could not place order.")
       setIsPending(false)
