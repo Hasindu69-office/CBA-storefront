@@ -4,7 +4,7 @@ WORKDIR /app
 ENV CI=true
 
 COPY package.json package-lock.json ./
-RUN npm ci --include=dev --no-audit --no-fund
+RUN npm install --include=dev --no-audit --no-fund
 
 FROM node:22.13.0-alpine AS builder
 
