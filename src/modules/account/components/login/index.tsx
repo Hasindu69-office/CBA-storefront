@@ -3,6 +3,7 @@
 import { login, startOAuthLogin } from "@lib/data/customer"
 import type { AccountAuthSettings, AuthProviderId } from "@lib/data/account-auth"
 import { LOGIN_VIEW } from "@modules/account/templates/login-template"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import type React from "react"
@@ -63,9 +64,9 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
             placeholder="Enter your password"
             icon="lock"
             aside={
-              <button type="button" className="text-[13px] font-semibold text-[#ff5c0e]">
+              <LocalizedClientLink href="/account/forgot-password" className="text-[13px] font-semibold text-[#ff5c0e]">
                 Forgot Password?
-              </button>
+              </LocalizedClientLink>
             }
           />
           <label className="flex items-center gap-3 text-[14px] font-medium text-[#555555]">

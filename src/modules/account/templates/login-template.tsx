@@ -7,6 +7,9 @@ import Register from "@modules/account/components/register"
 import Login from "@modules/account/components/login"
 import Image from "next/image"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import { usePathname, useSearchParams } from "next/navigation"
+import ForgotPasswordForm from "./forgot-password"
+import ResetPasswordForm from "./reset-password"
 
 export enum LOGIN_VIEW {
   SIGN_IN = "sign-in",
@@ -20,6 +23,10 @@ type Props = {
 
 const LoginTemplate = ({ settings, countryCode }: Props) => {
   const [currentView, setCurrentView] = useState("sign-in")
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const isForgotPassword = pathname.endsWith("/account/forgot-password")
+  const isResetPassword = pathname.endsWith("/account/reset-password")
 
   return (
     <div
@@ -43,7 +50,15 @@ const LoginTemplate = ({ settings, countryCode }: Props) => {
                 className="h-auto w-full object-contain object-left"
               />
             </LocalizedClientLink>
-            {currentView === "sign-in" ? (
+            {isForgotPassword ? (
+              <ForgotPasswordForm countryCode={countryCode} />
+            ) : isResetPassword ? (
+              <ResetPasswordForm
+                countryCode={countryCode}
+                token={searchParams.get("token") ?? ""}
+                email={searchParams.get("email") ?? ""}
+              />
+            ) : currentView === "sign-in" ? (
               <Login
                 setCurrentView={setCurrentView}
                 settings={settings}

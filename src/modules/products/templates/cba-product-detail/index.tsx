@@ -1,6 +1,7 @@
 "use client"
 
 import { addToCart } from "@lib/data/cart"
+import { requestBackInStock } from "@lib/data/back-in-stock"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import type { PdpBannerContent } from "@lib/data/pdp-banners"
 import type {
@@ -92,6 +93,12 @@ export default function CbaProductDetail({
   const [activeTab, setActiveTab] = useState("description")
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [actionState, setActionState] = useState<ActionState>({
+    type: null,
+    message: "",
+  })
+  const [waitlistEmail, setWaitlistEmail] = useState("")
+  const [waitlistConsent, setWaitlistConsent] = useState(false)
+  const [waitlistState, setWaitlistState] = useState<ActionState>({
     type: null,
     message: "",
   })
@@ -211,6 +218,42 @@ export default function CbaProductDetail({
         type: result.success ? "success" : "error",
         message: result.message,
       })
+    })
+  }
+
+  function submitBackInStock() {
+    const email = waitlistEmail.trim()
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+    if (!selectedVariant?.id || !isValidVariant) {
+      setWaitlistState({ type: "error", message: "Select the option you want." })
+      return
+    }
+    if (!emailValid) {
+      setWaitlistState({ type: "error", message: "Enter a valid email address." })
+      return
+    }
+    if (!waitlistConsent) {
+      setWaitlistState({ type: "error", message: "Confirm that we can email you about this item." })
+      return
+    }
+
+    const formData = new FormData()
+    formData.set("email", email)
+    formData.set("product_id", product.id)
+    formData.set("variant_id", selectedVariant.id)
+    formData.set("consent", "on")
+
+    startTransition(async () => {
+      const result = await requestBackInStock(null, formData)
+      setWaitlistState({
+        type: result.status === "success" ? "success" : "error",
+        message: result.message,
+      })
+      if (result.status === "success") {
+        setWaitlistEmail("")
+        setWaitlistConsent(false)
+      }
     })
   }
 
@@ -341,6 +384,53 @@ export default function CbaProductDetail({
               <ShoppingCartIcon size={16} />
               Add to cart
             </button>
+            {!inStock && selectedVariant?.id && isValidVariant && (
+              <div className="mt-4 rounded-base border border-gray-200 bg-white p-4">
+                <p className="text-xs font-black uppercase text-gray-700">
+                  Notify me when available
+                </p>
+                <div className="mt-3 space-y-3">
+                  <input
+                    type="email"
+                    value={waitlistEmail}
+                    onChange={(event) => setWaitlistEmail(event.target.value)}
+                    placeholder="Email address"
+                    className="h-11 w-full rounded-base border border-gray-200 px-3 text-sm outline-none focus:border-brand"
+                    autoComplete="email"
+                    disabled={isPending}
+                  />
+                  <label className="flex gap-2 text-xs leading-5 text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={waitlistConsent}
+                      onChange={(event) => setWaitlistConsent(event.target.checked)}
+                      className="mt-1"
+                      disabled={isPending}
+                    />
+                    Email me once for this item when it is available.
+                  </label>
+                  <button
+                    type="button"
+                    onClick={submitBackInStock}
+                    disabled={isPending}
+                    className="h-10 w-full rounded-base bg-brand text-xs font-bold uppercase text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Notify me
+                  </button>
+                  {waitlistState.message && (
+                    <p
+                      className={
+                        waitlistState.type === "success"
+                          ? "text-xs text-green-700"
+                          : "text-xs text-red-600"
+                      }
+                    >
+                      {waitlistState.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="mt-5 flex items-center justify-between text-xs text-gray-600">
               <button
                 type="button"

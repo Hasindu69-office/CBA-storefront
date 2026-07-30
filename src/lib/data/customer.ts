@@ -145,6 +145,54 @@ export async function login(_currentState: unknown, formData: FormData) {
   }
 }
 
+export async function requestPasswordReset(_currentState: unknown, formData: FormData) {
+  const email = text(formData.get("email")).toLowerCase()
+  if (!EMAIL_PATTERN.test(email)) {
+    return "Enter a valid email address."
+  }
+  try {
+    await sdk.client.fetch("/auth/customer/emailpass/reset-password", {
+      method: "POST",
+      body: { identifier: email },
+      cache: "no-store",
+    })
+  } catch (error) {
+    console.error("Password reset request failed.", safeServerError(error))
+  }
+  return "If an account exists for this email address, a password reset link will be sent."
+}
+
+export async function resetPassword(_currentState: unknown, formData: FormData) {
+  const email = text(formData.get("email")).toLowerCase()
+  const token = text(formData.get("token"))
+  const password = text(formData.get("password"))
+  const confirmPassword = text(formData.get("confirm_password"))
+  if (!EMAIL_PATTERN.test(email)) {
+    return "Enter a valid email address."
+  }
+  if (!/^[A-Za-z0-9._-]{20,2048}$/.test(token)) {
+    return "This password reset link is invalid."
+  }
+  if (!isStrongPassword(password)) {
+    return "Password must be at least 8 characters and include letters and numbers."
+  }
+  if (password !== confirmPassword) {
+    return "Passwords do not match."
+  }
+  try {
+    await sdk.client.fetch("/auth/customer/emailpass/update", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+      body: { email, password },
+      cache: "no-store",
+    })
+    return "Password updated. You can sign in with your new password."
+  } catch (error) {
+    console.error("Password reset update failed.", safeServerError(error))
+    return "We could not update the password. Request a new reset link and try again."
+  }
+}
+
 export async function startOAuthLogin(_currentState: unknown, formData: FormData) {
   const provider = text(formData.get("provider")) as OAuthProvider
   const countryCode = text(formData.get("country_code")) || "lk"
