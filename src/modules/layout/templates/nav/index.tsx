@@ -1,5 +1,9 @@
 import { listCategories } from "@lib/data/categories"
 import { listCartOptions, retrieveCart } from "@lib/data/cart"
+import {
+  navigationItemsToLinks,
+  retrieveCmsLayout,
+} from "@lib/data/cms-layout"
 import { retrieveWishlistCount } from "@lib/data/wishlist"
 import { HttpTypes, StoreCartShippingOption } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
@@ -39,11 +43,36 @@ function topLevelCategories(categories: HttpTypes.StoreProductCategory[]) {
   return categories.filter((category) => !category.parent_category).slice(0, 7)
 }
 
+function HeaderLink({
+  href,
+  className,
+  children,
+}: {
+  href: string
+  className?: string
+  children: React.ReactNode
+}) {
+  if (/^https?:\/\//i.test(href)) {
+    return (
+      <a href={href} className={className} rel="noopener noreferrer">
+        {children}
+      </a>
+    )
+  }
+
+  return (
+    <LocalizedClientLink href={href} className={className}>
+      {children}
+    </LocalizedClientLink>
+  )
+}
+
 export default async function Nav() {
-  const [categories, cart, wishlistCount] = await Promise.all([
+  const [categories, cart, wishlistCount, cmsLayout] = await Promise.all([
     listCategories().catch(() => []),
     retrieveCart().catch(() => null),
     retrieveWishlistCount().catch(() => 0),
+    retrieveCmsLayout(),
   ])
   let shippingOptions: StoreCartShippingOption[] = []
 
@@ -55,12 +84,17 @@ export default async function Nav() {
   }
 
   const navCategories = topLevelCategories(categories)
-  const navLinks = navCategories.length
+  const fallbackPrimaryLinks = navCategories.length
     ? navCategories.map((category) => ({
         label: category.name,
         href: `/categories/${category.handle}`,
       }))
     : fallbackNavLinks
+  const navLinks = navigationItemsToLinks(
+    cmsLayout.headerMenuItems,
+    categories,
+    fallbackPrimaryLinks
+  )
 
   const dropdownItems = navCategories.length
     ? navCategories.slice(0, 6).map((category) => ({
@@ -78,13 +112,15 @@ export default async function Nav() {
               <div className="flex items-center gap-2 whitespace-nowrap">
                 <PhoneIcon size={14} className="text-brand" strokeWidth={2} />
                 <span>
-                  Need Help ?{" "}
-                  <span className="text-brand font-medium">011 764 5200</span>
+                  {cmsLayout.header.help.label}{" "}
+                  <span className="text-brand font-medium">
+                    {cmsLayout.header.help.phone}
+                  </span>
                 </span>
               </div>
               <span className="hidden medium:block w-px h-3.5 bg-white" />
-              <a
-                href="#"
+              <HeaderLink
+                href={cmsLayout.header.help.support_url}
                 className="hidden medium:flex items-center gap-1.5 hover:text-white transition-colors"
               >
                 <HeadphonesIcon
@@ -92,15 +128,15 @@ export default async function Nav() {
                   className="text-brand"
                   strokeWidth={2}
                 />
-                <span>Support</span>
+                <span>{cmsLayout.header.help.support_label}</span>
                 <ChevronDownIcon size={14} className="text-gray-400" />
-              </a>
+              </HeaderLink>
             </div>
 
             <div className="hidden small:flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <TruckIcon size={14} strokeWidth={2} />
-                <span>Delivery Islandwide</span>
+                <span>{cmsLayout.header.topbar.delivery_label}</span>
               </div>
               <span className="w-px h-3.5 bg-white" />
               <a
@@ -108,24 +144,24 @@ export default async function Nav() {
                 className="flex items-center gap-1.5 hover:text-white transition-colors"
               >
                 <span className="inline-block w-[18px] h-[13px] rounded-sm overflow-hidden bg-[#002868] shadow-[inset_0_0_0_999px_rgba(255,255,255,0.02)]" />
-                <span>English</span>
+                <span>{cmsLayout.header.topbar.language_label}</span>
                 <ChevronDownIcon size={14} className="text-gray-400" />
               </a>
               <span className="w-px h-3.5 bg-white" />
-              <a
-                href="#"
+              <HeaderLink
+                href={cmsLayout.header.topbar.track_order_url}
                 className="flex items-center gap-1.5 hover:text-white transition-colors"
               >
                 <FileTextIcon size={14} strokeWidth={2} />
-                <span>Track Order</span>
-              </a>
+                <span>{cmsLayout.header.topbar.track_order_label}</span>
+              </HeaderLink>
               <span className="w-px h-3.5 bg-white" />
               <a
                 href="#"
                 className="flex items-center gap-1.5 hover:text-white transition-colors"
               >
                 <CoinsIcon size={14} strokeWidth={2} />
-                <span>LKR</span>
+                <span>{cmsLayout.header.topbar.currency_label}</span>
                 <ChevronDownIcon size={14} className="text-gray-400" />
               </a>
             </div>
@@ -134,16 +170,19 @@ export default async function Nav() {
 
         <div className="bg-white py-4 small:py-6">
           <div className="content-container flex flex-col small:flex-row small:items-center justify-between gap-5 medium:gap-12">
-            <LocalizedClientLink href="/" className="flex-shrink-0 self-start">
+            <HeaderLink
+              href={cmsLayout.header.logo.href}
+              className="flex-shrink-0 self-start"
+            >
               <Image
-                src="/images/ebizCBAlogo.png"
-                alt="CBA ebiz logo"
+                src={cmsLayout.header.logo.image_url}
+                alt={cmsLayout.header.logo.alt_text}
                 width={244}
                 height={104}
                 priority
                 className="w-[180px] small:w-[244px] h-auto"
               />
-            </LocalizedClientLink>
+            </HeaderLink>
 
             <div className="w-full small:flex-1 small:max-w-[600px]">
               <CbaSearchForm />
@@ -156,9 +195,11 @@ export default async function Nav() {
               >
                 <UserIcon size={26} strokeWidth={1.5} className="text-black" />
                 <div className="hidden medium:block leading-tight">
-                  <p className="font-semibold text-black text-[15px]">Account</p>
+                  <p className="font-semibold text-black text-[15px]">
+                    {cmsLayout.header.commerce.account_label}
+                  </p>
                   <p className="text-gray-400 text-[12px] mt-0.5">
-                    Sign In / Register
+                    {cmsLayout.header.commerce.account_hint}
                   </p>
                 </div>
               </LocalizedClientLink>
@@ -169,7 +210,9 @@ export default async function Nav() {
               >
                 <HeartIcon size={26} strokeWidth={1.5} className="text-black" />
                 <div className="hidden medium:block leading-tight">
-                  <p className="font-semibold text-black text-[15px]">Wishlist</p>
+                  <p className="font-semibold text-black text-[15px]">
+                    {cmsLayout.header.commerce.wishlist_label}
+                  </p>
                   <p className="text-gray-400 text-[12px] mt-0.5">
                     {wishlistCount} {wishlistCount === 1 ? "item" : "items"}
                   </p>
@@ -191,7 +234,9 @@ export default async function Nav() {
               <div className="bg-[#1f1a1a] text-white h-[46px] flex items-center px-5 cursor-pointer font-medium w-[220px] justify-between group relative rounded-md flex-shrink-0">
                 <div className="flex items-center gap-3">
                   <LayoutGridIcon size={18} />
-                  <span className="text-[14.5px]">All Categories</span>
+                  <span className="text-[14.5px]">
+                    {cmsLayout.header.commerce.all_categories_label}
+                  </span>
                 </div>
                 <ChevronDownIcon size={16} className="text-white/80" />
 
@@ -216,21 +261,21 @@ export default async function Nav() {
 
               <div className="flex items-center flex-1 px-4 small:px-6 font-medium text-[13px] text-[#2d2d2d] overflow-x-auto whitespace-nowrap no-scrollbar">
                 {navLinks.map((link) => (
-                  <LocalizedClientLink
+                  <HeaderLink
                     key={link.label}
                     href={link.href}
                     className="hover:text-brand transition-colors mx-3"
                   >
                     {link.label}
-                  </LocalizedClientLink>
+                  </HeaderLink>
                 ))}
 
-                <a
-                  href="#"
+                <HeaderLink
+                  href={cmsLayout.header.commerce.deals_url}
                   className="text-brand hover:text-brand-hover transition-colors mx-3 font-medium"
                 >
-                  Deals
-                </a>
+                  {cmsLayout.header.commerce.deals_label}
+                </HeaderLink>
               </div>
             </div>
           </div>
