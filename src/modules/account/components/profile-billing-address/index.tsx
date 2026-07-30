@@ -8,6 +8,7 @@ import NativeSelect from "@modules/common/components/native-select"
 import AccountInfo from "../account-info"
 import { HttpTypes } from "@medusajs/types"
 import { addCustomerAddress, updateCustomerAddress } from "@lib/data/customer"
+import { notify } from "@lib/notifications"
 
 type MyInformationProps = {
   customer: HttpTypes.StoreCustomer
@@ -59,6 +60,13 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
 
   useEffect(() => {
     setSuccessState(state.success)
+    if (state.success) {
+      notify.success("Billing address saved.", { id: "profile-billing-address" })
+    } else if (state.error) {
+      notify.error(state.error, "Could not save billing address.", {
+        id: "profile-billing-address",
+      })
+    }
   }, [state])
 
   const currentInfo = useMemo(() => {

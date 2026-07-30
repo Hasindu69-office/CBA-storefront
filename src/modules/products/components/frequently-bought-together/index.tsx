@@ -3,6 +3,7 @@
 import { addBundleToCart } from "@lib/data/cart"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import { addProductsToWishlist } from "@lib/data/wishlist"
+import { notify } from "@lib/notifications"
 import { openSideCart } from "@lib/util/side-cart-event"
 import BundleOfferPanel from "@modules/products/components/bundle-offer/bundle-offer-panel"
 import {
@@ -81,6 +82,7 @@ export default function FrequentlyBoughtTogether({
 
   function submitAddToCart() {
     if (!selectedItems.length) {
+      notify.error("Select at least one available product.")
       onActionMessage?.({
         type: "error",
         message: "Select at least one available product.",
@@ -89,6 +91,7 @@ export default function FrequentlyBoughtTogether({
     }
 
     if (selection.includeMain && (!mainValid || !mainPurchasable)) {
+      notify.error("Select a valid in-stock option for this item.")
       onActionMessage?.({
         type: "error",
         message: "Select a valid in-stock option for this item.",
@@ -98,6 +101,8 @@ export default function FrequentlyBoughtTogether({
 
     openSideCart({ pendingMessage: "Adding bundle to cart.", refresh: false })
     startTransition(async () => {
+      const toastId = "bundle-add-to-cart"
+      notify.loading("Adding bundle to cart...", { id: toastId })
       try {
         await addBundleToCart({
           items: selectedItems,
@@ -108,8 +113,10 @@ export default function FrequentlyBoughtTogether({
           message: "Bundle added to cart.",
         })
         openSideCart({ pendingMessage: "Updating cart.", refresh: true })
+        notify.success("Bundle added to cart.", { id: toastId })
       } catch (error) {
         openSideCart({ pendingMessage: null, refresh: false })
+        notify.error(error, "Could not add bundle.", { id: toastId })
         onActionMessage?.({
           type: "error",
           message:
@@ -121,6 +128,7 @@ export default function FrequentlyBoughtTogether({
 
   function submitWishlist() {
     if (!selectedItems.length) {
+      notify.error("Select at least one available product.")
       onActionMessage?.({
         type: "error",
         message: "Select at least one available product.",
@@ -129,6 +137,8 @@ export default function FrequentlyBoughtTogether({
     }
 
     startTransition(async () => {
+      const toastId = "bundle-add-to-wishlist"
+      notify.loading("Adding products to wishlist...", { id: toastId })
       const result = await addProductsToWishlist(
         selectedItems.map((item) => ({
           productId: item.productId,
@@ -137,8 +147,15 @@ export default function FrequentlyBoughtTogether({
       )
       onActionMessage?.({
         type: result.success ? "success" : "error",
-        message: result.message,
-      })
+          message: result.message,
+        })
+      if (result.success) {
+        notify.success(result.message, { id: toastId })
+      } else {
+        notify.error(result.message, "Could not add selected products to wishlist.", {
+          id: toastId,
+        })
+      }
     })
   }
 

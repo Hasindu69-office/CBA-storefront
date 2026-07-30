@@ -19,6 +19,8 @@ import {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_PATTERN = /^[+()\d\s-]{7,24}$/
+const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
+const POSTAL_CODE_PATTERN = /^[A-Za-z0-9\s-]{3,16}$/
 const OAUTH_PROVIDERS = ["google", "facebook", "apple"] as const
 type OAuthProvider = (typeof OAUTH_PROVIDERS)[number]
 
@@ -429,18 +431,23 @@ export const addCustomerAddress = async (
   const isDefaultShipping = (currentState.isDefaultShipping as boolean) || false
 
   const address = {
-    first_name: formData.get("first_name") as string,
-    last_name: formData.get("last_name") as string,
-    company: formData.get("company") as string,
-    address_1: formData.get("address_1") as string,
-    address_2: formData.get("address_2") as string,
-    city: formData.get("city") as string,
-    postal_code: formData.get("postal_code") as string,
-    province: formData.get("province") as string,
-    country_code: formData.get("country_code") as string,
-    phone: formData.get("phone") as string,
+    first_name: text(formData.get("first_name")),
+    last_name: text(formData.get("last_name")),
+    company: text(formData.get("company")),
+    address_1: text(formData.get("address_1")),
+    address_2: text(formData.get("address_2")),
+    city: text(formData.get("city")),
+    postal_code: text(formData.get("postal_code")),
+    province: text(formData.get("province")),
+    country_code: text(formData.get("country_code")).toLowerCase(),
+    phone: text(formData.get("phone")),
     is_default_billing: isDefaultBilling,
     is_default_shipping: isDefaultShipping,
+  }
+
+  const validationError = validateCustomerAddress(address)
+  if (validationError) {
+    return { success: false, error: validationError }
   }
 
   const headers = {
@@ -461,12 +468,16 @@ export const addCustomerAddress = async (
 
 export const deleteCustomerAddress = async (
   addressId: string
-): Promise<void> => {
+): Promise<{ success: boolean; error: string | null }> => {
+  if (!SAFE_MEDUSA_ID_PATTERN.test(addressId)) {
+    return { success: false, error: "Address ID is invalid" }
+  }
+
   const headers = {
     ...(await getAuthHeaders()),
   }
 
-  await sdk.store.customer
+  return await sdk.store.customer
     .deleteAddress(addressId, headers)
     .then(async () => {
       const customerCacheTag = await getCacheTag("customers")
@@ -485,26 +496,34 @@ export const updateCustomerAddress = async (
   const addressId =
     (currentState.addressId as string) || (formData.get("addressId") as string)
 
-  if (!addressId) {
-    return { success: false, error: "Address ID is required" }
+  if (!addressId || !SAFE_MEDUSA_ID_PATTERN.test(addressId)) {
+    return { success: false, error: "Address ID is invalid" }
   }
 
   const address = {
-    first_name: formData.get("first_name") as string,
-    last_name: formData.get("last_name") as string,
-    company: formData.get("company") as string,
-    address_1: formData.get("address_1") as string,
-    address_2: formData.get("address_2") as string,
-    city: formData.get("city") as string,
-    postal_code: formData.get("postal_code") as string,
-    province: formData.get("province") as string,
-    country_code: formData.get("country_code") as string,
+    first_name: text(formData.get("first_name")),
+    last_name: text(formData.get("last_name")),
+    company: text(formData.get("company")),
+    address_1: text(formData.get("address_1")),
+    address_2: text(formData.get("address_2")),
+    city: text(formData.get("city")),
+    postal_code: text(formData.get("postal_code")),
+    province: text(formData.get("province")),
+    country_code: text(formData.get("country_code")).toLowerCase(),
   } as HttpTypes.StoreUpdateCustomerAddress
 
-  const phone = formData.get("phone") as string
+  const phone = text(formData.get("phone"))
 
   if (phone) {
     address.phone = phone
+  }
+
+  const validationError = validateCustomerAddress({
+    ...address,
+    phone,
+  })
+  if (validationError) {
+    return { success: false, error: validationError }
   }
 
   const headers = {
@@ -521,4 +540,34 @@ export const updateCustomerAddress = async (
     .catch((err) => {
       return { success: false, error: err.toString() }
     })
+}
+
+function validateCustomerAddress(address: {
+  first_name?: string | null
+  last_name?: string | null
+  address_1?: string | null
+  city?: string | null
+  postal_code?: string | null
+  country_code?: string | null
+  phone?: string | null
+}) {
+  if (!address.first_name || !address.last_name) {
+    return "First name and last name are required."
+  }
+  if (!address.address_1) {
+    return "Street address is required."
+  }
+  if (!address.city) {
+    return "City is required."
+  }
+  if (!address.country_code) {
+    return "Country is required."
+  }
+  if (address.postal_code && !POSTAL_CODE_PATTERN.test(address.postal_code)) {
+    return "Enter a valid postal code."
+  }
+  if (address.phone && !PHONE_PATTERN.test(address.phone)) {
+    return "Enter a valid phone number."
+  }
+  return null
 }

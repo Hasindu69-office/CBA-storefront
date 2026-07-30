@@ -1,5 +1,6 @@
 import { getBaseURL } from "@lib/util/env"
 import { Metadata } from "next"
+import NotificationProvider from "@modules/common/components/notification-provider"
 import "styles/globals.css"
 
 export const metadata: Metadata = {
@@ -16,6 +17,7 @@ export default function RootLayout(props: { children: React.ReactNode }) {
     <html lang="en" data-mode="light">
       <body>
         <main className="relative w-full min-h-screen bg-white">{props.children}</main>
+        <NotificationProvider />
       </body>
     </html>
   )

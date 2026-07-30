@@ -2,6 +2,7 @@
 
 import { Dialog, Transition } from "@headlessui/react"
 import { applyPromotions, deleteLineItem, updateLineItem } from "@lib/data/cart"
+import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import {
   SIDE_CART_OPEN_EVENT,
@@ -302,10 +303,14 @@ function SideCartDrawer({
     }
 
     startCouponTransition(async () => {
+      const toastId = `side-cart-coupon:${normalizedCode}`
+      notify.loading("Applying coupon...", { id: toastId })
       try {
         await applyPromotions([...promotionCodes, normalizedCode])
         router.refresh()
+        notify.success("Coupon applied.", { id: toastId })
       } catch (error) {
+        notify.error(error, "Could not apply coupon.", { id: toastId })
         setCouponError(
           error instanceof Error ? error.message : "Could not apply coupon."
         )
@@ -321,12 +326,16 @@ function SideCartDrawer({
 
     setCouponError(null)
     startCouponTransition(async () => {
+      const toastId = `side-cart-coupon-remove:${code}`
+      notify.loading("Removing coupon...", { id: toastId })
       try {
         await applyPromotions(
           promotionCodes.filter((promotionCode) => promotionCode !== code)
         )
         router.refresh()
+        notify.success("Coupon removed.", { id: toastId })
       } catch (error) {
+        notify.error(error, "Could not remove coupon.", { id: toastId })
         setCouponError(
           error instanceof Error ? error.message : "Could not remove coupon."
         )
@@ -464,11 +473,19 @@ function SideCartItem({
     setDraftQuantity(item.quantity)
   }, [item.quantity])
 
-  const mutate = async (action: () => Promise<void>, removeOnSuccess = false) => {
+  const mutate = async (
+    action: () => Promise<void>,
+    removeOnSuccess = false,
+    successMessage = "Cart updated."
+  ) => {
     if (mutationInFlight.current) {
       return
     }
 
+    const toastId = `side-cart-item:${item.id}`
+    notify.loading(removeOnSuccess ? "Removing item..." : "Updating cart...", {
+      id: toastId,
+    })
     mutationInFlight.current = true
     setError(null)
     setIsPending(true)
@@ -482,7 +499,9 @@ function SideCartItem({
         onMutatingChange(false)
       }
       onUpdated()
+      notify.success(successMessage, { id: toastId })
     } catch (err) {
+      notify.error(err, "Could not update item.", { id: toastId })
       setError(err instanceof Error ? err.message : "Could not update item.")
       setDraftQuantity(item.quantity)
       setIsRemoved(false)
@@ -512,7 +531,9 @@ function SideCartItem({
       updateLineItem({
         lineId: item.id,
         quantity,
-      })
+      }),
+      false,
+      "Cart quantity updated."
     )
   }
 
@@ -521,7 +542,7 @@ function SideCartItem({
       return
     }
 
-    mutate(() => deleteLineItem(item.id), true)
+    mutate(() => deleteLineItem(item.id), true, "Item removed from cart.")
   }
 
   if (isRemoved) {

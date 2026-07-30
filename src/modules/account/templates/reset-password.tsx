@@ -1,9 +1,10 @@
 "use client"
 
 import { resetPassword } from "@lib/data/customer"
+import { notify } from "@lib/notifications"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import type React from "react"
-import { useActionState, useState } from "react"
+import { useActionState, useEffect, useState } from "react"
 
 export default function ResetPasswordForm({
   countryCode,
@@ -18,6 +19,19 @@ export default function ResetPasswordForm({
   const [message, formAction] = useActionState(resetPassword, null)
   const [clientError, setClientError] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (!message) {
+      return
+    }
+    if (String(message).startsWith("Password updated")) {
+      notify.success(message, { id: "reset-password" })
+    } else {
+      notify.error(message, "We could not update your password.", {
+        id: "reset-password",
+      })
+    }
+  }, [message])
+
   function validate(event: React.FormEvent<HTMLFormElement>) {
     const form = new FormData(event.currentTarget)
     const password = String(form.get("password") ?? "")
@@ -25,11 +39,19 @@ export default function ResetPasswordForm({
     if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
       event.preventDefault()
       setClientError("Password must be at least 8 characters and include letters and numbers.")
+      notify.error(
+        "Password must be at least 8 characters and include letters and numbers.",
+        "Password must be at least 8 characters and include letters and numbers.",
+        { id: "reset-password-validation" }
+      )
       return
     }
     if (password !== confirm) {
       event.preventDefault()
       setClientError("Passwords do not match.")
+      notify.error("Passwords do not match.", "Passwords do not match.", {
+        id: "reset-password-validation",
+      })
       return
     }
     setClientError(null)

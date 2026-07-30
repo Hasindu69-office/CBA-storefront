@@ -4,7 +4,7 @@ import React, { useEffect, useActionState } from "react"
 import Input from "@modules/common/components/input"
 import AccountInfo from "../account-info"
 import { HttpTypes } from "@medusajs/types"
-import { toast } from "@medusajs/ui"
+import { notify } from "@lib/notifications"
 
 type MyInformationProps = {
   customer: HttpTypes.StoreCustomer
@@ -15,7 +15,9 @@ const ProfilePassword: React.FC<MyInformationProps> = ({ customer }) => {
 
   // TODO: Add support for password updates
   const updatePassword = async () => {
-    toast.info("Password update is not implemented")
+    notify.info("Password update is not implemented.", {
+      id: "profile-password",
+    })
   }
 
   const clearState = () => {

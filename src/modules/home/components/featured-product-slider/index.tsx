@@ -9,6 +9,7 @@ import { useParams } from "next/navigation"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import { addToCart } from "@lib/data/cart"
 import { addFeaturedProductToWishlist } from "@lib/data/wishlist"
+import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import { openSideCart } from "@lib/util/side-cart-event"
 import PlaceholderImage from "@modules/common/icons/placeholder-image"
@@ -211,14 +212,18 @@ export const FeaturedProductCardItem = ({
 
     if (!product.default_variant?.id) {
       setStatusMessage("Please select a valid product.")
+      notify.error("Please select a valid product.")
       return
     }
 
     if (!isPurchasable) {
       setStatusMessage(inventoryLabel(product.inventory.status))
+      notify.warning(inventoryLabel(product.inventory.status))
       return
     }
 
+    const toastId = `featured-cart:${product.default_variant.id}`
+    notify.loading("Adding item to cart...", { id: toastId })
     openSideCart({ pendingMessage: "Adding item to cart.", refresh: false })
     setIsAddingToCart(true)
     setStatusMessage("")
@@ -231,8 +236,12 @@ export const FeaturedProductCardItem = ({
       })
       setStatusMessage("Added to cart.")
       openSideCart({ pendingMessage: "Updating cart.", refresh: true })
+      notify.success("Item added to cart.", { id: toastId })
     } catch (error) {
       openSideCart({ pendingMessage: null, refresh: false })
+      notify.error(error, "Could not add this item to your cart.", {
+        id: toastId,
+      })
       setStatusMessage(
         error instanceof Error ? error.message : "Could not add to cart."
       )
@@ -247,9 +256,12 @@ export const FeaturedProductCardItem = ({
 
     if (!product.default_variant?.id) {
       setStatusMessage("Please select a valid product.")
+      notify.error("Please select a valid product.")
       return
     }
 
+    const toastId = `featured-wishlist:${product.id}`
+    notify.loading("Adding item to wishlist...", { id: toastId })
     setIsAddingToWishlist(true)
     setStatusMessage("")
 
@@ -258,7 +270,15 @@ export const FeaturedProductCardItem = ({
       variantId: product.default_variant.id,
     })
 
-    setStatusMessage(result.message)
+    if (result.success) {
+      setStatusMessage("")
+      notify.success(result.message, { id: toastId })
+    } else {
+      setStatusMessage(result.message)
+      notify.error(result.message, "Could not add this item to wishlist.", {
+        id: toastId,
+      })
+    }
     setIsAddingToWishlist(false)
   }
 

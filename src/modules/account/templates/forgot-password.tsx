@@ -1,20 +1,30 @@
 "use client"
 
 import { requestPasswordReset } from "@lib/data/customer"
+import { notify } from "@lib/notifications"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import type React from "react"
-import { useActionState, useState } from "react"
+import { useActionState, useEffect, useState } from "react"
 
 export default function ForgotPasswordForm({ countryCode }: { countryCode: string }) {
   void countryCode
   const [message, formAction] = useActionState(requestPasswordReset, null)
   const [clientError, setClientError] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (message) {
+      notify.success(message, { id: "forgot-password" })
+    }
+  }, [message])
+
   function validate(event: React.FormEvent<HTMLFormElement>) {
     const email = String(new FormData(event.currentTarget).get("email") ?? "").trim()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       event.preventDefault()
       setClientError("Enter a valid email address.")
+      notify.error("Enter a valid email address.", "Enter a valid email address.", {
+        id: "forgot-password-validation",
+      })
       return
     }
     setClientError(null)

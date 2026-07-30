@@ -6,6 +6,7 @@ import Input from "@modules/common/components/input"
 
 import AccountInfo from "../account-info"
 import { HttpTypes } from "@medusajs/types"
+import { notify } from "@lib/notifications"
 // import { updateCustomer } from "@lib/data/customer"
 
 type MyInformationProps = {
@@ -43,6 +44,13 @@ const ProfileEmail: React.FC<MyInformationProps> = ({ customer }) => {
 
   useEffect(() => {
     setSuccessState(state.success)
+    if (state.success) {
+      notify.info("Email update is not connected yet.", { id: "profile-email" })
+    } else if (state.error) {
+      notify.error(state.error, "Could not update email address.", {
+        id: "profile-email",
+      })
+    }
   }, [state])
 
   return (

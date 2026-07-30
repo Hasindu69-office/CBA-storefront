@@ -4,6 +4,7 @@ import { HttpTypes } from "@medusajs/types"
 import Trash from "@modules/common/icons/trash"
 import { useState, useTransition } from "react"
 import { applyPromotions } from "@lib/data/cart"
+import { notify } from "@lib/notifications"
 import { useRouter } from "next/navigation"
 
 type CartCouponFormProps = {
@@ -45,10 +46,14 @@ export default function CartCouponForm({
     }
 
     startTransition(async () => {
+      const toastId = `cart-coupon:${normalizedCode}`
+      notify.loading("Applying coupon...", { id: toastId })
       try {
         await onApply(normalizedCode)
         setCode("")
+        notify.success("Coupon applied.", { id: toastId })
       } catch (err) {
+        notify.error(err, "Could not apply coupon.", { id: toastId })
         setError(err instanceof Error ? err.message : "Could not apply coupon.")
       }
     })
@@ -57,12 +62,16 @@ export default function CartCouponForm({
   const removeCode = (removedCode: string) => {
     setError(null)
     startTransition(async () => {
+      const toastId = `cart-coupon-remove:${removedCode}`
+      notify.loading("Removing coupon...", { id: toastId })
       try {
         await applyPromotions(
           promotionCodes.filter((promotionCode) => promotionCode !== removedCode)
         )
         router.refresh()
+        notify.success("Coupon removed.", { id: toastId })
       } catch (err) {
+        notify.error(err, "Could not remove coupon.", { id: toastId })
         setError(err instanceof Error ? err.message : "Could not remove coupon.")
       }
     })

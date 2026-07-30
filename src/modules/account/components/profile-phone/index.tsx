@@ -7,6 +7,7 @@ import Input from "@modules/common/components/input"
 import AccountInfo from "../account-info"
 import { HttpTypes } from "@medusajs/types"
 import { updateCustomer } from "@lib/data/customer"
+import { notify } from "@lib/notifications"
 
 type MyInformationProps = {
   customer: HttpTypes.StoreCustomer
@@ -42,6 +43,13 @@ const ProfileEmail: React.FC<MyInformationProps> = ({ customer }) => {
 
   useEffect(() => {
     setSuccessState(state.success)
+    if (state.success) {
+      notify.success("Phone number updated.", { id: "profile-phone" })
+    } else if (state.error) {
+      notify.error(state.error, "Could not update phone number.", {
+        id: "profile-phone",
+      })
+    }
   }, [state])
 
   return (
