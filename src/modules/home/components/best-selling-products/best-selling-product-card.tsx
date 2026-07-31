@@ -1,6 +1,6 @@
 "use client"
 
-import { MouseEvent, useState } from "react"
+import { MouseEvent, ReactNode, useState } from "react"
 import Image from "next/image"
 import { useParams } from "next/navigation"
 
@@ -31,32 +31,28 @@ const BestSellingProductCard = ({
   const countryCode = useParams().countryCode as string
   const [isAddingToCart, setIsAddingToCart] = useState(false)
   const [isAddingToWishlist, setIsAddingToWishlist] = useState(false)
-  const [statusMessage, setStatusMessage] = useState("")
 
   const isPurchasable =
     !!product.default_variant?.id &&
     product.inventory.purchasable &&
     product.price.status === "available"
   const displayBadges = product.badges
-    .filter((badge) => !isFeaturedBadge(badge))
+    .filter((badge) => !isFeaturedBadge(badge) && !isBenefitBadge(badge))
     .slice(0, 1)
+  const benefitItems = productCardBenefits(product)
   const sizeClassName =
-    variant === "flat"
-      ? "h-[348px] w-full max-w-[210px] flex-none small:h-[356px] medium:h-[342px] medium:max-w-[170px] large:max-w-[184px]"
-      : "h-[360px] w-[208px] flex-none small:h-[368px] small:w-full small:max-w-[184px] medium:h-[356px] medium:max-w-[178px] large:max-w-[190px]"
+    "h-[400px] w-[220px] min-w-0 flex-none snap-start medium:h-full medium:w-full"
 
   const handleAddToCart = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
     event.stopPropagation()
 
     if (!product.default_variant?.id) {
-      setStatusMessage("Please select a valid product.")
       notify.error("Please select a valid product.")
       return
     }
 
     if (!isPurchasable) {
-      setStatusMessage(inventoryLabel(product.inventory.status))
       notify.warning(inventoryLabel(product.inventory.status))
       return
     }
@@ -65,7 +61,6 @@ const BestSellingProductCard = ({
     notify.loading("Adding item to cart...", { id: toastId })
     openSideCart({ pendingMessage: "Adding item to cart.", refresh: false })
     setIsAddingToCart(true)
-    setStatusMessage("")
 
     try {
       await addToCart({
@@ -73,7 +68,6 @@ const BestSellingProductCard = ({
         quantity: 1,
         countryCode,
       })
-      setStatusMessage("Added to cart.")
       openSideCart({ pendingMessage: "Updating cart.", refresh: true })
       notify.success("Item added to cart.", { id: toastId })
     } catch (error) {
@@ -81,9 +75,6 @@ const BestSellingProductCard = ({
       notify.error(error, "Could not add this item to your cart.", {
         id: toastId,
       })
-      setStatusMessage(
-        error instanceof Error ? error.message : "Could not add to cart."
-      )
     } finally {
       setIsAddingToCart(false)
     }
@@ -94,7 +85,6 @@ const BestSellingProductCard = ({
     event.stopPropagation()
 
     if (!product.default_variant?.id) {
-      setStatusMessage("Please select a valid product.")
       notify.error("Please select a valid product.")
       return
     }
@@ -102,7 +92,6 @@ const BestSellingProductCard = ({
     const toastId = `best-selling-wishlist:${product.id}`
     notify.loading("Adding item to wishlist...", { id: toastId })
     setIsAddingToWishlist(true)
-    setStatusMessage("")
 
     const result = await addFeaturedProductToWishlist({
       productId: product.product_id ?? product.id,
@@ -110,10 +99,8 @@ const BestSellingProductCard = ({
     })
 
     if (result.success) {
-      setStatusMessage("")
       notify.success(result.message, { id: toastId })
     } else {
-      setStatusMessage(result.message)
       notify.error(result.message, "Could not add this item to wishlist.", {
         id: toastId,
       })
@@ -124,13 +111,13 @@ const BestSellingProductCard = ({
   return (
     <article
       data-best-selling-product-card
-      className={`group flex ${sizeClassName} snap-start flex-col overflow-hidden rounded-[8px] border border-[#ededed] bg-white transition-shadow ${
+      className={`group flex ${sizeClassName} flex-col overflow-hidden rounded-[8px] border border-[#ededed] bg-white transition-shadow ${
         variant === "flat"
           ? "shadow-none hover:shadow-none"
           : "shadow-[0_12px_28px_rgba(0,0,0,0.16)] hover:shadow-[0_0_24px_rgba(255,92,24,0.72)]"
       }`}
     >
-      <div className="relative h-[144px] flex-shrink-0 overflow-hidden rounded-t-[8px] border-b border-[#f0f0f0] bg-white small:h-[148px] medium:h-[136px] large:h-[144px]">
+      <div className="relative aspect-[4/3] w-full flex-shrink-0 overflow-hidden rounded-t-[8px] border-b border-[#f0f0f0] bg-white">
         <LocalizedClientLink
           href={`/products/${product.handle}`}
           className="block h-full w-full"
@@ -142,7 +129,7 @@ const BestSellingProductCard = ({
               alt={product.thumbnail.alt || product.title}
               fill
               priority={priority}
-              sizes="(min-width: 1280px) 170px, 210px"
+              sizes="(min-width: 1280px) 20vw, 220px"
               className="object-contain object-center p-3.5 transition-transform duration-300 group-hover:scale-[1.03] medium:p-3 large:p-4"
             />
           ) : (
@@ -179,7 +166,28 @@ const BestSellingProductCard = ({
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col px-3 py-3 large:px-3.5">
+      {benefitItems.length ? (
+        <div className="flex h-8 flex-shrink-0 items-center justify-center overflow-hidden bg-[#fff3ed] px-2.5 text-[#ff5c0e]">
+          {benefitItems.map((item, index) => (
+            <div
+              key={item.key}
+              className="flex min-w-0 flex-1 translate-y-px items-center justify-center gap-1.5 px-1.5"
+            >
+              {index > 0 && (
+                <span className="mr-1.5 h-4 w-px flex-shrink-0 bg-[#ffc5ae]" />
+              )}
+              {item.icon}
+              <span className="truncate text-[9px] font-bold uppercase leading-3">
+                {item.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div aria-hidden="true" className="h-8 flex-shrink-0" />
+      )}
+
+      <div className="flex min-h-0 flex-1 flex-col px-3 py-2.5 large:px-3.5">
         <div className="flex min-h-[20px] items-center gap-2">
           {product.brand?.logo_url ? (
             <span className="relative block h-[18px] w-[50px] flex-shrink-0">
@@ -208,29 +216,28 @@ const BestSellingProductCard = ({
 
         <LocalizedClientLink
           href={`/products/${product.handle}`}
-          className="mt-1.5 block focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className="mt-1 block focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
-          <h3 className="line-clamp-2 min-h-[40px] text-[13px] font-bold leading-5 tracking-normal text-black large:text-[14px]">
+          <h3 className="line-clamp-2 min-h-[40px] text-[13px] font-bold leading-5 tracking-normal text-black medium:text-[14px] large:text-[15px]">
             {product.title}
           </h3>
         </LocalizedClientLink>
 
-        <div className="mt-1.5 flex min-h-[20px] items-center gap-1.5">
+        <div className="mt-1 flex min-h-[20px] items-center justify-between gap-2">
           <ProductRating rating={product.rating} />
+          <span
+            className={`line-clamp-1 flex-shrink-0 text-[10px] leading-4 ${
+              product.inventory.in_stock || product.inventory.allow_backorder
+                ? "text-[#69be3b]"
+                : "text-[#a1a1aa]"
+            }`}
+          >
+            <span className="mr-1 inline-block h-2 w-2 rounded-full bg-current" />
+            {inventoryLabel(product.inventory.status)}
+          </span>
         </div>
 
-        <div
-          className={`mt-1 line-clamp-1 text-[10px] leading-4 ${
-            product.inventory.in_stock || product.inventory.allow_backorder
-              ? "text-[#69be3b]"
-              : "text-[#a1a1aa]"
-          }`}
-        >
-          <span className="mr-1 inline-block h-2 w-2 rounded-full bg-current" />
-          {inventoryLabel(product.inventory.status)}
-        </div>
-
-        <div className="mt-auto -mx-3 flex min-h-[58px] items-center justify-between gap-2 border-t border-[#e5e7eb] px-3 pt-2 large:-mx-3.5 large:px-3.5">
+        <div className="mt-auto -mx-3 flex min-h-[52px] items-center justify-between gap-2 border-t border-[#e5e7eb] px-3 pt-2 large:-mx-3.5 large:px-3.5">
           <ProductCardPrice product={product} />
           <button
             type="button"
@@ -243,20 +250,6 @@ const BestSellingProductCard = ({
             <ShoppingCartIcon size={15} />
           </button>
         </div>
-
-        {statusMessage && (
-          <p
-            aria-live="polite"
-            className={`mt-1 text-[9px] leading-[13px] ${
-              statusMessage.toLowerCase().includes("could not") ||
-              statusMessage.toLowerCase().includes("invalid")
-                ? "text-[#dc2626]"
-                : "text-[#52525b]"
-            }`}
-          >
-            {statusMessage}
-          </p>
-        )}
       </div>
     </article>
   )
@@ -292,7 +285,7 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
     product.price.calculated_amount === null
   ) {
     return (
-      <p className="min-w-0 flex-1 text-[11px] font-bold leading-4 text-black">
+      <p className="min-w-0 flex-1 text-[11px] font-bold leading-4 text-black medium:text-[12px]">
         Contact for price
       </p>
     )
@@ -300,7 +293,7 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
 
   return (
     <span className="flex min-w-0 flex-1 flex-col">
-      <span className="whitespace-normal break-words text-[11px] font-bold leading-4 text-black large:text-[12px]">
+      <span className="whitespace-normal break-words text-[11px] font-bold leading-4 text-black medium:text-[12px]">
         {convertToLocale({
           amount: product.price.calculated_amount,
           currency_code: product.price.currency_code,
@@ -367,5 +360,81 @@ function inventoryLabel(status: FeaturedProductCard["inventory"]["status"]) {
   }
   return "Availability pending"
 }
+
+function isBenefitBadge(badge: FeaturedProductCard["badges"][number]) {
+  const key = normalizeBadgeValue(badge.key)
+  return key === "free-shipping"
+}
+
+function productCardBenefits(product: FeaturedProductCard) {
+  const benefits: Array<{
+    key: string
+    label: string
+    icon: ReactNode
+  }> = []
+
+  if (product.benefits?.free_delivery || hasFreeShippingBadge(product.badges)) {
+    benefits.push({
+      key: "free-delivery",
+      label: "Free Delivery",
+      icon: <DeliveryIcon />,
+    })
+  }
+
+  if (product.benefits?.warranty?.label) {
+    benefits.push({
+      key: "warranty",
+      label: product.benefits.warranty.label,
+      icon: <WarrantyIcon />,
+    })
+  }
+
+  return benefits
+}
+
+function hasFreeShippingBadge(badges: FeaturedProductCard["badges"]) {
+  return badges.some(
+    (badge) => normalizeBadgeValue(badge.key) === "free-shipping"
+  )
+}
+
+function normalizeBadgeValue(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : ""
+}
+
+const DeliveryIcon = () => (
+  <svg
+    aria-hidden="true"
+    className="h-4 w-4 flex-shrink-0"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 7h11v9H3z" />
+    <path d="M14 10h3l3 3v3h-6z" />
+    <circle cx="7" cy="18" r="2" />
+    <circle cx="17" cy="18" r="2" />
+    <path d="M5 5h6" />
+  </svg>
+)
+
+const WarrantyIcon = () => (
+  <svg
+    aria-hidden="true"
+    className="h-4 w-4 flex-shrink-0"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 3l7 3v5c0 4.5-2.8 8.4-7 10-4.2-1.6-7-5.5-7-10V6z" />
+    <path d="M9 12l2 2 4-5" />
+  </svg>
+)
 
 export default BestSellingProductCard
