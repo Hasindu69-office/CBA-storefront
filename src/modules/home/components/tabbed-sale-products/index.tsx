@@ -3,7 +3,10 @@ import {
   listTabbedSaleProductCards,
   type TabbedSaleProductSourceType,
 } from "@lib/data/tabbed-sale-products"
-import type { FeaturedProductCard } from "@lib/data/featured-products"
+import {
+  listFeaturedProductCards,
+  type FeaturedProductCard,
+} from "@lib/data/featured-products"
 import type { HomepageCmsSection } from "@lib/data/homepage"
 import TabbedSaleProductsClient from "./tabbed-sale-products-client"
 
@@ -77,12 +80,15 @@ const TabbedSaleProductsSection = async ({
         TAB_CONFIG.map(async (tab) => {
           const tabConfig = tabSourceConfig(section.config?.tabs, tab.key)
 
-          const products = await listTabbedSaleProductCards({
-            tabKey: tab.key,
-            sourceType: tabConfig.sourceType,
-            sourceId: tabConfig.sourceId,
-            limit,
-          }).catch(() => [])
+          const products =
+            tab.key === "featured" && !tabConfig.sourceId
+              ? await listFeaturedProductCards(limit).catch(() => [])
+              : await listTabbedSaleProductCards({
+                  tabKey: tab.key,
+                  sourceType: tabConfig.sourceType,
+                  sourceId: tabConfig.sourceId,
+                  limit,
+                }).catch(() => [])
 
           return { ...tab, products }
         })
