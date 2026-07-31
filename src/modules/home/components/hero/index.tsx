@@ -79,9 +79,9 @@ const Hero = ({ sections }: HeroProps) => {
 
   return (
     <section className="w-full bg-white pt-2 sm:pt-3">
-      <div className="mx-auto w-[92%] max-w-[1520px]">
+      <div className="content-container">
         <div
-          className="relative isolate aspect-[1728/590] min-h-[430px] overflow-visible text-white sm:min-h-[450px] lg:min-h-0"
+          className="relative isolate aspect-[1839/710] min-h-[430px] overflow-visible text-white sm:min-h-[450px] lg:min-h-0"
           aria-roledescription="carousel"
           aria-label="Homepage featured banners"
         >
@@ -89,11 +89,11 @@ const Hero = ({ sections }: HeroProps) => {
             className="absolute inset-0 z-10 overflow-hidden bg-black"
             style={{
               WebkitMaskImage: "url('/images/homepagebanner-01.svg')",
-              WebkitMaskSize: "100% 152%",
+              WebkitMaskSize: "104.5% auto",
               WebkitMaskPosition: "center 47.6%",
               WebkitMaskRepeat: "no-repeat",
               maskImage: "url('/images/homepagebanner-01.svg')",
-              maskSize: "100% 152%",
+              maskSize: "104.5% auto",
               maskPosition: "center 47.6%",
               maskRepeat: "no-repeat",
             }}

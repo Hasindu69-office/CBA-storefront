@@ -41,8 +41,8 @@ const BrandAutoSlider = async ({ sections }: BrandAutoSliderProps) => {
 
   return (
     <section className="bg-white pb-8 pt-2 small:pb-10" aria-label="Featured brands">
-      <div className="content-container">
-        <div className="mx-auto max-w-[1240px] overflow-hidden rounded-[4px] border border-[#e2e2e2] bg-white px-4 py-5 small:px-8">
+      <div className="mx-auto w-[92%] small:w-[90%]">
+        <div className="w-full overflow-hidden rounded-[4px] border border-[#e2e2e2] bg-white px-4 py-5 small:px-8">
           <div
             className={[
               "brand-slider-track flex items-center",

@@ -133,7 +133,7 @@
   }
 
   .content-container {
-    @apply w-[92%] small:w-[80%] max-w-[1440px] mx-auto;
+    @apply w-[92%] small:w-[90%] max-w-[1440px] mx-auto;
   }
 
   .contrast-btn {
