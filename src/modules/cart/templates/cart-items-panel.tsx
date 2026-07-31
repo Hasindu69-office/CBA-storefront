@@ -1,6 +1,7 @@
 "use client"
 
 import { applyPromotions, updateLineItem } from "@lib/data/cart"
+import { manualCodesWithNewCoupon } from "@lib/util/coupon-promotions"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { ArrowPath, ArrowLeft } from "@medusajs/icons"
@@ -78,12 +79,7 @@ export default function CartItemsPanel({ cart }: CartItemsPanelProps) {
   }
 
   const applyCoupon = async (code: string) => {
-    const existingCodes =
-      cart.promotions
-        ?.map((promotion) => promotion.code)
-        .filter((code): code is string => Boolean(code)) ?? []
-
-    await applyPromotions([...existingCodes, code])
+    await applyPromotions(manualCodesWithNewCoupon(cart.promotions, code))
     router.refresh()
   }
 

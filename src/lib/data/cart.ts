@@ -8,6 +8,10 @@ import { redirect } from "next/navigation"
 import { getStoreCountryCode, localizedPath } from "@lib/util/routes"
 import { listProductCardsByIds } from "@lib/data/tabbed-sale-products"
 import {
+  normalizePromotionCodes,
+  safePromotionError,
+} from "@lib/util/promotions"
+import {
   getAuthHeaders,
   getCacheOptions,
   getCacheTag,
@@ -19,7 +23,6 @@ import { getRegion } from "./regions"
 import { getLocale } from "@lib/data/locale-actions"
 
 const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
-const SAFE_PROMOTION_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{0,63}$/
 
 function assertSafeMedusaId(id: string, label: string) {
   if (!SAFE_MEDUSA_ID_PATTERN.test(id)) {
@@ -31,26 +34,6 @@ function assertSafeQuantity(quantity: number) {
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
     throw new Error("Quantity must be between 1 and 99")
   }
-}
-
-function normalizePromotionCodes(codes: string[]) {
-  const normalizedCodes = codes
-    .map((code) => code.trim().toUpperCase())
-    .filter(Boolean)
-
-  const uniqueCodes = Array.from(new Set(normalizedCodes))
-
-  if (uniqueCodes.length !== normalizedCodes.length) {
-    throw new Error("Promotion code is already applied")
-  }
-
-  for (const code of uniqueCodes) {
-    if (!SAFE_PROMOTION_CODE_PATTERN.test(code)) {
-      throw new Error("Promotion code is invalid")
-    }
-  }
-
-  return uniqueCodes
 }
 
 function stringField(formData: FormData, name: string) {
@@ -426,14 +409,35 @@ export async function applyPromotions(codes: string[]) {
 
   return sdk.store.cart
     .update(cartId, { promo_codes: promoCodes }, {}, headers)
-    .then(async () => {
+    .then(async (response) => {
+      const updatedCart =
+        response?.cart ?? (await retrieveCart(cartId, "*promotions"))
+      const appliedCodes =
+        updatedCart?.promotions
+          ?.map((promotion) => promotion.code)
+          .filter((code): code is string => Boolean(code))
+          .map((code) => code.toUpperCase()) ?? []
+      const missingCodes = promoCodes.filter(
+        (code) => !appliedCodes.includes(code.toUpperCase())
+      )
+
+      if (missingCodes.length > 0) {
+        throw new Error(
+          missingCodes.length === 1
+            ? "This coupon code is invalid or not eligible for your cart."
+            : "One or more coupon codes are invalid or not eligible for your cart."
+        )
+      }
+
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
 
       const fulfillmentCacheTag = await getCacheTag("fulfillment")
       revalidateTag(fulfillmentCacheTag)
     })
-    .catch(medusaError)
+    .catch((error) => {
+      throw safePromotionError(error)
+    })
 }
 
 export async function applyGiftCard(code: string) {

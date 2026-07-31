@@ -36,8 +36,27 @@ export default function CartSummaryPanel({
     cart.items?.reduce((total, item) => total + item.quantity, 0) ?? 0
   const disabled = hasDirtyQuantities || isUpdating
   const checkoutHref = `/checkout?step=${getCheckoutStep(cart)}`
-  const discount = totals.discount_subtotal ?? cart.discount_total ?? 0
-  const shipping = cart.shipping_subtotal ?? 0
+  const subtotal = cart.item_subtotal ?? cart.subtotal ?? 0
+  const shippingBeforeDiscount =
+    cart.shipping_subtotal ?? cart.shipping_total ?? 0
+  const shippingAfterDiscount = cart.shipping_total ?? shippingBeforeDiscount
+  const shippingDiscount = Math.max(
+    shippingBeforeDiscount - shippingAfterDiscount,
+    0
+  )
+  const inferredDiscount = Math.max(
+    subtotal + shippingBeforeDiscount - (cart.total ?? 0),
+    0
+  )
+  const totalDiscount = Math.max(
+    totals.discount_subtotal ?? 0,
+    cart.discount_total ?? 0,
+    inferredDiscount
+  )
+  const productDiscount = Math.max(totalDiscount - shippingDiscount, 0)
+  const hasAutomaticPromotions = Boolean(
+    cart.promotions?.some((promotion) => promotion.is_automatic)
+  )
 
   return (
     <section className="rounded-md border border-gray-100 bg-white p-6 shadow-sm">
@@ -46,24 +65,39 @@ export default function CartSummaryPanel({
         <div className="flex items-start justify-between gap-4">
           <span className="text-[#111111]">Subtotal ({itemCount} items)</span>
           <span className="font-medium text-[#333740]">
-            {money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)}
+            {money(subtotal, cart.currency_code)}
           </span>
         </div>
-        <div className="flex items-start justify-between gap-4">
-          <span className="text-[#111111]">Discount</span>
-          <span className="font-medium text-brand">
-            {discount > 0
-              ? `-${money(discount, cart.currency_code)}`
-              : money(0, cart.currency_code)}
-          </span>
-        </div>
+        {productDiscount > 0 && (
+          <div className="flex items-start justify-between gap-4">
+            <span className="text-[#111111]">
+              {hasAutomaticPromotions ? "Store discount" : "Discount"}
+            </span>
+            <span className="font-medium text-brand">
+              -{money(productDiscount, cart.currency_code)}
+            </span>
+          </div>
+        )}
         <div className="flex items-start justify-between gap-4">
           <span className="text-[#111111]">Shipping</span>
-          <span className="text-right font-medium text-[#333740]">
-            {money(shipping, cart.currency_code)}
-            {shipping <= 0 && (
+          <span className="text-right">
+            {shippingDiscount > 0 && (
+              <span className="block text-[13px] font-medium text-[#8b90a0] line-through">
+                {money(shippingBeforeDiscount, cart.currency_code)}
+              </span>
+            )}
+            <span
+              className={`font-medium ${
+                shippingDiscount > 0 ? "text-[#27a137]" : "text-[#333740]"
+              }`}
+            >
+              {shippingAfterDiscount <= 0
+                ? "Free"
+                : money(shippingAfterDiscount, cart.currency_code)}
+            </span>
+            {shippingDiscount > 0 && (
               <span className="mt-1 block text-[12px] font-semibold text-[#27a137]">
-                Free shipping
+                Free shipping applied
               </span>
             )}
           </span>

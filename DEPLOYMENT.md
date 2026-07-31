@@ -62,6 +62,16 @@ cd storefront
 npm run build
 ```
 
+Note: the current `npm run lint` command fails in the existing Next/ESLint setup before Phase 3B code. Treat `npm run build` as the current successful storefront gate until lint tooling is repaired.
+
+Before promotion/coupon testing, seed and verify backend Phase 3B fixtures:
+
+```bash
+cd ../backend
+npm run seed:cba:test-promotions
+npm run verify:cba:phase-3b
+```
+
 From the repository root, test the Docker build:
 
 ```bash
@@ -73,4 +83,6 @@ After deploying in Coolify:
 - Open the generated storefront URL.
 - Confirm `/` redirects to a valid country route.
 - Confirm a store or product page loads.
+- Add and remove a development coupon such as `CBA3B_PERCENT10` in cart/checkout if test fixtures are seeded.
+- Confirm discount totals shown in cart, checkout, and order confirmation match backend cart/order totals.
 - Check Coolify logs for missing environment variables or backend connectivity failures.
