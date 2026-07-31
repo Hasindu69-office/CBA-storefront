@@ -8,6 +8,7 @@ import {
   type Wishlist,
   type WishlistItem,
 } from "@lib/data/wishlist"
+import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import { openSideCart } from "@lib/util/side-cart-event"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
@@ -52,6 +53,13 @@ export default function WishlistTemplate({
   function setStatus(type: "success" | "error", text: string) {
     setMessageType(type)
     setMessage(text)
+    if (type === "success") {
+      notify.success(text, { id: "wishlist-action" })
+    } else {
+      notify.error(text, "Wishlist request could not be completed.", {
+        id: "wishlist-action",
+      })
+    }
   }
 
   function toggleItem(id: string) {
@@ -102,6 +110,9 @@ export default function WishlistTemplate({
     }
     openSideCart({ pendingMessage: "Adding item to cart.", refresh: false })
     startTransition(async () => {
+      notify.loading("Adding wishlist items to cart...", {
+        id: "wishlist-add-to-cart",
+      })
       const result = await addWishlistItemsToCart({
         countryCode,
         items: addable.map((item) => ({
@@ -110,6 +121,7 @@ export default function WishlistTemplate({
         })),
       })
       setStatus(result.success ? "success" : "error", result.message)
+      notify.dismiss("wishlist-add-to-cart")
       if (result.success) {
         openSideCart({ pendingMessage: "Updating cart.", refresh: true })
       } else {

@@ -1,6 +1,7 @@
 "use client"
 
 import { addToCart } from "@lib/data/cart"
+import { requestBackInStock } from "@lib/data/back-in-stock"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import type { PdpBannerContent } from "@lib/data/pdp-banners"
 import type {
@@ -8,6 +9,7 @@ import type {
   ProductReviewsResponse,
 } from "@lib/data/product-detail"
 import { addProductToWishlist } from "@lib/data/wishlist"
+import { notify } from "@lib/notifications"
 import { getProductPrice } from "@lib/util/get-product-price"
 import { convertToLocale } from "@lib/util/money"
 import { openSideCart } from "@lib/util/side-cart-event"
@@ -95,6 +97,12 @@ export default function CbaProductDetail({
     type: null,
     message: "",
   })
+  const [waitlistEmail, setWaitlistEmail] = useState("")
+  const [waitlistConsent, setWaitlistConsent] = useState(false)
+  const [waitlistState, setWaitlistState] = useState<ActionState>({
+    type: null,
+    message: "",
+  })
   const [isPending, startTransition] = useTransition()
 
   const selectedVariant = useMemo(() => {
@@ -165,16 +173,20 @@ export default function CbaProductDetail({
 
   function submitAddToCart() {
     if (!selectedVariant?.id || !isValidVariant) {
+      notify.error("Select a valid product option.")
       setActionState({ type: "error", message: "Select a valid product option." })
       return
     }
     if (!inStock) {
+      notify.error("This selection is out of stock.")
       setActionState({ type: "error", message: "This selection is out of stock." })
       return
     }
 
     openSideCart({ pendingMessage: "Adding item to cart.", refresh: false })
     startTransition(async () => {
+      const toastId = `pdp-add-to-cart:${selectedVariant.id}`
+      notify.loading("Adding item to cart...", { id: toastId })
       try {
         await addToCart({
           variantId: selectedVariant.id,
@@ -183,8 +195,12 @@ export default function CbaProductDetail({
         })
         setActionState({ type: "success", message: "Added to cart." })
         openSideCart({ pendingMessage: "Updating cart.", refresh: true })
+        notify.success("Item added to cart.", { id: toastId })
       } catch (error) {
         openSideCart({ pendingMessage: null, refresh: false })
+        notify.error(error, "Could not add this item to your cart.", {
+          id: toastId,
+        })
         setActionState({
           type: "error",
           message: error instanceof Error ? error.message : "Could not add to cart.",
@@ -195,11 +211,14 @@ export default function CbaProductDetail({
 
   function submitWishlist() {
     if (!selectedVariant?.id || !isValidVariant) {
+      notify.error("Select a valid product option.")
       setActionState({ type: "error", message: "Select a valid product option." })
       return
     }
 
     startTransition(async () => {
+      const toastId = `pdp-wishlist:${product.id}`
+      notify.loading("Adding item to wishlist...", { id: toastId })
       const result = await addProductToWishlist({
         productId: product.id,
         variantId: selectedVariant.id,
@@ -211,6 +230,59 @@ export default function CbaProductDetail({
         type: result.success ? "success" : "error",
         message: result.message,
       })
+      if (result.success) {
+        notify.success(result.message, { id: toastId })
+      } else {
+        notify.error(result.message, "Could not add this item to wishlist.", {
+          id: toastId,
+        })
+      }
+    })
+  }
+
+  function submitBackInStock() {
+    const email = waitlistEmail.trim()
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+    if (!selectedVariant?.id || !isValidVariant) {
+      notify.error("Select the option you want.")
+      setWaitlistState({ type: "error", message: "Select the option you want." })
+      return
+    }
+    if (!emailValid) {
+      notify.error("Enter a valid email address.")
+      setWaitlistState({ type: "error", message: "Enter a valid email address." })
+      return
+    }
+    if (!waitlistConsent) {
+      notify.error("Confirm that we can email you about this item.")
+      setWaitlistState({ type: "error", message: "Confirm that we can email you about this item." })
+      return
+    }
+
+    const formData = new FormData()
+    formData.set("email", email)
+    formData.set("product_id", product.id)
+    formData.set("variant_id", selectedVariant.id)
+    formData.set("consent", "on")
+
+    startTransition(async () => {
+      const toastId = `back-in-stock:${selectedVariant.id}`
+      notify.loading("Submitting availability request...", { id: toastId })
+      const result = await requestBackInStock(null, formData)
+      setWaitlistState({
+        type: result.status === "success" ? "success" : "error",
+        message: result.message,
+      })
+      if (result.status === "success") {
+        setWaitlistEmail("")
+        setWaitlistConsent(false)
+        notify.success(result.message, { id: toastId })
+      } else {
+        notify.error(result.message, "Could not submit availability request.", {
+          id: toastId,
+        })
+      }
     })
   }
 
@@ -341,6 +413,53 @@ export default function CbaProductDetail({
               <ShoppingCartIcon size={16} />
               Add to cart
             </button>
+            {!inStock && selectedVariant?.id && isValidVariant && (
+              <div className="mt-4 rounded-base border border-gray-200 bg-white p-4">
+                <p className="text-xs font-black uppercase text-gray-700">
+                  Notify me when available
+                </p>
+                <div className="mt-3 space-y-3">
+                  <input
+                    type="email"
+                    value={waitlistEmail}
+                    onChange={(event) => setWaitlistEmail(event.target.value)}
+                    placeholder="Email address"
+                    className="h-11 w-full rounded-base border border-gray-200 px-3 text-sm outline-none focus:border-brand"
+                    autoComplete="email"
+                    disabled={isPending}
+                  />
+                  <label className="flex gap-2 text-xs leading-5 text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={waitlistConsent}
+                      onChange={(event) => setWaitlistConsent(event.target.checked)}
+                      className="mt-1"
+                      disabled={isPending}
+                    />
+                    Email me once for this item when it is available.
+                  </label>
+                  <button
+                    type="button"
+                    onClick={submitBackInStock}
+                    disabled={isPending}
+                    className="h-10 w-full rounded-base bg-brand text-xs font-bold uppercase text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Notify me
+                  </button>
+                  {waitlistState.message && (
+                    <p
+                      className={
+                        waitlistState.type === "success"
+                          ? "text-xs text-green-700"
+                          : "text-xs text-red-600"
+                      }
+                    >
+                      {waitlistState.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="mt-5 flex items-center justify-between text-xs text-gray-600">
               <button
                 type="button"

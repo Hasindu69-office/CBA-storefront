@@ -104,14 +104,14 @@ export default async function PaginatedProducts({
     return (
       <>
         <ul
-          className="grid w-full grid-cols-1 justify-items-center gap-x-4 gap-y-6 min-[520px]:grid-cols-2 small:grid-cols-3 medium:grid-cols-4"
+          className="grid w-full grid-cols-1 justify-items-center gap-x-3 gap-y-5 min-[520px]:grid-cols-2 small:grid-cols-3 medium:grid-cols-5 large:gap-x-4"
           data-testid="products-list"
         >
           {products.map((product, index) => (
-            <li key={product.id} className="w-full max-w-[230px]">
+            <li key={product.id} className="w-full max-w-[210px] medium:max-w-[170px] large:max-w-[184px]">
               <BestSellingProductCard
                 product={product}
-                priority={index < 4}
+                priority={index < 5}
                 variant="flat"
               />
             </li>

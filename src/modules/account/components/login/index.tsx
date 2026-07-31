@@ -3,10 +3,12 @@
 import { login, startOAuthLogin } from "@lib/data/customer"
 import type { AccountAuthSettings, AuthProviderId } from "@lib/data/account-auth"
 import { LOGIN_VIEW } from "@modules/account/templates/login-template"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
+import { notify } from "@lib/notifications"
 import type React from "react"
-import { useActionState, useState } from "react"
+import { useActionState, useEffect, useState } from "react"
 
 type Props = {
   setCurrentView: (view: LOGIN_VIEW) => void
@@ -19,6 +21,20 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
   const [socialMessage, socialAction] = useActionState(startOAuthLogin, null)
   const [clientError, setClientError] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (message) {
+      notify.error(message, "We could not sign you in.", { id: "login" })
+    }
+  }, [message])
+
+  useEffect(() => {
+    if (socialMessage) {
+      notify.error(socialMessage, "We could not start sign-on.", {
+        id: "social-login",
+      })
+    }
+  }, [socialMessage])
+
   function validate(event: React.FormEvent<HTMLFormElement>) {
     const form = new FormData(event.currentTarget)
     const email = String(form.get("email") ?? "").trim()
@@ -26,11 +42,17 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       event.preventDefault()
       setClientError("Enter a valid email address.")
+      notify.error("Enter a valid email address.", "Enter a valid email address.", {
+        id: "login-validation",
+      })
       return
     }
     if (!password) {
       event.preventDefault()
       setClientError("Password is required.")
+      notify.error("Password is required.", "Password is required.", {
+        id: "login-validation",
+      })
       return
     }
     setClientError(null)
@@ -63,9 +85,9 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
             placeholder="Enter your password"
             icon="lock"
             aside={
-              <button type="button" className="text-[13px] font-semibold text-[#ff5c0e]">
+              <LocalizedClientLink href="/account/forgot-password" className="text-[13px] font-semibold text-[#ff5c0e]">
                 Forgot Password?
-              </button>
+              </LocalizedClientLink>
             }
           />
           <label className="flex items-center gap-3 text-[14px] font-medium text-[#555555]">

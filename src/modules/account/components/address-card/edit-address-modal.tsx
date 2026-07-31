@@ -15,6 +15,7 @@ import {
   deleteCustomerAddress,
   updateCustomerAddress,
 } from "@lib/data/customer"
+import { notify } from "@lib/notifications"
 
 type EditAddressProps = {
   region: HttpTypes.StoreRegion
@@ -52,13 +53,30 @@ const EditAddress: React.FC<EditAddressProps> = ({
   useEffect(() => {
     if (formState.success) {
       setSuccessState(true)
+      notify.success("Address updated.", { id: `edit-address:${address.id}` })
+    } else if (formState.error) {
+      notify.error(formState.error, "Could not update address.", {
+        id: `edit-address:${address.id}`,
+      })
     }
   }, [formState])
 
   const removeAddress = async () => {
     setRemoving(true)
-    await deleteCustomerAddress(address.id)
-    setRemoving(false)
+    const toastId = `delete-address:${address.id}`
+    notify.loading("Removing address...", { id: toastId })
+    try {
+      const result = await deleteCustomerAddress(address.id)
+      if (result.success) {
+        notify.success("Address removed.", { id: toastId })
+      } else {
+        notify.error(result.error, "Could not remove address.", { id: toastId })
+      }
+    } catch (error) {
+      notify.error(error, "Could not remove address.", { id: toastId })
+    } finally {
+      setRemoving(false)
+    }
   }
 
   return (

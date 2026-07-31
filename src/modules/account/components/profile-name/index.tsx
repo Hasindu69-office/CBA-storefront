@@ -7,6 +7,7 @@ import Input from "@modules/common/components/input"
 import AccountInfo from "../account-info"
 import { HttpTypes } from "@medusajs/types"
 import { updateCustomer } from "@lib/data/customer"
+import { notify } from "@lib/notifications"
 
 type MyInformationProps = {
   customer: HttpTypes.StoreCustomer
@@ -43,6 +44,13 @@ const ProfileName: React.FC<MyInformationProps> = ({ customer }) => {
 
   useEffect(() => {
     setSuccessState(state.success)
+    if (state.success) {
+      notify.success("Profile name updated.", { id: "profile-name" })
+    } else if (state.error) {
+      notify.error(state.error, "Could not update profile name.", {
+        id: "profile-name",
+      })
+    }
   }, [state])
 
   return (

@@ -41,6 +41,16 @@ type StoreSearchFacetsResponse =
       error: { message: string }
     }
 
+type StoreSearchSuggestionsResponse =
+  | {
+      success: true
+      data: { suggestions: string[] }
+    }
+  | {
+      success: false
+      error: { message: string }
+    }
+
 const DEFAULT_LIMIT = 12
 const MAX_LIMIT = 60
 const SORT_VALUES = new Set<StoreSearchSort>([
@@ -142,6 +152,38 @@ export async function listStoreSearchFacets({
   return payload.data.facets
 }
 
+export async function listStoreSearchSuggestions({
+  q,
+  limit = 6,
+}: {
+  q?: string
+  limit?: number
+}) {
+  const query = cleanSearchQuery(q)
+  if (!query) {
+    return []
+  }
+
+  const payload = await sdk.client.fetch<StoreSearchSuggestionsResponse>(
+    "/store/cba/v1/search/suggestions",
+    {
+      cache: "no-store",
+      query: cleanQuery({
+        q: query,
+        limit: normalizeSuggestionLimit(limit),
+      }),
+    }
+  )
+
+  if (!payload.success) {
+    throw new Error(payload.error?.message ?? "Search suggestions request failed.")
+  }
+
+  return Array.isArray(payload.data.suggestions)
+    ? payload.data.suggestions.filter((item) => typeof item === "string")
+    : []
+}
+
 export function parseStoreSearchSort(value?: string): StoreSearchSort {
   return SORT_VALUES.has(value as StoreSearchSort)
     ? (value as StoreSearchSort)
@@ -183,6 +225,10 @@ function normalizeLimit(value: number) {
   return Number.isInteger(value) && value >= 1 && value <= MAX_LIMIT
     ? value
     : DEFAULT_LIMIT
+}
+
+function normalizeSuggestionLimit(value: number) {
+  return Number.isInteger(value) && value >= 1 && value <= 12 ? value : 6
 }
 
 function normalizePriceBound(value?: number) {

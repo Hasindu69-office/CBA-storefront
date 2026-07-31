@@ -1,6 +1,7 @@
 "use client"
 
 import { subscribeToNewsletter } from "@lib/data/newsletter"
+import { notify } from "@lib/notifications"
 import { useActionState, useEffect, useRef } from "react"
 
 const initialState = {
@@ -17,8 +18,15 @@ export default function NewsletterForm() {
   useEffect(() => {
     if (state.status === "success") {
       formRef.current?.reset()
+      notify.success(state.message ?? "Newsletter subscription submitted.", {
+        id: "newsletter-subscribe",
+      })
+    } else if (state.status === "error") {
+      notify.error(state.error, "We could not submit your subscription.", {
+        id: "newsletter-subscribe",
+      })
     }
-  }, [state.status])
+  }, [state.status, state.message, state.error])
 
   return (
     <div className="w-full max-w-[444px] mx-auto">

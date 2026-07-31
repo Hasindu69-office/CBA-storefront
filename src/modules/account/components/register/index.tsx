@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useActionState, useState } from "react"
+import { useActionState, useEffect, useState } from "react"
 import type { AccountAuthSettings } from "@lib/data/account-auth"
 import { LOGIN_VIEW } from "@modules/account/templates/login-template"
 import ErrorMessage from "@modules/checkout/components/error-message"
@@ -10,6 +10,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import { signup } from "@lib/data/customer"
 import { AuthField, SocialSection } from "@modules/account/components/login"
 import { startOAuthLogin } from "@lib/data/customer"
+import { notify } from "@lib/notifications"
 
 type Props = {
   setCurrentView: (view: LOGIN_VIEW) => void
@@ -21,6 +22,22 @@ const Register = ({ setCurrentView, settings, countryCode }: Props) => {
   const [message, formAction] = useActionState(signup, null)
   const [socialMessage, socialAction] = useActionState(startOAuthLogin, null)
   const [clientError, setClientError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (typeof message === "string" && message) {
+      notify.error(message, "We could not create your account.", {
+        id: "register",
+      })
+    }
+  }, [message])
+
+  useEffect(() => {
+    if (socialMessage) {
+      notify.error(socialMessage, "We could not start sign-on.", {
+        id: "register-social-login",
+      })
+    }
+  }, [socialMessage])
 
   function validate(event: React.FormEvent<HTMLFormElement>) {
     const form = new FormData(event.currentTarget)
@@ -49,6 +66,9 @@ const Register = ({ setCurrentView, settings, countryCode }: Props) => {
     if (error) {
       event.preventDefault()
       setClientError(error)
+      notify.error(error, "Please check your account details.", {
+        id: "register-validation",
+      })
       return
     }
     setClientError(null)

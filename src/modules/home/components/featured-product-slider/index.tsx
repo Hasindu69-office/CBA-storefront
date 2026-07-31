@@ -9,6 +9,7 @@ import { useParams } from "next/navigation"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import { addToCart } from "@lib/data/cart"
 import { addFeaturedProductToWishlist } from "@lib/data/wishlist"
+import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import { openSideCart } from "@lib/util/side-cart-event"
 import PlaceholderImage from "@modules/common/icons/placeholder-image"
@@ -124,8 +125,8 @@ const FeaturedProductSlider = ({
         ref={scrollerRef}
         className={
           embedded
-            ? "no-scrollbar grid auto-cols-[minmax(220px,calc((100%_-_20px)_/_2))] grid-flow-col gap-5 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 small:auto-cols-[calc((100%_-_40px)_/_3)] medium:auto-cols-[calc((100%_-_60px)_/_4)]"
-            : "no-scrollbar grid auto-cols-[minmax(300px,calc(100vw_-_48px))] grid-flow-col gap-5 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-2 pr-1 small:auto-cols-[calc((100%_-_40px)_/_3)] medium:auto-cols-[calc((100%_-_60px)_/_4)]"
+            ? "no-scrollbar grid auto-cols-[minmax(210px,calc((100%_-_20px)_/_2))] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
+            : "no-scrollbar grid auto-cols-[minmax(280px,calc(100vw_-_48px))] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-2 pr-1 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
         }
       >
         {products.map((product, index) => (
@@ -211,14 +212,18 @@ export const FeaturedProductCardItem = ({
 
     if (!product.default_variant?.id) {
       setStatusMessage("Please select a valid product.")
+      notify.error("Please select a valid product.")
       return
     }
 
     if (!isPurchasable) {
       setStatusMessage(inventoryLabel(product.inventory.status))
+      notify.warning(inventoryLabel(product.inventory.status))
       return
     }
 
+    const toastId = `featured-cart:${product.default_variant.id}`
+    notify.loading("Adding item to cart...", { id: toastId })
     openSideCart({ pendingMessage: "Adding item to cart.", refresh: false })
     setIsAddingToCart(true)
     setStatusMessage("")
@@ -231,8 +236,12 @@ export const FeaturedProductCardItem = ({
       })
       setStatusMessage("Added to cart.")
       openSideCart({ pendingMessage: "Updating cart.", refresh: true })
+      notify.success("Item added to cart.", { id: toastId })
     } catch (error) {
       openSideCart({ pendingMessage: null, refresh: false })
+      notify.error(error, "Could not add this item to your cart.", {
+        id: toastId,
+      })
       setStatusMessage(
         error instanceof Error ? error.message : "Could not add to cart."
       )
@@ -247,9 +256,12 @@ export const FeaturedProductCardItem = ({
 
     if (!product.default_variant?.id) {
       setStatusMessage("Please select a valid product.")
+      notify.error("Please select a valid product.")
       return
     }
 
+    const toastId = `featured-wishlist:${product.id}`
+    notify.loading("Adding item to wishlist...", { id: toastId })
     setIsAddingToWishlist(true)
     setStatusMessage("")
 
@@ -258,16 +270,24 @@ export const FeaturedProductCardItem = ({
       variantId: product.default_variant.id,
     })
 
-    setStatusMessage(result.message)
+    if (result.success) {
+      setStatusMessage("")
+      notify.success(result.message, { id: toastId })
+    } else {
+      setStatusMessage(result.message)
+      notify.error(result.message, "Could not add this item to wishlist.", {
+        id: toastId,
+      })
+    }
     setIsAddingToWishlist(false)
   }
 
   return (
     <article
       data-featured-product-card
-      className="group flex h-[568px] min-w-0 snap-start flex-col overflow-hidden rounded-[8px] border border-[#e5e7eb] bg-white transition-colors hover:border-brand/50"
+      className="group flex h-[512px] min-w-0 snap-start flex-col overflow-hidden rounded-[8px] border border-[#e5e7eb] bg-white transition-colors hover:border-brand/50 medium:h-[468px]"
     >
-      <div className="relative h-[300px] flex-shrink-0 overflow-hidden rounded-t-[8px] bg-white">
+      <div className="relative h-[250px] flex-shrink-0 overflow-hidden rounded-t-[8px] bg-white medium:h-[212px] large:h-[224px]">
         <LocalizedClientLink
           href={`/products/${product.handle}`}
           className="block h-full w-full"
@@ -279,8 +299,8 @@ export const FeaturedProductCardItem = ({
               alt={product.thumbnail.alt || product.title}
               fill
               priority={priority}
-              sizes="(min-width: 1280px) 300px, (min-width: 1024px) 30vw, calc(100vw - 96px)"
-              className="object-contain object-center p-7 transition-transform duration-300 group-hover:scale-[1.03]"
+              sizes="(min-width: 1280px) 190px, (min-width: 1024px) 28vw, calc(100vw - 96px)"
+              className="object-contain object-center p-5 transition-transform duration-300 group-hover:scale-[1.03] medium:p-4"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
@@ -290,13 +310,13 @@ export const FeaturedProductCardItem = ({
         </LocalizedClientLink>
 
         {!!displayBadges.length && (
-          <div className="absolute left-4 top-6 flex max-w-[calc(100%-84px)] flex-wrap gap-2">
+          <div className="absolute left-3 top-4 flex max-w-[calc(100%-72px)] flex-wrap gap-1.5">
             {displayBadges.map((badge) => (
               <span
                 key={badge.key}
                 className={`${badgeColorClassName(
                   badge
-                )} min-w-[78px] rounded-[6px] px-3 py-1.5 text-center text-[11px] font-bold uppercase leading-4 text-white`}
+                )} min-w-[68px] rounded-[6px] px-2.5 py-1 text-center text-[10px] font-bold uppercase leading-4 text-white`}
               >
                 {badge.label}
               </span>
@@ -310,34 +330,34 @@ export const FeaturedProductCardItem = ({
           title="Add to wishlist"
           onClick={handleAddToWishlist}
           disabled={isAddingToWishlist || !product.default_variant?.id}
-          className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#ff3b30] shadow-sm transition-colors hover:bg-[#fff3f0] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#ff3b30] shadow-sm transition-colors hover:bg-[#fff3f0] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <HeartIcon size={21} strokeWidth={1.8} />
+          <HeartIcon size={18} strokeWidth={1.8} />
         </button>
 
         {product.price.discount_percentage !== null && (
-          <div className="absolute right-5 top-[74px] z-10 flex h-[58px] w-[58px] flex-col items-center justify-center rounded-full bg-[#ff2d55] text-center text-white shadow-[0_10px_24px_rgba(255,45,85,0.28)]">
-            <span className="text-[17px] font-bold leading-[18px]">
+          <div className="absolute right-4 top-[62px] z-10 flex h-[48px] w-[48px] flex-col items-center justify-center rounded-full bg-[#ff2d55] text-center text-white shadow-[0_10px_24px_rgba(255,45,85,0.28)]">
+            <span className="text-[14px] font-bold leading-[15px]">
               {product.price.discount_percentage}%
             </span>
-            <span className="text-[9px] font-bold uppercase leading-[11px]">
+            <span className="text-[8px] font-bold uppercase leading-[10px]">
               Off
             </span>
           </div>
         )}
 
         {!!benefitItems.length && (
-          <div className="absolute bottom-2 left-3 right-3 z-10 flex h-10 items-center justify-center overflow-hidden rounded-[6px] bg-[#fff3ed] pt-1 text-[#ff5c0e] shadow-sm">
+          <div className="absolute bottom-2 left-2.5 right-2.5 z-10 flex h-8 items-center justify-center overflow-hidden rounded-[6px] bg-[#fff3ed] pt-0.5 text-[#ff5c0e] shadow-sm">
             {benefitItems.map((item, index) => (
               <div
                 key={item.key}
-                className="flex min-w-0 flex-1 translate-y-px items-center justify-center gap-2 px-2"
+                className="flex min-w-0 flex-1 translate-y-px items-center justify-center gap-1.5 px-1.5"
               >
                 {index > 0 && (
-                  <span className="mr-2 h-5 w-px flex-shrink-0 bg-[#ffc5ae]" />
+                  <span className="mr-1.5 h-4 w-px flex-shrink-0 bg-[#ffc5ae]" />
                 )}
                 {item.icon}
-                <span className="truncate text-[11px] font-bold uppercase leading-4">
+                <span className="truncate text-[9px] font-bold uppercase leading-3">
                   {item.label}
                 </span>
               </div>
@@ -346,28 +366,28 @@ export const FeaturedProductCardItem = ({
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col px-3 py-4">
-        <div className="flex min-h-[25px] items-center gap-3">
+      <div className="flex min-h-0 flex-1 flex-col px-3 py-3">
+        <div className="flex min-h-[22px] items-center gap-2">
           {product.brand?.logo_url ? (
-            <span className="relative block h-6 w-[92px] flex-shrink-0">
+            <span className="relative block h-5 w-[72px] flex-shrink-0">
               <Image
                 src={product.brand.logo_url}
                 alt={product.brand.logo_alt_text || `${product.brand.name} logo`}
                 fill
-                sizes="92px"
+                sizes="72px"
                 className="object-contain object-left"
               />
             </span>
           ) : product.brand?.name ? (
-            <span className="line-clamp-1 text-[13px] font-bold uppercase leading-5 text-black">
+            <span className="line-clamp-1 text-[11px] font-bold uppercase leading-4 text-black">
               {product.brand.name}
             </span>
           ) : null}
           {product.brand?.name && product.category?.name && (
-            <span className="h-5 w-px flex-shrink-0 bg-[#d4d4d8]" />
+            <span className="h-4 w-px flex-shrink-0 bg-[#d4d4d8]" />
           )}
           {product.category?.name && (
-            <span className="line-clamp-1 text-[13px] leading-5 text-[#9a9aa0]">
+            <span className="line-clamp-1 text-[11px] leading-4 text-[#9a9aa0]">
               {product.category.name}
             </span>
           )}
@@ -375,17 +395,17 @@ export const FeaturedProductCardItem = ({
 
         <LocalizedClientLink
           href={`/products/${product.handle}`}
-          className="mt-3 block focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className="mt-2 block focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
-          <h3 className="line-clamp-2 min-h-[50px] text-[21px] font-bold leading-[25px] tracking-normal text-black">
+          <h3 className="line-clamp-2 min-h-[42px] text-[16px] font-bold leading-[21px] tracking-normal text-black medium:text-[15px] medium:leading-5">
             {product.title}
           </h3>
         </LocalizedClientLink>
 
-        <div className="mt-3 flex min-h-[24px] items-center justify-between gap-3">
+        <div className="mt-2 flex min-h-[22px] items-center justify-between gap-2">
           <ProductRating rating={product.rating} />
           <span
-            className={`line-clamp-1 flex-shrink-0 text-[12px] leading-5 ${
+            className={`line-clamp-1 flex-shrink-0 text-[10px] leading-4 ${
               product.inventory.in_stock || product.inventory.allow_backorder
                 ? "text-[#69be3b]"
                 : "text-[#a1a1aa]"
@@ -396,28 +416,30 @@ export const FeaturedProductCardItem = ({
           </span>
         </div>
 
-        <div className="mt-auto border-t border-[#e5e7eb] pt-3">
+        <div className="mt-auto border-t border-[#e5e7eb] pt-2.5">
           <ProductCardPrice product={product} />
           <button
             type="button"
             onClick={handleAddToCart}
             disabled={!isPurchasable || isAddingToCart}
-            className="mt-4 flex h-[40px] w-full items-center justify-center gap-2 rounded-[8px] border border-brand bg-white px-4 text-[13px] font-bold uppercase tracking-normal text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white"
+            className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-brand bg-white px-3 text-[11px] font-bold uppercase tracking-normal text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white"
           >
-            <ShoppingCartIcon size={18} />
+            <ShoppingCartIcon size={16} />
             {isAddingToCart ? "Adding..." : "Add to cart"}
           </button>
-          <p
-            aria-live="polite"
-            className={`mt-2 min-h-[18px] text-[12px] leading-[18px] ${
-              statusMessage.toLowerCase().includes("could not") ||
-              statusMessage.toLowerCase().includes("invalid")
-                ? "text-[#dc2626]"
-                : "text-[#52525b]"
-            }`}
-          >
-            {statusMessage}
-          </p>
+          {statusMessage && (
+            <p
+              aria-live="polite"
+              className={`mt-1.5 text-[10px] leading-[15px] ${
+                statusMessage.toLowerCase().includes("could not") ||
+                statusMessage.toLowerCase().includes("invalid")
+                  ? "text-[#dc2626]"
+                  : "text-[#52525b]"
+              }`}
+            >
+              {statusMessage}
+            </p>
+          )}
         </div>
       </div>
     </article>
@@ -493,15 +515,15 @@ const ProductRating = ({
 }) => {
   if (!rating || rating.count < 1) {
     return (
-      <span className="text-[12px] font-medium leading-5 text-[#8a8a8f]">
+      <span className="text-[10px] font-medium leading-4 text-[#8a8a8f]">
         No reviews
       </span>
     )
   }
 
   return (
-    <span className="flex min-w-0 items-center gap-1 text-[12px] leading-5">
-      <span className="text-[15px] leading-none text-brand" aria-hidden="true">
+    <span className="flex min-w-0 items-center gap-1 text-[10px] leading-4">
+      <span className="text-[13px] leading-none text-brand" aria-hidden="true">
         ☆☆☆☆☆
       </span>
       <span className="font-bold text-black">{rating.average.toFixed(1)}</span>
@@ -516,7 +538,7 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
     product.price.calculated_amount === null
   ) {
     return (
-      <p className="text-[17px] font-bold leading-6 text-black">
+      <p className="text-[14px] font-bold leading-5 text-black">
         Contact for price
       </p>
     )
@@ -532,12 +554,12 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
       : null
 
   return (
-    <div className="flex min-h-[30px] flex-wrap items-baseline gap-x-3 gap-y-1">
-      <span className="text-[21px] font-bold leading-7 text-black">
+    <div className="flex min-h-[26px] min-w-0 items-baseline gap-2 overflow-hidden">
+      <span className="min-w-0 flex-shrink text-[15px] font-bold leading-6 text-black medium:text-[14px] large:text-[15px]">
         {calculated}
       </span>
       {original && (
-        <span className="text-[13px] font-medium leading-5 text-[#8a8a8f] line-through">
+        <span className="min-w-0 flex-1 truncate text-[10px] font-medium leading-4 text-[#8a8a8f] line-through">
           {original}
         </span>
       )}
@@ -583,7 +605,7 @@ function hasFreeShippingBadge(badges: FeaturedProductCard["badges"]) {
 const DeliveryIcon = () => (
   <svg
     aria-hidden="true"
-    className="h-5 w-5 flex-shrink-0"
+    className="h-4 w-4 flex-shrink-0"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -602,7 +624,7 @@ const DeliveryIcon = () => (
 const WarrantyIcon = () => (
   <svg
     aria-hidden="true"
-    className="h-5 w-5 flex-shrink-0"
+    className="h-4 w-4 flex-shrink-0"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"

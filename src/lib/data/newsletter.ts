@@ -65,3 +65,41 @@ export async function subscribeToNewsletter(
     }
   }
 }
+
+export async function confirmNewsletter(token: string) {
+  if (!/^[A-Za-z0-9_-]{24,256}$/.test(token)) {
+    return { status: "error" as const, message: "This newsletter confirmation link is invalid." }
+  }
+  try {
+    await sdk.client.fetch("/store/cba/v1/newsletter/confirm", {
+      method: "POST",
+      body: { token },
+      cache: "no-store",
+    })
+    return { status: "success" as const, message: "Your newsletter subscription is confirmed." }
+  } catch (error: any) {
+    return {
+      status: "error" as const,
+      message: error?.message ?? "This newsletter confirmation link is invalid or expired.",
+    }
+  }
+}
+
+export async function unsubscribeNewsletter(token: string, reason?: string) {
+  if (!/^[A-Za-z0-9_-]{24,256}$/.test(token)) {
+    return { status: "error" as const, message: "This unsubscribe link is invalid." }
+  }
+  try {
+    await sdk.client.fetch("/store/cba/v1/newsletter/unsubscribe", {
+      method: "POST",
+      body: { token, reason },
+      cache: "no-store",
+    })
+    return { status: "success" as const, message: "You have been unsubscribed from the newsletter." }
+  } catch (error: any) {
+    return {
+      status: "error" as const,
+      message: error?.message ?? "This unsubscribe link is invalid or expired.",
+    }
+  }
+}
