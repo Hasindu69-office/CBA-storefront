@@ -56,23 +56,23 @@ const CategorySlider = ({ categories }: CategorySliderProps) => {
   return (
     <section
       id="home-categories"
-      className="bg-white py-10 small:py-14"
+      className="bg-white py-8 small:py-10"
       aria-labelledby="category-slider-title"
     >
       <div className="content-container">
-        <div className="mb-11 flex items-start justify-between gap-6">
+        <div className="mb-8 flex items-start justify-between gap-6 small:mb-9">
           <div className="min-w-0">
             <h2
               id="category-slider-title"
-              className="text-[30px] font-bold leading-[1.15] tracking-normal text-black small:text-[34px]"
+              className="text-[28px] font-bold leading-[1.15] tracking-normal text-black small:text-[30px]"
             >
               Shop by Category
             </h2>
-            <div className="mt-4 h-px w-[220px] bg-[#cfcfcf] small:w-[295px]" />
+            <div className="mt-3 h-px w-[205px] bg-[#cfcfcf] small:w-[250px]" />
           </div>
           <LocalizedClientLink
             href="/store"
-            className="hidden h-11 min-w-[174px] items-center justify-center rounded border border-[#dedee5] bg-white px-6 text-[14px] font-semibold text-[#333333] transition-colors hover:border-brand hover:text-brand small:flex"
+            className="hidden h-9 min-w-[154px] items-center justify-center rounded border border-[#dedee5] bg-white px-5 text-[12px] font-medium text-[#222222] transition-colors hover:border-brand hover:text-brand small:flex"
           >
             View All Categories
           </LocalizedClientLink>
@@ -87,32 +87,33 @@ const CategorySlider = ({ categories }: CategorySliderProps) => {
               key={category.id}
               href={`/categories/${category.handle}`}
               data-category-card
-              className="group relative flex h-[405px] w-full min-w-0 snap-start overflow-hidden rounded-[14px] border border-transparent bg-white p-6 pt-0 transition-colors hover:border-brand/40 small:h-[424px] medium:h-[432px]"
+              className="group relative flex h-[348px] w-full min-w-0 snap-start overflow-hidden rounded-[8px] border border-transparent bg-white px-5 pb-5 pt-0 transition-colors hover:border-brand/40 small:h-[360px] medium:h-[382px]"
               style={{
                 backgroundImage: `url("${category.background.url}")`,
-                backgroundSize: "100% 100%",
+                backgroundSize: "100% 92%",
                 backgroundPosition: "center bottom",
+                backgroundRepeat: "no-repeat",
               }}
             >
               <div className="absolute inset-0 bg-white/10" />
               <div className="relative z-10 flex h-full w-full flex-col justify-between">
-                <div className="relative mx-auto h-[276px] w-full flex-shrink-0 small:h-[294px] medium:h-[300px]">
+                <div className="relative mx-auto -mt-2 h-[228px] w-full flex-shrink-0 small:h-[242px] medium:h-[252px]">
                   <Image
                     src={category.image.url}
                     alt={category.image.alt}
                     fill
                     priority={index < 4}
                     sizes="(min-width: 1280px) 282px, (min-width: 1024px) 45vw, calc(100vw - 96px)"
-                    className="object-contain object-center transition-transform duration-300 group-hover:scale-[1.03]"
+                    className="object-contain object-top transition-transform duration-300 group-hover:scale-[1.03]"
                   />
                 </div>
 
-                <div className="min-h-[86px] pb-1">
-                  <h3 className="line-clamp-1 text-[22px] font-bold leading-7 tracking-normal text-black">
+                <div className="min-h-[66px] px-2 pb-0 small:px-3">
+                  <h3 className="line-clamp-1 text-[16px] font-bold leading-5 tracking-normal text-black small:text-[17px]">
                     {category.name}
                   </h3>
-                  <div className="mt-2 min-h-[44px]">
-                    <p className="line-clamp-2 text-[15px] leading-[22px] tracking-normal text-black">
+                  <div className="mt-1 min-h-[34px]">
+                    <p className="line-clamp-2 text-[12px] leading-[17px] tracking-normal text-black small:text-[13px]">
                       {category.description}
                     </p>
                   </div>
@@ -124,7 +125,7 @@ const CategorySlider = ({ categories }: CategorySliderProps) => {
 
         <LocalizedClientLink
           href="/store"
-          className="mt-7 flex h-11 items-center justify-center rounded border border-[#dedee5] bg-white px-6 text-[14px] font-semibold text-[#333333] transition-colors hover:border-brand hover:text-brand small:hidden"
+          className="mt-6 flex h-10 items-center justify-center rounded border border-[#dedee5] bg-white px-5 text-[13px] font-medium text-[#222222] transition-colors hover:border-brand hover:text-brand small:hidden"
         >
           View All Categories
         </LocalizedClientLink>
