@@ -231,7 +231,7 @@ export default async function Footer() {
         )}
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 pt-32 pb-12">
+      <div className="relative z-10 content-container pt-32 pb-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 text-white">
           <div className="space-y-6">
             <div className="flex items-center gap-3">
@@ -294,7 +294,7 @@ export default async function Footer() {
       </div>
 
       <div className="relative z-10">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-6 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="content-container py-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-xs text-gray-400">
             Copyright &copy; {new Date().getFullYear()}{" "}
             {cmsLayout.footer.copyright.text}
