@@ -1,4 +1,5 @@
 import { paymentInfoMap } from "@lib/constants"
+import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
 import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
@@ -267,8 +268,16 @@ export default async function OrderCompletedTemplate({
   const isOnboarding = cookies.get("_medusa_onboarding")?.value === "true"
   const items = order.items ?? []
   const addressLines = formatAddress(order)
-  const discountTotal = (order.discount_total ?? 0) + (order.gift_card_total ?? 0)
   const itemCount = items.reduce((total, item) => total + (item.quantity ?? 0), 0)
+  const mappedTotals = mapAuthoritativeTotals(
+    {
+      ...order,
+      discount_total: (order.discount_total ?? 0) + (order.gift_card_total ?? 0),
+      items: order.items as never,
+      shipping_methods: order.shipping_methods as never,
+    },
+    { itemCount }
+  )
 
   return (
     <main className="bg-white py-10 small:py-14">
@@ -465,27 +474,24 @@ export default async function OrderCompletedTemplate({
               </h2>
 
               <div className="mt-7 space-y-5">
-                <SummaryRow
-                  label={`Subtotal (${itemCount} ${itemCount === 1 ? "item" : "items"})`}
-                  value={formatAmount(order, order.subtotal)}
-                />
-                {discountTotal > 0 && (
+                {mappedTotals.rows
+                  .filter((row) => row.key !== "tax" || row.amount > 0)
+                  .map((row) => (
+                    row.key === "discount" ? (
                   <SummaryRow
+                    key={row.key}
                     label="Discount"
-                    value={`- ${formatAmount(order, discountTotal)}`}
+                    value={`- ${row.display}`}
                     tone="discount"
                   />
-                )}
-                <SummaryRow
-                  label="Delivery Fee"
-                  value={formatAmount(order, order.shipping_total)}
-                />
-                {(order.tax_total ?? 0) > 0 && (
+                    ) : (
                   <SummaryRow
-                    label="Taxes"
-                    value={formatAmount(order, order.tax_total)}
+                    key={row.key}
+                    label={row.label}
+                    value={row.display}
                   />
-                )}
+                    )
+                  ))}
               </div>
 
               <div className="my-7 h-px bg-[#dfe3e6]" />
@@ -495,12 +501,14 @@ export default async function OrderCompletedTemplate({
                   Total
                 </span>
                 <span className="text-right text-[25px] font-bold text-brand">
-                  {formatAmount(order, order.total)}
+                  {mappedTotals.total.display}
                 </span>
               </div>
-              <p className="mt-5 text-center text-[13px] text-[#6b7280]">
-                Prices are inclusive of VAT.
-              </p>
+              {mappedTotals.taxNote && (
+                <p className="mt-5 text-center text-[13px] text-[#6b7280]">
+                  {mappedTotals.taxNote}
+                </p>
+              )}
 
               <div className="mt-8 grid gap-4">
                 <LocalizedClientLink

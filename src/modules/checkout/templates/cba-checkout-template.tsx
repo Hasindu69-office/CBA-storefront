@@ -3,6 +3,7 @@
 import {
   initiatePaymentSession,
   applyPromotions,
+  calculateCartTaxes,
   placeOrder,
   saveCheckoutDetails,
   setShippingMethod,
@@ -10,6 +11,7 @@ import {
 import { calculatePriceForShippingOption } from "@lib/data/fulfillment"
 import { isManual, isStripeLike, paymentInfoMap } from "@lib/constants"
 import { convertToLocale } from "@lib/util/money"
+import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
 import { HttpTypes } from "@medusajs/types"
 import {
   ArrowRight,
@@ -645,31 +647,38 @@ function CheckoutOrderSummary({
   saveCurrentCheckoutDetails: () => Promise<string | null>
 }) {
   const router = useRouter()
+  const [isRefreshingTotals, setIsRefreshingTotals] = useState(false)
+  const [totalsError, setTotalsError] = useState<string | null>(null)
   const itemCount = cart.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
-  const subtotal = cart.item_subtotal ?? cart.subtotal ?? 0
-  const shippingBeforeDiscount =
-    cart.shipping_subtotal ?? cart.shipping_total ?? 0
-  const shippingAfterDiscount = cart.shipping_total ?? shippingBeforeDiscount
-  const shippingDiscount = Math.max(
-    shippingBeforeDiscount - shippingAfterDiscount,
-    0
-  )
-  const inferredDiscount = Math.max(
-    subtotal + shippingBeforeDiscount - (cart.total ?? 0),
-    0
-  )
-  const totalDiscount = Math.max(
-    cart.discount_subtotal ?? 0,
-    cart.discount_total ?? 0,
-    inferredDiscount
-  )
-  const productDiscount = Math.max(totalDiscount - shippingDiscount, 0)
   const automaticPromotions = hasAutomaticPromotions(cart.promotions)
-  const discountLabel = automaticPromotions ? "Store discount" : "Coupon discount"
+  const mapped = mapAuthoritativeTotals(cart, {
+    itemCount,
+    automaticPromotionApplied: automaticPromotions,
+  })
+  const subtotalRow = mapped.rows.find((row) => row.key === "subtotal")
+  const discountRow = mapped.rows.find((row) => row.key === "discount")
+  const taxRows = mapped.rows.filter((row) =>
+    ["item-tax", "shipping-tax", "tax"].includes(row.key)
+  )
 
   const applyCheckoutCoupon = async (code: string) => {
     await applyPromotions(manualCodesWithNewCoupon(cart.promotions, code))
     router.refresh()
+  }
+
+  const refreshTotals = async () => {
+    setIsRefreshingTotals(true)
+    setTotalsError(null)
+    try {
+      await calculateCartTaxes(cart.id)
+      router.refresh()
+    } catch (error) {
+      setTotalsError(
+        error instanceof Error ? error.message : "Could not refresh totals."
+      )
+    } finally {
+      setIsRefreshingTotals(false)
+    }
   }
 
   return (
@@ -707,31 +716,34 @@ function CheckoutOrderSummary({
         <div className="mt-4 border-t border-gray-100 pt-5 text-[14px]">
           <SummaryLine
             label="Subtotal"
-            value={money(subtotal, cart.currency_code)}
+            value={subtotalRow?.display ?? money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)}
           />
-          {productDiscount > 0 && (
+          {discountRow && (
             <SummaryLine
-              label={discountLabel}
-              value={`- ${money(productDiscount, cart.currency_code)}`}
+              label={discountRow.label}
+              value={`- ${discountRow.display}`}
               accent="green"
             />
           )}
           <SummaryLine
             label="Delivery Fee"
             value={
-              shippingDiscount > 0 ? (
+              mapped.shippingBeforeDiscountDisplay ? (
                 <span className="text-right">
                   <span className="block text-[12px] font-semibold text-[#8b90a0] line-through">
-                    {money(shippingBeforeDiscount, cart.currency_code)}
+                    {mapped.shippingBeforeDiscountDisplay}
                   </span>
-                  <span>Free</span>
+                  <span>{mapped.shippingDisplay}</span>
                 </span>
               ) : (
-                money(shippingAfterDiscount, cart.currency_code)
+                mapped.shippingDisplay
               )
             }
-            accent={shippingDiscount > 0 ? "green" : undefined}
+            accent={mapped.shippingBeforeDiscountDisplay ? "green" : undefined}
           />
+          {taxRows.map((row) => (
+            <SummaryLine key={row.key} label={row.label} value={row.display} />
+          ))}
         </div>
 
         <div className="mt-5 border-t border-gray-100 pt-5">
@@ -739,13 +751,30 @@ function CheckoutOrderSummary({
             <span className="text-[20px] font-bold text-[#111111]">Total</span>
             <span className="text-right">
               <span className="block text-[24px] font-bold text-brand">
-                {money(cart.total, cart.currency_code)}
+                {mapped.total.display}
               </span>
-              <span className="text-[12px] font-semibold text-[#7b8493]">
-                (incl. VAT)
-              </span>
+          {mapped.taxNote && (
+            <span className="text-[12px] font-semibold text-[#7b8493]" aria-live="polite">
+              {mapped.taxNote}
+            </span>
+          )}
             </span>
           </div>
+          {(mapped.states.includes("tax_pending") || totalsError) && (
+            <div className="mt-4 rounded-md border border-brand/20 bg-brand/5 px-3 py-3">
+              <p className="text-[12px] font-semibold text-[#626978]" aria-live="polite">
+                {totalsError ?? mapped.taxNote}
+              </p>
+              <button
+                type="button"
+                onClick={refreshTotals}
+                disabled={isRefreshingTotals}
+                className="mt-3 inline-flex h-9 items-center justify-center rounded-md border border-brand px-4 text-[13px] font-bold text-brand transition hover:bg-brand hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isRefreshingTotals ? "Refreshing..." : "Retry totals"}
+              </button>
+            </div>
+          )}
           <PlaceOrderControl
             cart={cart}
             selectedPaymentMethod={selectedPaymentMethod}
@@ -837,11 +866,16 @@ function PlaceOrderControl({
   saveCurrentCheckoutDetails: () => Promise<string | null>
 }) {
   const activeSession = selectedPaymentSession(cart)
+  const totals = mapAuthoritativeTotals(cart)
+  const totalsReady = !totals.states.some((state) =>
+    ["tax_pending", "configuration_unavailable", "calculation_failed", "review_required"].includes(state)
+  )
   const baseReady =
     hasAddress(cart) &&
     Boolean(cart.billing_address) &&
     (cart.shipping_methods?.length ?? 0) > 0 &&
-    Boolean(activeSession)
+    Boolean(activeSession) &&
+    totalsReady
 
   if (isStripeLike(activeSession?.provider_id)) {
     return (
@@ -869,7 +903,9 @@ function PlaceOrderControl({
       className="mt-6 inline-flex h-12 w-full cursor-not-allowed items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white opacity-60"
       title={
         selectedPaymentMethod
-          ? "Save checkout details and payment method first"
+          ? totalsReady
+            ? "Save checkout details and payment method first"
+            : "Refresh checkout totals before placing the order"
           : "Select a payment method"
       }
     >

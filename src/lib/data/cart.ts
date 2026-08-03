@@ -23,6 +23,8 @@ import { getRegion } from "./regions"
 import { getLocale } from "@lib/data/locale-actions"
 
 const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
+const CART_TOTAL_FIELDS =
+  "id,currency_code,email,region_id,*region,+region.automatic_taxes,total,subtotal,tax_total,discount_total,discount_subtotal,item_total,item_subtotal,item_tax_total,shipping_total,shipping_subtotal,shipping_tax_total,shipping_discount_total,original_total,original_tax_total,original_item_total,original_shipping_total,*items,+items.total,+items.subtotal,+items.tax_total,+items.is_tax_inclusive,*items.tax_lines,*items.adjustments,*items.product,*items.variant,*items.thumbnail,*items.metadata,*promotions,+promotions.is_tax_inclusive,*shipping_methods,+shipping_methods.name,+shipping_methods.tax_total,+shipping_methods.is_tax_inclusive,*shipping_methods.tax_lines,*shipping_methods.adjustments,*shipping_address,*billing_address,*payment_collection,*payment_collection.payment_sessions,*credit_lines"
 
 function assertSafeMedusaId(id: string, label: string) {
   if (!SAFE_MEDUSA_ID_PATTERN.test(id)) {
@@ -69,6 +71,11 @@ function validateCheckoutAddressPayload(payload: {
   postal_code: string
   country_code: string
 }) {
+  for (const [field, value] of Object.entries(payload)) {
+    if (value.length > 160) {
+      return `${field.replace(/_/g, " ")} is too long.`
+    }
+  }
   if (!payload.first_name || !payload.last_name) {
     return "Full name is required."
   }
@@ -87,7 +94,7 @@ function validateCheckoutAddressPayload(payload: {
   if (!payload.province) {
     return "District is required."
   }
-  if (!/^[A-Za-z0-9\s-]{3,16}$/.test(payload.postal_code)) {
+  if (!/^[A-Za-z0-9\s-]{1,32}$/.test(payload.postal_code)) {
     return "Enter a valid postal code."
   }
   if (payload.country_code.toLowerCase() !== "lk") {
@@ -154,7 +161,7 @@ function checkoutAddressData(formData: FormData) {
 export async function retrieveCart(cartId?: string, fields?: string) {
   const id = cartId || (await getCartId())
   fields ??=
-    "*items, *region, *items.product, *items.variant, *items.thumbnail, *items.metadata, +items.total, *promotions, +shipping_methods.name"
+    CART_TOTAL_FIELDS
 
   if (!id) {
     return null
@@ -290,6 +297,7 @@ export async function addToCart({
 
       const fulfillmentCacheTag = await getCacheTag("fulfillment")
       revalidateTag(fulfillmentCacheTag)
+      await calculateCartTaxesWhenReady(await retrieveCart(cart.id))
     })
     .catch(medusaError)
 }
@@ -325,6 +333,7 @@ export async function updateLineItem({
 
       const fulfillmentCacheTag = await getCacheTag("fulfillment")
       revalidateTag(fulfillmentCacheTag)
+      await calculateCartTaxesWhenReady(await retrieveCart(cartId))
     })
     .catch(medusaError)
 }
@@ -353,8 +362,54 @@ export async function deleteLineItem(lineId: string) {
 
       const fulfillmentCacheTag = await getCacheTag("fulfillment")
       revalidateTag(fulfillmentCacheTag)
+      await calculateCartTaxesWhenReady(await retrieveCart(cartId))
     })
     .catch(medusaError)
+}
+
+export async function calculateCartTaxes(cartId?: string) {
+  const id = cartId || (await getCartId())
+  if (!id) {
+    throw new Error("No existing cart found when refreshing taxes")
+  }
+  assertSafeMedusaId(id, "Cart ID")
+
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  return sdk.client
+    .fetch<HttpTypes.StoreCartResponse>(`/store/carts/${id}/taxes`, {
+      method: "POST",
+      query: { fields: CART_TOTAL_FIELDS },
+      headers,
+      cache: "no-store",
+    })
+    .then(async ({ cart }) => {
+      const cartCacheTag = await getCacheTag("carts")
+      revalidateTag(cartCacheTag)
+      return cart
+    })
+    .catch(medusaError)
+}
+
+async function calculateCartTaxesWhenReady(
+  cart: HttpTypes.StoreCart | null | undefined
+) {
+  if (!cart?.id) {
+    return null
+  }
+  const hasAddress =
+    cart.shipping_address?.country_code?.toLowerCase() === "lk" &&
+    Boolean(cart.shipping_address?.address_1)
+  const hasShipping = Boolean(cart.shipping_methods?.length)
+  const automaticTaxes = cart.region?.automatic_taxes === true
+
+  if (!automaticTaxes || !hasAddress || !hasShipping) {
+    return cart
+  }
+
+  return calculateCartTaxes(cart.id).catch(() => cart)
 }
 
 export async function setShippingMethod({
@@ -364,15 +419,19 @@ export async function setShippingMethod({
   cartId: string
   shippingMethodId: string
 }) {
+  assertSafeMedusaId(cartId, "Cart ID")
+  assertSafeMedusaId(shippingMethodId, "Shipping method ID")
   const headers = {
     ...(await getAuthHeaders()),
   }
 
   return sdk.store.cart
     .addShippingMethod(cartId, { option_id: shippingMethodId }, {}, headers)
-    .then(async () => {
+    .then(async (response) => {
+      await calculateCartTaxesWhenReady(response.cart)
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
+      return retrieveCart(cartId)
     })
     .catch(medusaError)
 }
@@ -388,6 +447,7 @@ export async function initiatePaymentSession(
   return sdk.store.payment
     .initiatePaymentSession(cart, data, {}, headers)
     .then(async (resp) => {
+      await calculateCartTaxesWhenReady(cart)
       const cartCacheTag = await getCacheTag("carts")
       revalidateTag(cartCacheTag)
       return resp
@@ -434,6 +494,7 @@ export async function applyPromotions(codes: string[]) {
 
       const fulfillmentCacheTag = await getCacheTag("fulfillment")
       revalidateTag(fulfillmentCacheTag)
+      await calculateCartTaxesWhenReady(await retrieveCart(cartId))
     })
     .catch((error) => {
       throw safePromotionError(error)
@@ -504,7 +565,8 @@ export async function saveCheckoutDetails(
   formData: FormData
 ) {
   try {
-    await updateCart(checkoutAddressData(formData))
+    const cart = await updateCart(checkoutAddressData(formData))
+    await calculateCartTaxesWhenReady(cart)
     return null
   } catch (e: any) {
     return e.message
@@ -522,7 +584,8 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
       throw new Error("No existing cart found when setting addresses")
     }
 
-    await updateCart(checkoutAddressData(formData))
+    const cart = await updateCart(checkoutAddressData(formData))
+    await calculateCartTaxesWhenReady(cart)
   } catch (e: any) {
     return e.message
   }
@@ -637,6 +700,7 @@ export async function addBundleToCart({
 
   const fulfillmentCacheTag = await getCacheTag("fulfillment")
   revalidateTag(fulfillmentCacheTag)
+  await calculateCartTaxesWhenReady(await retrieveCart(cart.id))
 }
 
 /**
@@ -653,6 +717,11 @@ export async function placeOrder(cartId?: string) {
 
   const headers = {
     ...(await getAuthHeaders()),
+  }
+
+  const refreshedCart = await calculateCartTaxes(id).catch(() => null)
+  if (!refreshedCart) {
+    throw new Error("Could not refresh checkout totals. Review your cart and try again.")
   }
 
   const cartRes = await sdk.store.cart
@@ -693,7 +762,8 @@ export async function updateRegion(countryCode: string, currentPath: string) {
   }
 
   if (cartId) {
-    await updateCart({ region_id: region.id })
+    const cart = await updateCart({ region_id: region.id })
+    await calculateCartTaxesWhenReady(cart)
     const cartCacheTag = await getCacheTag("carts")
     revalidateTag(cartCacheTag)
   }

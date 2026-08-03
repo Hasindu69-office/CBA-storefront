@@ -11,6 +11,7 @@ import {
   manualCodesWithoutCoupon,
 } from "@lib/util/coupon-promotions"
 import { convertToLocale } from "@lib/util/money"
+import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
 import {
   PROMOTION_CODE_MAX_COUNT,
   PROMOTION_CODE_MAX_LENGTH,
@@ -818,31 +819,18 @@ function SideCartSummary({
   onClose: () => void
 }) {
   const itemCount = getItemCount(cart)
-  const totals = cart as HttpTypes.StoreCart & {
-    discount_subtotal?: number | null
-  }
-  const subtotal = cart.item_subtotal ?? cart.subtotal ?? 0
-  const shippingBeforeDiscount =
-    cart.shipping_subtotal ?? cart.shipping_total ?? 0
-  const shippingAfterDiscount = cart.shipping_total ?? shippingBeforeDiscount
-  const shippingDiscount = Math.max(
-    shippingBeforeDiscount - shippingAfterDiscount,
-    0
-  )
-  const inferredDiscount = Math.max(
-    subtotal + shippingBeforeDiscount - (cart.total ?? 0),
-    0
-  )
-  const totalDiscount = Math.max(
-    totals.discount_subtotal ?? 0,
-    cart.discount_total ?? 0,
-    inferredDiscount
-  )
-  const productDiscount = Math.max(totalDiscount - shippingDiscount, 0)
   const hasAutomaticPromotions = Boolean(
     cart.promotions?.some((promotion) => promotion.is_automatic)
   )
   const checkoutHref = `/checkout?step=${getCheckoutStep(cart)}`
+  const mapped = mapAuthoritativeTotals(cart, {
+    itemCount,
+    automaticPromotionApplied: hasAutomaticPromotions,
+    compactMoney: true,
+  })
+  const subtotalRow = mapped.rows.find((row) => row.key === "subtotal")
+  const discountRow = mapped.rows.find((row) => row.key === "discount")
+  const taxRow = mapped.rows.find((row) => row.key === "tax")
 
   return (
     <div>
@@ -850,16 +838,16 @@ function SideCartSummary({
         <div className="flex items-center justify-between gap-4">
           <span>Subtotal ({itemCount} items)</span>
           <span className="font-medium">
-            {money(subtotal, cart.currency_code)}
+            {subtotalRow?.display ?? money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)}
           </span>
         </div>
-        {productDiscount > 0 && (
+        {discountRow && (
           <div className="flex items-center justify-between gap-4 text-emerald-700">
             <span>
               {hasAutomaticPromotions ? "Store discount" : "Coupon discount"}
             </span>
             <span className="font-semibold">
-              -{money(productDiscount, cart.currency_code)}
+              -{discountRow.display}
             </span>
           </div>
         )}
@@ -869,33 +857,39 @@ function SideCartSummary({
             <InformationCircle className="h-4 w-4 text-[#8b90a0]" />
           </span>
           <span className="text-right">
-            {shippingDiscount > 0 && (
+            {mapped.shippingBeforeDiscountDisplay && (
               <span className="block text-[12px] font-medium text-[#8b90a0] line-through">
-                {money(shippingBeforeDiscount, cart.currency_code)}
+                {mapped.shippingBeforeDiscountDisplay}
               </span>
             )}
             <span
               className={`font-medium ${
-                shippingDiscount > 0 ? "text-emerald-700" : ""
+                mapped.hasDiscount ? "text-emerald-700" : ""
               }`}
             >
-              {shippingAfterDiscount <= 0
-                ? "Free"
-                : money(shippingAfterDiscount, cart.currency_code)}
+              {mapped.shippingDisplay}
             </span>
           </span>
         </div>
+        {taxRow && (
+          <div className="flex items-center justify-between gap-4">
+            <span>{taxRow.label}</span>
+            <span className="font-medium">{taxRow.display}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex items-start justify-between gap-4 py-3">
         <span className="text-[17px] font-bold text-[#111827]">Total</span>
         <span className="text-right">
           <span className="block text-[20px] font-bold text-brand">
-            {money(cart.total, cart.currency_code)}
+            {mapped.total.display}
           </span>
-          <span className="mt-0.5 block text-[11px] text-[#596070]">
-            (VAT Included)
-          </span>
+          {mapped.taxNote && (
+            <span className="mt-0.5 block text-[11px] text-[#596070]" aria-live="polite">
+              {mapped.taxNote}
+            </span>
+          )}
         </span>
       </div>
 

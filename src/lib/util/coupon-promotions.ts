@@ -1,10 +1,13 @@
-import { HttpTypes } from "@medusajs/types"
-
 import { normalizePromotionCode } from "@lib/util/promotions"
+
+type PromotionLike = {
+  code?: string | null
+  is_automatic?: boolean | null
+}
 
 /** Manual (customer-entered) promotion codes currently on the cart. */
 export function listManualPromotionCodes(
-  promotions: HttpTypes.StorePromotion[] | null | undefined
+  promotions: PromotionLike[] | null | undefined
 ) {
   return (
     promotions
@@ -17,7 +20,7 @@ export function listManualPromotionCodes(
 
 /** All promotion codes on the cart, including automatic store offers. */
 export function listAllPromotionCodes(
-  promotions: HttpTypes.StorePromotion[] | null | undefined
+  promotions: PromotionLike[] | null | undefined
 ) {
   return (
     promotions
@@ -29,7 +32,7 @@ export function listAllPromotionCodes(
 
 /** Payload for `applyPromotions()` when adding one manual coupon. */
 export function manualCodesWithNewCoupon(
-  promotions: HttpTypes.StorePromotion[] | null | undefined,
+  promotions: PromotionLike[] | null | undefined,
   newCode: string
 ) {
   const normalizedNewCode = normalizePromotionCode(newCode)
@@ -44,7 +47,7 @@ export function manualCodesWithNewCoupon(
 
 /** Payload for `applyPromotions()` when removing one manual coupon. */
 export function manualCodesWithoutCoupon(
-  promotions: HttpTypes.StorePromotion[] | null | undefined,
+  promotions: PromotionLike[] | null | undefined,
   removedCode: string
 ) {
   const normalizedRemovedCode = normalizePromotionCode(removedCode)
@@ -54,7 +57,7 @@ export function manualCodesWithoutCoupon(
 }
 
 export function hasAutomaticPromotions(
-  promotions: HttpTypes.StorePromotion[] | null | undefined
+  promotions: PromotionLike[] | null | undefined
 ) {
   return promotions?.some((promotion) => promotion.is_automatic) ?? false
 }
