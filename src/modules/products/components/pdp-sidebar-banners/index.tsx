@@ -1,14 +1,16 @@
 import type { PdpBannerContent } from "@lib/data/pdp-banners"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 
+type PdpBannerLayout = "sidebar" | "standalone"
+
 type PdpSidebarBannersProps = {
   banners: PdpBannerContent
-  matchCompanionHeight?: boolean
+  layout?: PdpBannerLayout
 }
 
 export default function PdpSidebarBanners({
   banners,
-  matchCompanionHeight = false,
+  layout = "sidebar",
 }: PdpSidebarBannersProps) {
   const items = [banners.primary, banners.secondary].filter(Boolean)
 
@@ -16,19 +18,26 @@ export default function PdpSidebarBanners({
     return null
   }
 
+  const isStandalone = layout === "standalone"
+
   return (
     <aside
+      aria-label={isStandalone ? "Product promotions" : undefined}
       className={
-        matchCompanionHeight
-          ? "flex h-full min-h-0 flex-col gap-4"
-          : "flex flex-col gap-4"
+        isStandalone
+          ? items.length > 1
+            ? "grid gap-4 small:grid-cols-2"
+            : "flex flex-col gap-4"
+          : "flex h-full min-h-0 flex-col gap-4"
       }
     >
       {items.map((banner) => (
         <PdpSidebarBannerCard
           key={banner!.placement}
           banner={banner!}
-          fillHeight={matchCompanionHeight && items.length > 1}
+          layout={layout}
+          fillHeight={!isStandalone && items.length > 1}
+          standaloneCount={isStandalone ? items.length : undefined}
         />
       ))}
     </aside>
@@ -37,10 +46,14 @@ export default function PdpSidebarBanners({
 
 function PdpSidebarBannerCard({
   banner,
+  layout,
   fillHeight = false,
+  standaloneCount,
 }: {
   banner: NonNullable<PdpBannerContent["primary"]>
+  layout: PdpBannerLayout
   fillHeight?: boolean
+  standaloneCount?: number
 }) {
   const image = (
     <img
@@ -50,9 +63,7 @@ function PdpSidebarBannerCard({
     />
   )
 
-  const className = fillHeight
-    ? "block min-h-0 flex-1 overflow-hidden rounded-[16px] bg-[#24262b] transition-opacity hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-    : "block aspect-[298/315] w-full overflow-hidden rounded-[16px] bg-[#24262b] transition-opacity hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+  const className = getBannerCardClassName(layout, fillHeight, standaloneCount)
 
   if (banner.href) {
     return (
@@ -63,4 +74,26 @@ function PdpSidebarBannerCard({
   }
 
   return <div className={className}>{image}</div>
+}
+
+function getBannerCardClassName(
+  layout: PdpBannerLayout,
+  fillHeight: boolean,
+  standaloneCount?: number
+) {
+  const base =
+    "block overflow-hidden rounded-[16px] bg-[#24262b] transition-opacity hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+
+  if (layout === "standalone") {
+    if (standaloneCount === 1) {
+      return `${base} aspect-[21/9] w-full small:aspect-[3/1]`
+    }
+    return `${base} aspect-[16/10] w-full`
+  }
+
+  if (fillHeight) {
+    return `${base} min-h-0 flex-1`
+  }
+
+  return `${base} aspect-[298/315] w-full`
 }
