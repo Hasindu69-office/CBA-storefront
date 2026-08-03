@@ -11,7 +11,9 @@ type CartTotalsProps = {
     currency_code: string
     item_subtotal?: number | null
     shipping_subtotal?: number | null
+    shipping_total?: number | null
     discount_subtotal?: number | null
+    discount_total?: number | null
   }
 }
 
@@ -22,8 +24,27 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
     tax_total,
     item_subtotal,
     shipping_subtotal,
+    shipping_total,
     discount_subtotal,
+    discount_total,
   } = totals
+  const subtotal = item_subtotal ?? 0
+  const shippingBeforeDiscount = shipping_subtotal ?? shipping_total ?? 0
+  const shippingAfterDiscount = shipping_total ?? shippingBeforeDiscount
+  const shippingDiscount = Math.max(
+    shippingBeforeDiscount - shippingAfterDiscount,
+    0
+  )
+  const inferredDiscount = Math.max(
+    subtotal + shippingBeforeDiscount - (total ?? 0),
+    0
+  )
+  const totalDiscount = Math.max(
+    discount_subtotal ?? 0,
+    discount_total ?? 0,
+    inferredDiscount
+  )
+  const productDiscount = Math.max(totalDiscount - shippingDiscount, 0)
 
   return (
     <div>
@@ -36,21 +57,40 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
         </div>
         <div className="flex items-center justify-between">
           <span>Shipping</span>
-          <span data-testid="cart-shipping" data-value={shipping_subtotal || 0}>
-            {convertToLocale({ amount: shipping_subtotal ?? 0, currency_code })}
+          <span
+            className="text-right"
+            data-testid="cart-shipping"
+            data-value={shippingAfterDiscount || 0}
+          >
+            {shippingDiscount > 0 && (
+              <span className="block text-xs text-ui-fg-muted line-through">
+                {convertToLocale({
+                  amount: shippingBeforeDiscount,
+                  currency_code,
+                })}
+              </span>
+            )}
+            <span className={shippingDiscount > 0 ? "text-ui-fg-interactive" : ""}>
+              {shippingAfterDiscount <= 0
+                ? "Free"
+                : convertToLocale({
+                    amount: shippingAfterDiscount,
+                    currency_code,
+                  })}
+            </span>
           </span>
         </div>
-        {!!discount_subtotal && (
+        {productDiscount > 0 && (
           <div className="flex items-center justify-between">
             <span>Discount</span>
             <span
               className="text-ui-fg-interactive"
               data-testid="cart-discount"
-              data-value={discount_subtotal || 0}
+              data-value={productDiscount}
             >
               -{" "}
               {convertToLocale({
-                amount: discount_subtotal ?? 0,
+                amount: productDiscount,
                 currency_code,
               })}
             </span>

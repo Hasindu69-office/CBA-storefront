@@ -2,6 +2,7 @@
 
 import {
   initiatePaymentSession,
+  applyPromotions,
   placeOrder,
   saveCheckoutDetails,
   setShippingMethod,
@@ -39,6 +40,11 @@ import {
   type ReactNode,
 } from "react"
 import CartProgress from "@modules/cart/templates/cart-progress"
+import CartCouponForm from "@modules/cart/templates/cart-coupon-form"
+import {
+  hasAutomaticPromotions,
+  manualCodesWithNewCoupon,
+} from "@lib/util/coupon-promotions"
 
 type CbaCheckoutTemplateProps = {
   cart: HttpTypes.StoreCart
@@ -50,6 +56,7 @@ type CbaCheckoutTemplateProps = {
 type CbaCheckoutCart = HttpTypes.StoreCart & {
   discount_subtotal?: number | null
   metadata?: Record<string, unknown> | null
+  promotions?: HttpTypes.StorePromotion[]
 }
 
 function money(amount: number | null | undefined, currencyCode: string) {
@@ -637,9 +644,33 @@ function CheckoutOrderSummary({
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
 }) {
+  const router = useRouter()
   const itemCount = cart.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
-  const discount = cart.discount_subtotal ?? cart.discount_total ?? 0
-  const shipping = cart.shipping_subtotal ?? 0
+  const subtotal = cart.item_subtotal ?? cart.subtotal ?? 0
+  const shippingBeforeDiscount =
+    cart.shipping_subtotal ?? cart.shipping_total ?? 0
+  const shippingAfterDiscount = cart.shipping_total ?? shippingBeforeDiscount
+  const shippingDiscount = Math.max(
+    shippingBeforeDiscount - shippingAfterDiscount,
+    0
+  )
+  const inferredDiscount = Math.max(
+    subtotal + shippingBeforeDiscount - (cart.total ?? 0),
+    0
+  )
+  const totalDiscount = Math.max(
+    cart.discount_subtotal ?? 0,
+    cart.discount_total ?? 0,
+    inferredDiscount
+  )
+  const productDiscount = Math.max(totalDiscount - shippingDiscount, 0)
+  const automaticPromotions = hasAutomaticPromotions(cart.promotions)
+  const discountLabel = automaticPromotions ? "Store discount" : "Coupon discount"
+
+  const applyCheckoutCoupon = async (code: string) => {
+    await applyPromotions(manualCodesWithNewCoupon(cart.promotions, code))
+    router.refresh()
+  }
 
   return (
     <>
@@ -664,24 +695,42 @@ function CheckoutOrderSummary({
           ))}
         </div>
 
+        <div className="mt-4 border-t border-gray-100 pt-4">
+          <CartCouponForm
+            promotions={cart.promotions ?? []}
+            onApply={applyCheckoutCoupon}
+            disabled={isSavingCheckoutDetails}
+            variant="checkout"
+          />
+        </div>
+
         <div className="mt-4 border-t border-gray-100 pt-5 text-[14px]">
           <SummaryLine
             label="Subtotal"
-            value={money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)}
+            value={money(subtotal, cart.currency_code)}
           />
-          <SummaryLine
-            label="Discount"
-            value={
-              discount > 0
-                ? `- ${money(discount, cart.currency_code)}`
-                : money(0, cart.currency_code)
-            }
-            accent={discount > 0 ? "green" : undefined}
-          />
+          {productDiscount > 0 && (
+            <SummaryLine
+              label={discountLabel}
+              value={`- ${money(productDiscount, cart.currency_code)}`}
+              accent="green"
+            />
+          )}
           <SummaryLine
             label="Delivery Fee"
-            value={shipping <= 0 ? "FREE" : money(shipping, cart.currency_code)}
-            accent={shipping <= 0 ? "green" : undefined}
+            value={
+              shippingDiscount > 0 ? (
+                <span className="text-right">
+                  <span className="block text-[12px] font-semibold text-[#8b90a0] line-through">
+                    {money(shippingBeforeDiscount, cart.currency_code)}
+                  </span>
+                  <span>Free</span>
+                </span>
+              ) : (
+                money(shippingAfterDiscount, cart.currency_code)
+              )
+            }
+            accent={shippingDiscount > 0 ? "green" : undefined}
           />
         </div>
 
@@ -757,7 +806,7 @@ function SummaryLine({
   accent,
 }: {
   label: string
-  value: string
+  value: ReactNode
   accent?: "green"
 }) {
   return (

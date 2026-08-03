@@ -514,9 +514,7 @@ export default function CbaProductDetail({
             className={
               hasCompanionContent && hasPdpSidebarBanners
                 ? "mt-12 grid gap-4 small:grid-cols-[1fr_280px]"
-                : hasCompanionContent
-                  ? "mt-12"
-                  : "mt-12 flex justify-end"
+                : "mt-12"
             }
           >
             {hasCompanionContent && (
@@ -528,14 +526,10 @@ export default function CbaProductDetail({
               />
             )}
             {hasPdpSidebarBanners && (
-              <div
-                className={
-                  hasCompanionContent ? "h-full min-h-0" : "w-full max-w-[280px]"
-                }
-              >
+              <div className={hasCompanionContent ? "h-full min-h-0" : undefined}>
                 <PdpSidebarBanners
                   banners={pdpBanners}
-                  matchCompanionHeight={hasCompanionContent}
+                  layout={hasCompanionContent ? "sidebar" : "standalone"}
                 />
               </div>
             )}

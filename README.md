@@ -1,127 +1,88 @@
-> ⚠️ This repository is now deprecated. Use the [dtc-starter](https://github.com/medusajs/dtc-starter) instead.
+# CBA Ecommerce Storefront
 
-<p align="center">
-  <a href="https://www.medusajs.com">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://user-images.githubusercontent.com/59018053/229103275-b5e482bb-4601-46e6-8142-244f531cebdb.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://user-images.githubusercontent.com/59018053/229103726-e5b529a3-9b3f-4970-8a1f-c6af37f087bf.svg">
-    <img alt="Medusa logo" src="https://user-images.githubusercontent.com/59018053/229103726-e5b529a3-9b3f-4970-8a1f-c6af37f087bf.svg">
-    </picture>
-  </a>
-</p>
+This is the CBA B2C storefront for the Medusa `2.17.2` backend in `../backend`.
 
-<h1 align="center">
-  Medusa Next.js Starter Template
-</h1>
+The app uses Next.js `15.3.9`, React `19.0.5`, Tailwind CSS, and the Medusa JS SDK. Server-side cart, checkout, promotion, shipping, customer, and order data must come from the Medusa backend. The browser may validate form input for UX, but it must not calculate authoritative prices, discounts, shipping, taxes, or totals.
 
-<p align="center">
-Combine Medusa's modules for your commerce backend with the newest Next.js 15 features for a performant storefront.</p>
+## Local Setup
 
-<p align="center">
-  <a href="https://github.com/medusajs/medusa/blob/master/CONTRIBUTING.md">
-    <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat" alt="PRs welcome!" />
-  </a>
-  <a href="https://discord.gg/xpCwq3Kfn8">
-    <img src="https://img.shields.io/badge/chat-on%20discord-7289DA.svg" alt="Discord Chat" />
-  </a>
-  <a href="https://twitter.com/intent/follow?screen_name=medusajs">
-    <img src="https://img.shields.io/twitter/follow/medusajs.svg?label=Follow%20@medusajs" alt="Follow @medusajs" />
-  </a>
-</p>
+Install dependencies:
 
-### Prerequisites
-
-To use the [Next.js Starter Template](https://medusajs.com/nextjs-commerce/), you should have a Medusa server running locally on port 9000.
-For a quick setup, run:
-
-```shell
-npx create-medusa-app@latest
+```powershell
+cd storefront
+npm.cmd install
 ```
 
-Check out [create-medusa-app docs](https://docs.medusajs.com/learn/installation) for more details and troubleshooting.
+Create or update `.env.local`:
 
-# Overview
-
-The Medusa Next.js Starter is built with:
-
-- [Next.js](https://nextjs.org/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [Typescript](https://www.typescriptlang.org/)
-- [Medusa](https://medusajs.com/)
-
-Features include:
-
-- Full ecommerce support:
-  - Product Detail Page
-  - Product Overview Page
-  - Product Collections
-  - Cart
-  - Checkout with Stripe
-  - User Accounts
-  - Order Details
-- Full Next.js 15 support:
-  - App Router
-  - Next fetching/caching
-  - Server Components
-  - Server Actions
-  - Streaming
-  - Static Pre-Rendering
-
-# Quickstart
-
-### Setting up the environment variables
-
-Navigate into your projects directory and get your environment variables ready:
-
-```shell
-cd nextjs-starter-medusa/
-mv .env.template .env.local
+```env
+MEDUSA_BACKEND_URL=http://localhost:9000
+NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=replace-with-local-publishable-key
+NEXT_PUBLIC_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_DEFAULT_REGION=lk
 ```
 
-### Install dependencies
+Optional payment variables:
 
-Use Yarn to install all dependencies.
-
-```shell
-yarn
+```env
+NEXT_PUBLIC_STRIPE_KEY=replace-with-stripe-public-key
+NEXT_PUBLIC_MEDUSA_PAYMENTS_PUBLISHABLE_KEY=replace-with-medusa-payments-key
+NEXT_PUBLIC_MEDUSA_PAYMENTS_ACCOUNT_ID=replace-with-medusa-payments-account-id
 ```
 
-### Start developing
+Start the storefront:
 
-You are now ready to start up your project.
-
-```shell
-yarn dev
+```powershell
+npm.cmd run dev
 ```
 
-### Open the code and start customizing
+The local app runs on `http://localhost:8000`.
 
-Your site is now running at http://localhost:8000!
+## Backend Baseline
 
-# Payment integrations
+Before cart, shipping, coupon, or checkout testing, run the backend setup and verification relevant to the current phase:
 
-By default this starter supports the following payment integrations
-
-- [Stripe](https://stripe.com/)
-
-To enable the integrations you need to add the following to your `.env.local` file:
-
-```shell
-NEXT_PUBLIC_STRIPE_KEY=<your-stripe-public-key>
+```powershell
+cd ../backend
+npx.cmd medusa db:migrate
+npm.cmd run setup:cba
+npm.cmd run setup:cba:fulfillment
+npm.cmd run seed:cba:test-shipping
+npm.cmd run seed:cba:test-promotions
+npm.cmd run verify:cba:phase-3a
+npm.cmd run verify:cba:phase-3b
 ```
 
-You'll also need to setup the integrations in your Medusa server. See the [Medusa documentation](https://docs.medusajs.com) for more information on how to configure [Stripe](https://docs.medusajs.com/resources/commerce-modules/payment/payment-provider/stripe#main).
+Development promotion fixtures use deterministic `CBA3B_*` codes and native Medusa Promotions/Campaigns.
 
-# Resources
+## Promotion And Coupon Rules
 
-## Learn more about Medusa
+- Storefront coupon validation is in `src/lib/util/promotions.ts`.
+- Cart mutations flow through `src/lib/data/cart.ts`.
+- Promotion application uses native Medusa cart updates with `promo_codes`.
+- Codes are normalized to uppercase to match the existing CBA storefront behavior and seeded fixture codes.
+- The server remains authoritative for eligibility, adjustments, totals, usage limits, campaign dates, and shipping discounts.
+- Customer-facing errors must not expose stack traces, SQL details, internal IDs, campaign budgets, package names, Redis details, or secrets.
 
-- [Website](https://www.medusajs.com/)
-- [GitHub](https://github.com/medusajs)
-- [Documentation](https://docs.medusajs.com/)
+## Verification
 
-## Learn more about Next.js
+Run:
 
-- [Website](https://nextjs.org/)
-- [GitHub](https://github.com/vercel/next.js)
-- [Documentation](https://nextjs.org/docs)
+```powershell
+npm.cmd run build
+```
+
+The current storefront package does not define a test script or typecheck script. `npm.cmd run lint` currently fails in the existing Next/ESLint setup before Phase 3B code with `@next/next/no-html-link-for-pages` receiving an undefined path. Add focused tests before launch for cart coupon validation, pending duplicate-submit prevention, successful add/remove, invalid promotion messages, and cart/checkout/order summary consistency.
+
+Manual smoke checks:
+
+- Home and store pages load with Sri Lanka region data.
+- Product detail add-to-cart works.
+- Cart, side cart, and checkout show applied coupons and authoritative totals.
+- Coupon removal does not remove automatic promotions.
+- Checkout can select shipping and payment after promotion changes.
+- Order confirmation shows authoritative discount totals.
+
+## Deployment
+
+See `DEPLOYMENT.md`. Public `NEXT_PUBLIC_*` variables must be available during build, and `MEDUSA_BACKEND_URL` must be reachable from the deployed container.

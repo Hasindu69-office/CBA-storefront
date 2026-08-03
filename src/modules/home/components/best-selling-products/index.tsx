@@ -84,7 +84,7 @@ const BestSellingProductsSection = async ({
           </div>
 
           <div className="absolute inset-x-0 top-[112px] z-20 px-7 small:top-[134px] small:px-10 medium:px-7 large:px-9">
-            <div className="no-scrollbar flex snap-x snap-mandatory justify-start gap-5 overflow-x-auto scroll-smooth pb-5 pl-0 pr-2 small:gap-6 medium:grid medium:grid-cols-5 medium:justify-items-center medium:gap-5 medium:overflow-visible medium:pb-0 medium:pr-0 large:gap-7">
+            <div className="no-scrollbar flex snap-x snap-mandatory justify-start gap-3 overflow-x-auto scroll-smooth pb-5 pl-0 pr-2 medium:grid medium:grid-cols-5 medium:items-stretch medium:gap-3 medium:overflow-visible medium:pb-0 medium:pr-0 large:gap-4">
               {products.slice(0, 5).map((product, index) => (
                 <BestSellingProductCard
                   key={product.id}

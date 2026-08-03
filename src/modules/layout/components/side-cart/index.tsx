@@ -3,7 +3,19 @@
 import { Dialog, Transition } from "@headlessui/react"
 import { applyPromotions, deleteLineItem, updateLineItem } from "@lib/data/cart"
 import { notify } from "@lib/notifications"
+import {
+  hasAutomaticPromotions,
+  listAllPromotionCodes,
+  listManualPromotionCodes,
+  manualCodesWithNewCoupon,
+  manualCodesWithoutCoupon,
+} from "@lib/util/coupon-promotions"
 import { convertToLocale } from "@lib/util/money"
+import {
+  PROMOTION_CODE_MAX_COUNT,
+  PROMOTION_CODE_MAX_LENGTH,
+  validatePromotionCode,
+} from "@lib/util/promotions"
 import {
   SIDE_CART_OPEN_EVENT,
   type SideCartOpenOptions,
@@ -46,7 +58,6 @@ type SideCartProps = {
 }
 type CartPromotion = NonNullable<HttpTypes.StoreCart["promotions"]>[number]
 
-const SAFE_PROMOTION_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{0,63}$/
 const MIN_QUANTITY = 1
 const MAX_QUANTITY = 99
 
@@ -279,26 +290,14 @@ function SideCartDrawer({
   }
 
   const applyCoupon = (code: string) => {
-    const promotionCodes =
-      cart?.promotions
-        ?.map((promotion) => promotion.code)
-        .filter((code): code is string => Boolean(code)) ?? []
-    const normalizedCode = code.trim().toUpperCase()
+    const allPromotionCodes = listAllPromotionCodes(cart?.promotions)
+    const result = validatePromotionCode(code, allPromotionCodes)
+    const normalizedCode = result.code
 
     setCouponError(null)
 
-    if (!normalizedCode) {
-      setCouponError("Enter a coupon code.")
-      return
-    }
-
-    if (!SAFE_PROMOTION_CODE_PATTERN.test(normalizedCode)) {
-      setCouponError("Coupon code can use letters, numbers, hyphens, and underscores.")
-      return
-    }
-
-    if (promotionCodes.includes(normalizedCode)) {
-      setCouponError("Coupon code is already applied.")
+    if (result.error) {
+      setCouponError(result.error)
       return
     }
 
@@ -306,7 +305,7 @@ function SideCartDrawer({
       const toastId = `side-cart-coupon:${normalizedCode}`
       notify.loading("Applying coupon...", { id: toastId })
       try {
-        await applyPromotions([...promotionCodes, normalizedCode])
+        await applyPromotions(manualCodesWithNewCoupon(cart?.promotions, normalizedCode))
         router.refresh()
         notify.success("Coupon applied.", { id: toastId })
       } catch (error) {
@@ -319,19 +318,12 @@ function SideCartDrawer({
   }
 
   const removeCoupon = (code: string) => {
-    const promotionCodes =
-      cart?.promotions
-        ?.map((promotion) => promotion.code)
-        .filter((code): code is string => Boolean(code)) ?? []
-
     setCouponError(null)
     startCouponTransition(async () => {
       const toastId = `side-cart-coupon-remove:${code}`
       notify.loading("Removing coupon...", { id: toastId })
       try {
-        await applyPromotions(
-          promotionCodes.filter((promotionCode) => promotionCode !== code)
-        )
+        await applyPromotions(manualCodesWithoutCoupon(cart?.promotions, code))
         router.refresh()
         notify.success("Coupon removed.", { id: toastId })
       } catch (error) {
@@ -706,27 +698,42 @@ function SideCartCouponForm({
   isPending: boolean
 }) {
   const [code, setCode] = useState("")
-  const promotionCodes = promotions
-    .map((promotion) => promotion.code)
-    .filter((code): code is string => Boolean(code))
+  const [localError, setLocalError] = useState<string | null>(null)
+  const manualPromotionCodes = listManualPromotionCodes(promotions)
+  const allPromotionCodes = listAllPromotionCodes(promotions)
+  const automaticPromotions = hasAutomaticPromotions(promotions)
+  const displayError = error ?? localError
 
   const submit = () => {
-    const normalizedCode = code.trim().toUpperCase()
-    onApply(normalizedCode)
+    setLocalError(null)
+    const result = validatePromotionCode(code, allPromotionCodes)
 
-    if (
-      normalizedCode &&
-      SAFE_PROMOTION_CODE_PATTERN.test(normalizedCode) &&
-      !promotionCodes.includes(normalizedCode)
-    ) {
-      setCode("")
+    if (result.error) {
+      setLocalError(result.error)
+      return
     }
+
+    if (manualPromotionCodes.length >= PROMOTION_CODE_MAX_COUNT) {
+      setLocalError(`You can apply up to ${PROMOTION_CODE_MAX_COUNT} coupon codes.`)
+      return
+    }
+
+    onApply(result.code)
+    setCode("")
   }
 
   return (
     <div className="mb-3">
-      <div className="flex h-10 overflow-hidden rounded-md border border-dashed border-brand/35 bg-white">
-        <span className="flex w-10 shrink-0 items-center justify-center border-r border-dashed border-brand/25 text-brand">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-[13px] font-bold text-[#111827]">Coupon code</p>
+        {automaticPromotions && (
+          <span className="text-[11px] font-semibold text-emerald-700">
+            Store offer applied
+          </span>
+        )}
+      </div>
+      <div className="flex h-11 overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_2px_8px_rgba(17,24,39,0.04)] focus-within:border-brand">
+        <span className="flex w-10 shrink-0 items-center justify-center border-r border-gray-200 text-brand">
           <Tag className="h-5 w-5" />
         </span>
         <label htmlFor="side-cart-coupon" className="sr-only">
@@ -742,7 +749,7 @@ function SideCartCouponForm({
               submit()
             }
           }}
-          maxLength={64}
+          maxLength={PROMOTION_CODE_MAX_LENGTH}
           placeholder="Enter coupon code"
           className="min-w-0 flex-1 px-3 text-[13px] outline-none placeholder:text-[#8b90a0]"
           disabled={disabled}
@@ -752,32 +759,50 @@ function SideCartCouponForm({
           type="button"
           onClick={submit}
           disabled={disabled || isPending}
-          className="m-1 rounded-md border border-gray-200 px-3 text-[13px] font-semibold text-[#596070] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-50"
+          className="m-1 rounded-md bg-brand px-3 text-[13px] font-semibold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
           data-testid="side-cart-discount-apply"
         >
           {isPending ? "Applying" : "Apply"}
         </button>
       </div>
 
-      {promotionCodes.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-2">
-          {promotionCodes.map((promotionCode) => (
+      {(manualPromotionCodes.length > 0 || automaticPromotions) && (
+        <div className="mt-2 flex flex-wrap gap-2" aria-label="Applied promotions">
+          {manualPromotionCodes.map((promotionCode) => (
             <button
               key={promotionCode}
               type="button"
               onClick={() => onRemove(promotionCode)}
               disabled={disabled || isPending}
-              className="inline-flex items-center gap-2 rounded-md border border-gray-200 px-3 py-1.5 text-[12px] font-semibold text-[#333740] hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-8 items-center gap-2 rounded-md border border-brand/25 bg-[#fff7f1] px-3 py-1.5 text-[12px] font-semibold text-[#333740] hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label={`Remove coupon ${promotionCode}`}
             >
               {promotionCode}
               <Trash className="h-4 w-4" />
             </button>
           ))}
+          {automaticPromotions && (
+            <span
+              className="inline-flex min-h-8 items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[12px] font-semibold text-emerald-700"
+              title="Automatic offers are applied by the store when your cart is eligible."
+            >
+              Store discount applied
+              <span className="rounded bg-white/70 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-emerald-700">
+                Auto
+              </span>
+            </span>
+          )}
         </div>
       )}
 
-      {error && (
-        <p className="mt-2 text-[12px] leading-4 text-red-600">{error}</p>
+      {displayError && (
+        <p
+          className="mt-2 text-[12px] leading-4 text-red-600"
+          role="status"
+          aria-live="polite"
+        >
+          {displayError}
+        </p>
       )}
     </div>
   )
@@ -793,7 +818,30 @@ function SideCartSummary({
   onClose: () => void
 }) {
   const itemCount = getItemCount(cart)
-  const shipping = cart.shipping_subtotal ?? 0
+  const totals = cart as HttpTypes.StoreCart & {
+    discount_subtotal?: number | null
+  }
+  const subtotal = cart.item_subtotal ?? cart.subtotal ?? 0
+  const shippingBeforeDiscount =
+    cart.shipping_subtotal ?? cart.shipping_total ?? 0
+  const shippingAfterDiscount = cart.shipping_total ?? shippingBeforeDiscount
+  const shippingDiscount = Math.max(
+    shippingBeforeDiscount - shippingAfterDiscount,
+    0
+  )
+  const inferredDiscount = Math.max(
+    subtotal + shippingBeforeDiscount - (cart.total ?? 0),
+    0
+  )
+  const totalDiscount = Math.max(
+    totals.discount_subtotal ?? 0,
+    cart.discount_total ?? 0,
+    inferredDiscount
+  )
+  const productDiscount = Math.max(totalDiscount - shippingDiscount, 0)
+  const hasAutomaticPromotions = Boolean(
+    cart.promotions?.some((promotion) => promotion.is_automatic)
+  )
   const checkoutHref = `/checkout?step=${getCheckoutStep(cart)}`
 
   return (
@@ -802,16 +850,39 @@ function SideCartSummary({
         <div className="flex items-center justify-between gap-4">
           <span>Subtotal ({itemCount} items)</span>
           <span className="font-medium">
-            {money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)}
+            {money(subtotal, cart.currency_code)}
           </span>
         </div>
+        {productDiscount > 0 && (
+          <div className="flex items-center justify-between gap-4 text-emerald-700">
+            <span>
+              {hasAutomaticPromotions ? "Store discount" : "Coupon discount"}
+            </span>
+            <span className="font-semibold">
+              -{money(productDiscount, cart.currency_code)}
+            </span>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-4">
           <span className="inline-flex items-center gap-1.5">
             Delivery Fee
             <InformationCircle className="h-4 w-4 text-[#8b90a0]" />
           </span>
-          <span className="font-medium">
-            {money(shipping, cart.currency_code)}
+          <span className="text-right">
+            {shippingDiscount > 0 && (
+              <span className="block text-[12px] font-medium text-[#8b90a0] line-through">
+                {money(shippingBeforeDiscount, cart.currency_code)}
+              </span>
+            )}
+            <span
+              className={`font-medium ${
+                shippingDiscount > 0 ? "text-emerald-700" : ""
+              }`}
+            >
+              {shippingAfterDiscount <= 0
+                ? "Free"
+                : money(shippingAfterDiscount, cart.currency_code)}
+            </span>
           </span>
         </div>
       </div>

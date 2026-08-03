@@ -9,6 +9,10 @@ import { HttpTypes } from "@medusajs/types"
 import Trash from "@modules/common/icons/trash"
 import ErrorMessage from "../error-message"
 import { SubmitButton } from "../submit-button"
+import {
+  PROMOTION_CODE_MAX_LENGTH,
+  validatePromotionCode,
+} from "@lib/util/promotions"
 
 type DiscountCodeProps = {
   cart: HttpTypes.StoreCart & {
@@ -21,9 +25,15 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
   const [errorMessage, setErrorMessage] = React.useState("")
 
   const { promotions = [] } = cart
+  const manualPromotions = promotions.filter(
+    (promotion) => !promotion.is_automatic
+  )
+  const hasAutomaticPromotions = promotions.some(
+    (promotion) => promotion.is_automatic
+  )
   const removePromotionCode = async (code: string) => {
     const validPromotions = promotions.filter(
-      (promotion) => promotion.code !== code
+      (promotion) => !promotion.is_automatic && promotion.code !== code
     )
 
     await applyPromotions(
@@ -34,15 +44,21 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
   const addPromotionCode = async (formData: FormData) => {
     setErrorMessage("")
 
-    const code = formData.get("code")
-    if (!code) {
+    const rawCode = String(formData.get("code") ?? "")
+    const codes = promotions
+      .filter((p) => !p.is_automatic)
+      .filter((p) => p.code !== undefined)
+      .map((p) => p.code!)
+    const appliedCodes = promotions
+      .filter((p) => p.code !== undefined)
+      .map((p) => p.code!)
+    const validation = validatePromotionCode(rawCode, appliedCodes)
+    if (validation.error) {
+      setErrorMessage(validation.error)
       return
     }
     const input = document.getElementById("promotion-input") as HTMLInputElement
-    const codes = promotions
-      .filter((p) => p.code !== undefined)
-      .map((p) => p.code!)
-    codes.push(code.toString())
+    codes.push(validation.code)
 
     try {
       await applyPromotions(codes)
@@ -82,6 +98,10 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                   id="promotion-input"
                   name="code"
                   type="text"
+                  maxLength={PROMOTION_CODE_MAX_LENGTH}
+                  onChange={(event) => {
+                    event.currentTarget.value = event.currentTarget.value.toUpperCase()
+                  }}
                   autoFocus={false}
                   data-testid="discount-input"
                 />
@@ -101,14 +121,14 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
           )}
         </form>
 
-        {promotions.length > 0 && (
+        {(manualPromotions.length > 0 || hasAutomaticPromotions) && (
           <div className="w-full flex items-center">
             <div className="flex flex-col w-full">
               <Heading className="txt-medium mb-2">
                 Promotion(s) applied:
               </Heading>
 
-              {promotions.map((promotion) => {
+              {manualPromotions.map((promotion) => {
                 return (
                   <div
                     key={promotion.id}
@@ -117,10 +137,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                   >
                     <Text className="flex gap-x-1 items-baseline txt-small-plus w-4/5 pr-1">
                       <span className="truncate" data-testid="discount-code">
-                        <Badge
-                          color={promotion.is_automatic ? "green" : "grey"}
-                          size="small"
-                        >
+                        <Badge color="grey" size="small">
                           {promotion.code}
                         </Badge>{" "}
                         (
@@ -140,34 +157,43 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                             </>
                           )}
                         )
-                        {/* {promotion.is_automatic && (
-                          <Tooltip content="This promotion is automatically applied">
-                            <InformationCircleSolid className="inline text-zinc-400" />
-                          </Tooltip>
-                        )} */}
                       </span>
                     </Text>
-                    {!promotion.is_automatic && (
-                      <button
-                        className="flex items-center"
-                        onClick={() => {
-                          if (!promotion.code) {
-                            return
-                          }
+                    <button
+                      className="flex items-center"
+                      onClick={() => {
+                        if (!promotion.code) {
+                          return
+                        }
 
-                          removePromotionCode(promotion.code)
-                        }}
-                        data-testid="remove-discount-button"
-                      >
-                        <Trash size={14} />
-                        <span className="sr-only">
-                          Remove discount code from order
-                        </span>
-                      </button>
-                    )}
+                        removePromotionCode(promotion.code)
+                      }}
+                      data-testid="remove-discount-button"
+                    >
+                      <Trash size={14} />
+                      <span className="sr-only">
+                        Remove discount code from order
+                      </span>
+                    </button>
                   </div>
                 )
               })}
+              {hasAutomaticPromotions && (
+                <div
+                  className="flex items-center justify-between w-full max-w-full mb-2"
+                  data-testid="discount-row"
+                >
+                  <Text className="flex gap-x-2 items-center txt-small-plus w-4/5 pr-1 text-emerald-700">
+                    <Badge color="green" size="small">
+                      Auto
+                    </Badge>
+                    <span data-testid="discount-code">Store discount applied</span>
+                  </Text>
+                  <span className="text-xs text-ui-fg-muted">
+                    Store offer
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         )}

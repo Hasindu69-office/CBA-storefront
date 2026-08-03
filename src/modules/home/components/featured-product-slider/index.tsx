@@ -195,7 +195,6 @@ export const FeaturedProductCardItem = ({
   const countryCode = useParams().countryCode as string
   const [isAddingToCart, setIsAddingToCart] = useState(false)
   const [isAddingToWishlist, setIsAddingToWishlist] = useState(false)
-  const [statusMessage, setStatusMessage] = useState("")
 
   const isPurchasable =
     !!product.default_variant?.id &&
@@ -211,13 +210,11 @@ export const FeaturedProductCardItem = ({
     event.stopPropagation()
 
     if (!product.default_variant?.id) {
-      setStatusMessage("Please select a valid product.")
       notify.error("Please select a valid product.")
       return
     }
 
     if (!isPurchasable) {
-      setStatusMessage(inventoryLabel(product.inventory.status))
       notify.warning(inventoryLabel(product.inventory.status))
       return
     }
@@ -226,7 +223,6 @@ export const FeaturedProductCardItem = ({
     notify.loading("Adding item to cart...", { id: toastId })
     openSideCart({ pendingMessage: "Adding item to cart.", refresh: false })
     setIsAddingToCart(true)
-    setStatusMessage("")
 
     try {
       await addToCart({
@@ -234,7 +230,6 @@ export const FeaturedProductCardItem = ({
         quantity: 1,
         countryCode,
       })
-      setStatusMessage("Added to cart.")
       openSideCart({ pendingMessage: "Updating cart.", refresh: true })
       notify.success("Item added to cart.", { id: toastId })
     } catch (error) {
@@ -242,9 +237,6 @@ export const FeaturedProductCardItem = ({
       notify.error(error, "Could not add this item to your cart.", {
         id: toastId,
       })
-      setStatusMessage(
-        error instanceof Error ? error.message : "Could not add to cart."
-      )
     } finally {
       setIsAddingToCart(false)
     }
@@ -255,7 +247,6 @@ export const FeaturedProductCardItem = ({
     event.stopPropagation()
 
     if (!product.default_variant?.id) {
-      setStatusMessage("Please select a valid product.")
       notify.error("Please select a valid product.")
       return
     }
@@ -263,7 +254,6 @@ export const FeaturedProductCardItem = ({
     const toastId = `featured-wishlist:${product.id}`
     notify.loading("Adding item to wishlist...", { id: toastId })
     setIsAddingToWishlist(true)
-    setStatusMessage("")
 
     const result = await addFeaturedProductToWishlist({
       productId: product.product_id ?? product.id,
@@ -271,10 +261,8 @@ export const FeaturedProductCardItem = ({
     })
 
     if (result.success) {
-      setStatusMessage("")
       notify.success(result.message, { id: toastId })
     } else {
-      setStatusMessage(result.message)
       notify.error(result.message, "Could not add this item to wishlist.", {
         id: toastId,
       })
@@ -427,19 +415,6 @@ export const FeaturedProductCardItem = ({
             <ShoppingCartIcon size={16} />
             {isAddingToCart ? "Adding..." : "Add to cart"}
           </button>
-          {statusMessage && (
-            <p
-              aria-live="polite"
-              className={`mt-1.5 text-[10px] leading-[15px] ${
-                statusMessage.toLowerCase().includes("could not") ||
-                statusMessage.toLowerCase().includes("invalid")
-                  ? "text-[#dc2626]"
-                  : "text-[#52525b]"
-              }`}
-            >
-              {statusMessage}
-            </p>
-          )}
         </div>
       </div>
     </article>
