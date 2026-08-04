@@ -527,13 +527,13 @@ export default async function OrderCompletedTemplate({
                 </LocalizedClientLink>
               </div>
 
-              <div className="mt-9 flex items-center gap-4 rounded-[8px] bg-[#eef8ef] px-5 py-6 text-[#2f963e]">
+              <div className="mt-9 flex items-start gap-4 rounded-[8px] bg-[#eef8ef] px-5 py-6 text-[#2f963e]">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-[#31a640]">
                   <MailIcon className="h-6 w-6" />
                 </div>
-                <p className="text-[14px] font-semibold leading-6">
+                <p className="min-w-0 flex-1 text-[14px] font-semibold leading-6">
                   A confirmation email has been sent to{" "}
-                  <span data-testid="order-email">
+                  <span className="break-all" data-testid="order-email">
                     {order.email ?? fallbackText}
                   </span>
                 </p>
