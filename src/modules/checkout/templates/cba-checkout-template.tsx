@@ -75,7 +75,6 @@ function lineTotal(item: HttpTypes.StoreCartLineItem, currencyCode: string) {
 function paymentTitle(providerId: string) {
   const mapped = paymentInfoMap[providerId]?.title
   if (mapped) {
-    if (isManual(providerId)) return "Bank Transfer"
     return mapped
   }
   if (/cash|cod/i.test(providerId)) return "Cash on Delivery"
@@ -649,6 +648,7 @@ function CheckoutOrderSummary({
   const router = useRouter()
   const [isRefreshingTotals, setIsRefreshingTotals] = useState(false)
   const [totalsError, setTotalsError] = useState<string | null>(null)
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const itemCount = cart.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
   const automaticPromotions = hasAutomaticPromotions(cart.promotions)
   const mapped = mapAuthoritativeTotals(cart, {
@@ -781,6 +781,8 @@ function CheckoutOrderSummary({
             cardComplete={cardComplete}
             isSavingCheckoutDetails={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+            termsAccepted={termsAccepted}
+            setTermsAccepted={setTermsAccepted}
           />
         </div>
       </section>
@@ -858,12 +860,16 @@ function PlaceOrderControl({
   cardComplete,
   isSavingCheckoutDetails,
   saveCurrentCheckoutDetails,
+  termsAccepted,
+  setTermsAccepted,
 }: {
   cart: HttpTypes.StoreCart
   selectedPaymentMethod: string
   cardComplete: boolean
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
+  termsAccepted: boolean
+  setTermsAccepted: (accepted: boolean) => void
 }) {
   const activeSession = selectedPaymentSession(cart)
   const totals = mapAuthoritativeTotals(cart)
@@ -875,24 +881,49 @@ function PlaceOrderControl({
     Boolean(cart.billing_address) &&
     (cart.shipping_methods?.length ?? 0) > 0 &&
     Boolean(activeSession) &&
-    totalsReady
+    totalsReady &&
+    termsAccepted
+
+  const termsControl = (
+    <label className="mt-5 flex items-start gap-3 rounded-md border border-gray-100 p-3 text-[12px] font-semibold text-[#4b5260]">
+      <input
+        type="checkbox"
+        checked={termsAccepted}
+        onChange={(event) => setTermsAccepted(event.target.checked)}
+        className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-brand"
+      />
+      <span>
+        I agree to the terms and conditions and confirm the checkout details are correct.
+      </span>
+    </label>
+  )
 
   if (isStripeLike(activeSession?.provider_id)) {
     return (
-      <StripePlaceOrderButton
-        cart={cart}
-        disabled={!baseReady || !cardComplete || isSavingCheckoutDetails}
-        saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
-      />
+      <>
+        {termsControl}
+        <StripePlaceOrderButton
+          cart={cart}
+          providerId={activeSession?.provider_id}
+          disabled={!baseReady || !cardComplete || isSavingCheckoutDetails}
+          saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+          termsAccepted={termsAccepted}
+        />
+      </>
     )
   }
 
   if (isManual(activeSession?.provider_id) || activeSession?.provider_id) {
     return (
-      <ManualPlaceOrderButton
-        disabled={!baseReady || isSavingCheckoutDetails}
-        saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
-      />
+      <>
+        {termsControl}
+        <ManualPlaceOrderButton
+          providerId={activeSession?.provider_id}
+          disabled={!baseReady || isSavingCheckoutDetails}
+          saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+          termsAccepted={termsAccepted}
+        />
+      </>
     )
   }
 
@@ -917,28 +948,38 @@ function PlaceOrderControl({
 
 function StripePlaceOrderButton({
   cart,
+  providerId,
   disabled,
   saveCurrentCheckoutDetails,
+  termsAccepted,
 }: {
   cart: HttpTypes.StoreCart
+  providerId?: string
   disabled: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
+  termsAccepted: boolean
 }) {
   const stripe = useStripe()
   const elements = useElements()
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const submittingRef = useRef(false)
   const session = cart.payment_collection?.payment_sessions?.find(
     (item) => item.status === "pending"
   )
 
   const submit = async () => {
+    if (submittingRef.current) {
+      return
+    }
+    submittingRef.current = true
     setIsPending(true)
     setError(null)
     const checkoutDetailsError = await saveCurrentCheckoutDetails()
     if (checkoutDetailsError) {
       setError(checkoutDetailsError)
       setIsPending(false)
+      submittingRef.current = false
       return
     }
 
@@ -946,6 +987,7 @@ function StripePlaceOrderButton({
     if (!stripe || !elements || !card || !session?.data.client_secret) {
       setIsPending(false)
       setError("Payment details are not ready.")
+      submittingRef.current = false
       return
     }
 
@@ -976,12 +1018,14 @@ function StripePlaceOrderButton({
     if (result.error) {
       setError(result.error.message ?? "Payment could not be confirmed.")
       setIsPending(false)
+      submittingRef.current = false
       return
     }
 
-    await placeOrder().catch((err) => {
+    await placeOrder({ providerId, termsAccepted }).catch((err) => {
       setError(err instanceof Error ? err.message : "Could not place order.")
       setIsPending(false)
+      submittingRef.current = false
     })
   }
 
@@ -991,39 +1035,51 @@ function StripePlaceOrderButton({
         type="button"
         onClick={submit}
         disabled={disabled || isPending}
+        aria-busy={isPending}
         className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isPending ? "Placing Order..." : "Place Order"}
         <ArrowRight />
       </button>
-      {error && <p className="mt-3 text-small-regular text-red-600">{error}</p>}
+      {error && <p className="mt-3 text-small-regular text-red-600" role="status" aria-live="polite">{error}</p>}
     </>
   )
 }
 
 function ManualPlaceOrderButton({
+  providerId,
   disabled,
   saveCurrentCheckoutDetails,
+  termsAccepted,
 }: {
+  providerId?: string
   disabled: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
+  termsAccepted: boolean
 }) {
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const submittingRef = useRef(false)
 
   const submit = async () => {
+    if (submittingRef.current) {
+      return
+    }
+    submittingRef.current = true
     setIsPending(true)
     setError(null)
     const checkoutDetailsError = await saveCurrentCheckoutDetails()
     if (checkoutDetailsError) {
       setError(checkoutDetailsError)
       setIsPending(false)
+      submittingRef.current = false
       return
     }
 
-    await placeOrder().catch((err) => {
+    await placeOrder({ providerId, termsAccepted }).catch((err) => {
       setError(err instanceof Error ? err.message : "Could not place order.")
       setIsPending(false)
+      submittingRef.current = false
     })
   }
 
@@ -1034,11 +1090,12 @@ function ManualPlaceOrderButton({
         onClick={submit}
         disabled={disabled || isPending}
         className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
+        aria-busy={isPending}
       >
         {isPending ? "Placing Order..." : "Place Order"}
         <ArrowRight />
       </button>
-      {error && <p className="mt-3 text-small-regular text-red-600">{error}</p>}
+      {error && <p className="mt-3 text-small-regular text-red-600" role="status" aria-live="polite">{error}</p>}
     </>
   )
 }

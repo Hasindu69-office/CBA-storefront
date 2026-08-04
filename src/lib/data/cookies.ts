@@ -1,4 +1,5 @@
 import "server-only"
+import crypto from "crypto"
 import { cookies as nextCookies } from "next/headers"
 
 export const getAuthHeaders = async (): Promise<
@@ -86,4 +87,34 @@ export const removeCartId = async () => {
   cookies.set("_medusa_cart_id", "", {
     maxAge: -1,
   })
+}
+
+export const setOrderConfirmationAccess = async (orderId: string) => {
+  const cookies = await nextCookies()
+  cookies.set(orderConfirmationCookieName(orderId), signOrderId(orderId), {
+    maxAge: 60 * 30,
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+  })
+}
+
+export const hasOrderConfirmationAccess = async (orderId: string) => {
+  const cookies = await nextCookies()
+  const token = cookies.get(orderConfirmationCookieName(orderId))?.value
+  return token === signOrderId(orderId)
+}
+
+function orderConfirmationCookieName(orderId: string) {
+  const digest = crypto.createHash("sha256").update(orderId).digest("hex").slice(0, 24)
+  return `_cba_order_confirm_${digest}`
+}
+
+function signOrderId(orderId: string) {
+  const secret =
+    process.env.CBA_STOREFRONT_CONFIRMATION_SECRET ??
+    process.env.JWT_SECRET ??
+    process.env.NEXTAUTH_SECRET ??
+    "development-confirmation-secret"
+  return crypto.createHmac("sha256", secret).update(orderId).digest("hex")
 }

@@ -18,9 +18,11 @@ import {
   getCartId,
   removeCartId,
   setCartId,
+  setOrderConfirmationAccess,
 } from "./cookies"
 import { getRegion } from "./regions"
 import { getLocale } from "@lib/data/locale-actions"
+import { listCartPaymentMethods } from "./payment"
 
 const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
 const CART_TOTAL_FIELDS =
@@ -70,6 +72,7 @@ function validateCheckoutAddressPayload(payload: {
   province: string
   postal_code: string
   country_code: string
+  delivery_instructions?: string
 }) {
   for (const [field, value] of Object.entries(payload)) {
     if (value.length > 160) {
@@ -96,6 +99,9 @@ function validateCheckoutAddressPayload(payload: {
   }
   if (!/^[A-Za-z0-9\s-]{1,32}$/.test(payload.postal_code)) {
     return "Enter a valid postal code."
+  }
+  if (!/^[A-Za-z0-9\s.,'()#\/-]{0,500}$/.test((payload as any).delivery_instructions ?? "")) {
+    return "Delivery instructions contain unsupported characters."
   }
   if (payload.country_code.toLowerCase() !== "lk") {
     return "Delivery is currently available only in Sri Lanka."
@@ -133,6 +139,7 @@ function checkoutAddressData(formData: FormData) {
   const validationError = validateCheckoutAddressPayload({
     ...payload,
     email,
+    delivery_instructions: deliveryInstructions,
   })
 
   if (validationError) {
@@ -440,6 +447,9 @@ export async function initiatePaymentSession(
   cart: HttpTypes.StoreCart,
   data: HttpTypes.StoreInitializePaymentSession
 ) {
+  validatePaymentProviderId(data.provider_id)
+  await assertProviderEligibleForCart(cart, data.provider_id)
+
   const headers = {
     ...(await getAuthHeaders()),
   }
@@ -452,7 +462,9 @@ export async function initiatePaymentSession(
       revalidateTag(cartCacheTag)
       return resp
     })
-    .catch(medusaError)
+    .catch((error) => {
+      throw safeCheckoutError(error, "Payment method could not be prepared.")
+    })
 }
 
 export async function applyPromotions(codes: string[]) {
@@ -708,11 +720,22 @@ export async function addBundleToCart({
  * @param cartId - optional - The ID of the cart to place an order for.
  * @returns The cart object if the order was successful, or null if not.
  */
-export async function placeOrder(cartId?: string) {
+export async function placeOrder(input?: string | {
+  cartId?: string
+  providerId?: string
+  termsAccepted?: boolean
+}) {
+  const cartId = typeof input === "string" ? input : input?.cartId
+  const selectedProviderId = typeof input === "string" ? undefined : input?.providerId
+  const termsAccepted = typeof input === "string" ? true : input?.termsAccepted
   const id = cartId || (await getCartId())
 
   if (!id) {
     throw new Error("No existing cart found when placing an order")
+  }
+  assertSafeMedusaId(id, "Cart ID")
+  if (!termsAccepted) {
+    throw new Error("You must agree to the terms and conditions before placing the order.")
   }
 
   const headers = {
@@ -723,6 +746,36 @@ export async function placeOrder(cartId?: string) {
   if (!refreshedCart) {
     throw new Error("Could not refresh checkout totals. Review your cart and try again.")
   }
+  const providerId = selectedProviderId || activePaymentProviderId(refreshedCart)
+  if (!providerId) {
+    throw new Error("Select a payment method before placing the order.")
+  }
+  validatePaymentProviderId(providerId)
+  await assertProviderEligibleForCart(refreshedCart, providerId)
+  assertCheckoutReady(refreshedCart)
+
+  const activeSession = activePaymentSession(refreshedCart)
+  const sessionAmount = sessionAmountValue(activeSession)
+  const shouldRefreshSession =
+    !activeSession ||
+    activeSession.provider_id !== providerId ||
+    (sessionAmount !== null && sessionAmount !== Number(refreshedCart.total ?? 0))
+
+  if (shouldRefreshSession) {
+    await sdk.store.payment
+      .initiatePaymentSession(refreshedCart, { provider_id: providerId }, {
+        fields: "*payment_sessions",
+      }, headers)
+      .catch((error) => {
+        throw safeCheckoutError(error, "Payment needs to be refreshed before placing the order.")
+      })
+  }
+
+  const finalCart = await retrieveCart(id)
+  if (!finalCart) {
+    throw new Error("Checkout could not be refreshed. Please try again.")
+  }
+  assertCheckoutReady(finalCart)
 
   const cartRes = await sdk.store.cart
     .complete(id, {}, headers)
@@ -731,7 +784,9 @@ export async function placeOrder(cartId?: string) {
       revalidateTag(cartCacheTag)
       return cartRes
     })
-    .catch(medusaError)
+    .catch((error) => {
+      throw safeCheckoutError(error, "Could not place your order. Review checkout details and try again.")
+    })
 
   if (cartRes?.type === "order") {
     const countryCode =
@@ -740,11 +795,98 @@ export async function placeOrder(cartId?: string) {
     const orderCacheTag = await getCacheTag("orders")
     revalidateTag(orderCacheTag)
 
+    await setOrderConfirmationAccess(cartRes.order.id)
     removeCartId()
     redirect(localizedPath(`/${countryCode}/order/${cartRes?.order.id}/confirmed`))
   }
 
   return cartRes.cart
+}
+
+function validatePaymentProviderId(providerId: string | undefined) {
+  if (!providerId || !/^pp_[A-Za-z0-9_-]+$/.test(providerId)) {
+    throw new Error("Payment method is invalid.")
+  }
+}
+
+async function assertProviderEligibleForCart(cart: HttpTypes.StoreCart, providerId: string) {
+  if (!cart.region_id) {
+    throw new Error("Payment region is not ready.")
+  }
+  const providers = await listCartPaymentMethods(cart.region_id)
+  const eligible = providers?.some((provider) => provider.id === providerId)
+  if (!eligible) {
+    throw new Error("This payment method is not available for your delivery region.")
+  }
+}
+
+function assertCheckoutReady(cart: HttpTypes.StoreCart) {
+  if (!cart.items?.length) {
+    throw new Error("Your cart is empty.")
+  }
+  if (!cart.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cart.email) || cart.email.length > 254) {
+    throw new Error("Enter a valid email address before placing the order.")
+  }
+  if (cart.currency_code?.toLowerCase() !== "lkr") {
+    throw new Error("Checkout is currently available only in LKR.")
+  }
+  if (cart.shipping_address?.country_code?.toLowerCase() !== "lk") {
+    throw new Error("Enter a Sri Lankan shipping address before placing the order.")
+  }
+  for (const field of ["first_name", "last_name", "address_1", "city", "phone"] as const) {
+    if (!cart.shipping_address?.[field]) {
+      throw new Error("Complete your shipping address before placing the order.")
+    }
+  }
+  if (!cart.billing_address) {
+    throw new Error("Billing address is required before placing the order.")
+  }
+  if (!cart.shipping_methods?.length) {
+    throw new Error("Select a delivery method before placing the order.")
+  }
+  for (const [field, value] of Object.entries({
+    subtotal: cart.subtotal,
+    total: cart.total,
+    tax_total: cart.tax_total,
+    item_total: cart.item_total,
+    shipping_total: cart.shipping_total,
+    discount_total: cart.discount_total,
+  })) {
+    const amount = Number(value ?? 0)
+    if (!Number.isFinite(amount) || amount < 0) {
+      throw new Error(`${field.replace(/_/g, " ")} is unavailable. Refresh your cart and try again.`)
+    }
+  }
+}
+
+function activePaymentSession(cart: HttpTypes.StoreCart) {
+  return cart.payment_collection?.payment_sessions?.find(
+    (session) => session.status === "pending"
+  ) ?? cart.payment_collection?.payment_sessions?.[0]
+}
+
+function activePaymentProviderId(cart: HttpTypes.StoreCart) {
+  return activePaymentSession(cart)?.provider_id
+}
+
+function sessionAmountValue(session: any) {
+  for (const value of [session?.amount, session?.authorized_amount, session?.raw_amount]) {
+    const amount = Number(value)
+    if (Number.isFinite(amount)) return amount
+  }
+  return null
+}
+
+function safeCheckoutError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : String(error ?? "")
+  if (
+    /sql|database|stack|node_modules|secret|token|password|authorization|bearer|cookie|headers|signature|provider|internal|query/i.test(
+      message
+    )
+  ) {
+    return new Error(fallback)
+  }
+  return new Error(message.trim() || fallback)
 }
 
 /**
