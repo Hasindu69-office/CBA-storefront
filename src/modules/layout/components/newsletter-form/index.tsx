@@ -14,17 +14,35 @@ export default function NewsletterForm() {
     initialState
   )
   const formRef = useRef<HTMLFormElement>(null)
+  const lastNotifiedKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
+    if (state.status === "idle") {
+      return
+    }
+
+    const key = `${state.status}:${state.message ?? ""}:${state.error ?? ""}`
+    if (lastNotifiedKeyRef.current === key) {
+      return
+    }
+    lastNotifiedKeyRef.current = key
+
     if (state.status === "success") {
       formRef.current?.reset()
       notify.success(state.message ?? "Newsletter subscription submitted.", {
         id: "newsletter-subscribe",
       })
-    } else if (state.status === "error") {
+      return
+    }
+
+    if (state.status === "error") {
       notify.error(state.error, "We could not submit your subscription.", {
         id: "newsletter-subscribe",
       })
+      const emailInput = formRef.current?.elements.namedItem("email")
+      if (emailInput instanceof HTMLElement && "focus" in emailInput) {
+        emailInput.focus()
+      }
     }
   }, [state.status, state.message, state.error])
 
@@ -42,28 +60,18 @@ export default function NewsletterForm() {
           required
           placeholder="Email address"
           disabled={isPending}
+          aria-invalid={state.status === "error"}
           className="w-full px-7 py-3.5 rounded-[10px] border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 pr-36 sm:pr-44 disabled:opacity-50 text-gray-900"
         />
         <button
           type="submit"
           disabled={isPending}
+          aria-busy={isPending}
           className="absolute right-0 top-0 bottom-0 min-w-32 sm:min-w-40 px-6 bg-[#ff5c0e] hover:bg-[#e6530c] text-white font-medium rounded-[10px] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
         >
           {isPending ? "Subscribing..." : "Subscribe"}
         </button>
       </form>
-
-      {state.status === "error" && (
-        <p className="mt-2 text-sm text-red-500 font-medium" role="alert">
-          {state.error}
-        </p>
-      )}
-
-      {state.status === "success" && (
-        <p className="mt-2 text-sm text-green-500 font-medium" role="alert">
-          {state.message}
-        </p>
-      )}
     </div>
   )
 }

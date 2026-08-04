@@ -11,8 +11,10 @@ import {
 import { calculatePriceForShippingOption } from "@lib/data/fulfillment"
 import { isManual, isStripeLike, isWebxpay, paymentInfoMap } from "@lib/constants"
 import type { WebxpayCheckoutBranding } from "@lib/data/webxpay-branding"
+import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
+import { focusCheckoutValidationField } from "@lib/util/checkout-validation-focus"
 import { getStoreCountryCode, localizedPath } from "@lib/util/routes"
 import { HttpTypes } from "@medusajs/types"
 import {
@@ -141,19 +143,17 @@ export default function CbaCheckoutTemplate({
   )
   const [cardComplete, setCardComplete] = useState(false)
   const addressFormRef = useRef<HTMLFormElement>(null)
-  const [checkoutDetailsError, setCheckoutDetailsError] = useState<string | null>(
-    null
-  )
   const [isSavingCheckoutDetails, setIsSavingCheckoutDetails] = useState(false)
 
   const saveCurrentCheckoutDetails = useCallback(async () => {
     const form = addressFormRef.current
     if (!form) {
-      return "Delivery details are not ready."
+      const message = "Delivery details are not ready."
+      notify.error(message, message, { id: "checkout-details" })
+      return message
     }
 
     setIsSavingCheckoutDetails(true)
-    setCheckoutDetailsError(null)
 
     let result: string | null = null
     try {
@@ -166,10 +166,14 @@ export default function CbaCheckoutTemplate({
     }
 
     if (result) {
-      setCheckoutDetailsError(result)
+      notify.error(result, "Could not save delivery details.", {
+        id: "checkout-details",
+      })
+      focusCheckoutValidationField(form, result)
       return result
     }
 
+    notify.dismiss("checkout-details")
     return null
   }, [])
 
@@ -192,7 +196,6 @@ export default function CbaCheckoutTemplate({
             cart={cart}
             customer={customer}
             formRef={addressFormRef}
-            error={checkoutDetailsError}
             isSaving={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
           />
@@ -233,14 +236,12 @@ function ShippingInformationForm({
   cart,
   customer,
   formRef,
-  error,
   isSaving,
   saveCurrentCheckoutDetails,
 }: {
   cart: HttpTypes.StoreCart
   customer: HttpTypes.StoreCustomer | null
   formRef: RefObject<HTMLFormElement | null>
-  error: string | null
   isSaving: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
 }) {
@@ -364,9 +365,6 @@ function ShippingInformationForm({
           </span>
         )}
       </div>
-      {error && (
-        <p className="mt-3 text-small-regular text-red-600">{error}</p>
-      )}
     </form>
   )
 }
@@ -429,7 +427,6 @@ function DeliveryMethodSelector({
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState(
     cart.shipping_methods?.at(-1)?.shipping_option_id ?? ""
   )
@@ -457,21 +454,22 @@ function DeliveryMethodSelector({
 
   const selectMethod = (methodId: string) => {
     setSelected(methodId)
-    setError(null)
     startTransition(async () => {
       try {
         const checkoutDetailsError = await saveCurrentCheckoutDetails()
         if (checkoutDetailsError) {
           setSelected(cart.shipping_methods?.at(-1)?.shipping_option_id ?? "")
-          setError(checkoutDetailsError)
           return
         }
 
         await setShippingMethod({ cartId: cart.id, shippingMethodId: methodId })
         router.refresh()
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Could not set delivery method."
+        setSelected(cart.shipping_methods?.at(-1)?.shipping_option_id ?? "")
+        notify.error(
+          err,
+          "Could not set delivery method.",
+          { id: "checkout-shipping" }
         )
       }
     })
@@ -540,7 +538,6 @@ function DeliveryMethodSelector({
           )
         })}
       </div>
-      {error && <p className="mt-3 text-small-regular text-red-600">{error}</p>}
     </div>
   )
 }
@@ -567,28 +564,26 @@ function PaymentMethodSelector({
   const router = useRouter()
   const activeSession = selectedPaymentSession(cart)
   const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
 
   const selectPayment = (providerId: string) => {
     const previousPaymentMethod = selectedPaymentMethod
     setSelectedPaymentMethod(providerId)
     setCardComplete(false)
-    setError(null)
     startTransition(async () => {
       try {
         const checkoutDetailsError = await saveCurrentCheckoutDetails()
         if (checkoutDetailsError) {
           setSelectedPaymentMethod(previousPaymentMethod)
-          setError(checkoutDetailsError)
           return
         }
 
         await initiatePaymentSession(cart, { provider_id: providerId })
         router.refresh()
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Could not set payment method."
-        )
+        setSelectedPaymentMethod(previousPaymentMethod)
+        notify.error(err, "Could not set payment method.", {
+          id: "checkout-payment",
+        })
       }
     })
   }
@@ -655,7 +650,13 @@ function PaymentMethodSelector({
                     }}
                     onChange={(event) => {
                       setCardComplete(event.complete)
-                      setError(event.error?.message ?? null)
+                      if (event.error?.message) {
+                        notify.error(event.error.message, "Card details are invalid.", {
+                          id: "checkout-payment",
+                        })
+                      } else {
+                        notify.dismiss("checkout-payment")
+                      }
                     }}
                   />
                 </div>
@@ -664,7 +665,6 @@ function PaymentMethodSelector({
           )
         })}
       </div>
-      {error && <p className="mt-3 text-small-regular text-red-600">{error}</p>}
     </div>
   )
 }
@@ -686,7 +686,6 @@ function CheckoutOrderSummary({
 }) {
   const router = useRouter()
   const [isRefreshingTotals, setIsRefreshingTotals] = useState(false)
-  const [totalsError, setTotalsError] = useState<string | null>(null)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const itemCount = cart.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
   const automaticPromotions = hasAutomaticPromotions(cart.promotions)
@@ -707,14 +706,12 @@ function CheckoutOrderSummary({
 
   const refreshTotals = async () => {
     setIsRefreshingTotals(true)
-    setTotalsError(null)
     try {
       await calculateCartTaxes(cart.id)
+      notify.dismiss("checkout-totals")
       router.refresh()
     } catch (error) {
-      setTotalsError(
-        error instanceof Error ? error.message : "Could not refresh totals."
-      )
+      notify.error(error, "Could not refresh totals.", { id: "checkout-totals" })
     } finally {
       setIsRefreshingTotals(false)
     }
@@ -805,10 +802,12 @@ function CheckoutOrderSummary({
           )}
             </span>
           </div>
-          {(mapped.states.includes("tax_pending") || totalsError) && (
+          {(mapped.states.includes("tax_pending") ||
+            mapped.states.includes("configuration_unavailable") ||
+            mapped.states.includes("calculation_failed")) && (
             <div className="mt-4 rounded-md border border-brand/20 bg-brand/5 px-3 py-3">
               <p className="text-[12px] font-semibold text-[#626978]" aria-live="polite">
-                {totalsError ?? mapped.taxNote}
+                {mapped.taxNote}
               </p>
               <button
                 type="button"
@@ -1024,7 +1023,6 @@ function StripePlaceOrderButton({
   const stripe = useStripe()
   const elements = useElements()
   const [isPending, setIsPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const submittingRef = useRef(false)
   const session = cart.payment_collection?.payment_sessions?.find(
     (item) => item.status === "pending"
@@ -1036,10 +1034,11 @@ function StripePlaceOrderButton({
     }
     submittingRef.current = true
     setIsPending(true)
-    setError(null)
+    notify.loading("Placing order...", { id: "place-order" })
+
     const checkoutDetailsError = await saveCurrentCheckoutDetails()
     if (checkoutDetailsError) {
-      setError(checkoutDetailsError)
+      notify.dismiss("place-order")
       setIsPending(false)
       submittingRef.current = false
       return
@@ -1047,8 +1046,10 @@ function StripePlaceOrderButton({
 
     const card = elements?.getElement("card")
     if (!stripe || !elements || !card || !session?.data.client_secret) {
+      notify.error("Payment details are not ready.", "Payment details are not ready.", {
+        id: "place-order",
+      })
       setIsPending(false)
-      setError("Payment details are not ready.")
       submittingRef.current = false
       return
     }
@@ -1078,33 +1079,34 @@ function StripePlaceOrderButton({
     )
 
     if (result.error) {
-      setError(result.error.message ?? "Payment could not be confirmed.")
+      notify.error(
+        result.error.message ?? "Payment could not be confirmed.",
+        "Payment could not be confirmed.",
+        { id: "place-order" }
+      )
       setIsPending(false)
       submittingRef.current = false
       return
     }
 
     await placeOrder({ providerId, termsAccepted }).catch((err) => {
-      setError(err instanceof Error ? err.message : "Could not place order.")
+      notify.error(err, "Could not place order.", { id: "place-order" })
       setIsPending(false)
       submittingRef.current = false
     })
   }
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={submit}
-        disabled={disabled || isPending}
-        aria-busy={isPending}
-        className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isPending ? "Placing Order..." : "Place Order"}
-        <ArrowRight />
-      </button>
-      {error && <p className="mt-3 text-small-regular text-red-600" role="status" aria-live="polite">{error}</p>}
-    </>
+    <button
+      type="button"
+      onClick={submit}
+      disabled={disabled || isPending}
+      aria-busy={isPending}
+      className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {isPending ? "Placing Order..." : "Place Order"}
+      <ArrowRight />
+    </button>
   )
 }
 
@@ -1121,7 +1123,6 @@ function WebxPayPlaceOrderButton({
 }) {
   const router = useRouter()
   const [isPending, setIsPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const submittingRef = useRef(false)
 
   const submit = async () => {
@@ -1130,11 +1131,11 @@ function WebxPayPlaceOrderButton({
     }
     submittingRef.current = true
     setIsPending(true)
-    setError(null)
+    notify.loading("Continuing to WEBXPAY...", { id: "place-order" })
 
     const checkoutDetailsError = await saveCurrentCheckoutDetails()
     if (checkoutDetailsError) {
-      setError(checkoutDetailsError)
+      notify.dismiss("place-order")
       setIsPending(false)
       submittingRef.current = false
       return
@@ -1154,27 +1155,21 @@ function WebxPayPlaceOrderButton({
         provider_id: selectedPaymentSession(cart)?.provider_id ?? null,
       })
     }
+    notify.dismiss("place-order")
     router.push(target)
   }
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => void submit()}
-        disabled={disabled || isPending}
-        aria-busy={isPending}
-        className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isPending ? "Continuing to WEBXPAY..." : label}
-        <ArrowRight />
-      </button>
-      {error && (
-        <p className="mt-3 text-small-regular text-red-600" role="status" aria-live="polite">
-          {error}
-        </p>
-      )}
-    </>
+    <button
+      type="button"
+      onClick={() => void submit()}
+      disabled={disabled || isPending}
+      aria-busy={isPending}
+      className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {isPending ? "Continuing to WEBXPAY..." : label}
+      <ArrowRight />
+    </button>
   )
 }
 
@@ -1190,7 +1185,6 @@ function ManualPlaceOrderButton({
   termsAccepted: boolean
 }) {
   const [isPending, setIsPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const submittingRef = useRef(false)
 
   const submit = async () => {
@@ -1199,36 +1193,34 @@ function ManualPlaceOrderButton({
     }
     submittingRef.current = true
     setIsPending(true)
-    setError(null)
+    notify.loading("Placing order...", { id: "place-order" })
+
     const checkoutDetailsError = await saveCurrentCheckoutDetails()
     if (checkoutDetailsError) {
-      setError(checkoutDetailsError)
+      notify.dismiss("place-order")
       setIsPending(false)
       submittingRef.current = false
       return
     }
 
     await placeOrder({ providerId, termsAccepted }).catch((err) => {
-      setError(err instanceof Error ? err.message : "Could not place order.")
+      notify.error(err, "Could not place order.", { id: "place-order" })
       setIsPending(false)
       submittingRef.current = false
     })
   }
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={submit}
-        disabled={disabled || isPending}
-        className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
-        aria-busy={isPending}
-      >
-        {isPending ? "Placing Order..." : "Place Order"}
-        <ArrowRight />
-      </button>
-      {error && <p className="mt-3 text-small-regular text-red-600" role="status" aria-live="polite">{error}</p>}
-    </>
+    <button
+      type="button"
+      onClick={submit}
+      disabled={disabled || isPending}
+      className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
+      aria-busy={isPending}
+    >
+      {isPending ? "Placing Order..." : "Place Order"}
+      <ArrowRight />
+    </button>
   )
 }
 
