@@ -1,16 +1,17 @@
 "use server"
 
 import { sdk } from "@lib/config"
-import { getAuthHeaders, getCacheOptions } from "./cookies"
+import { getAuthHeaders } from "./cookies"
 import { HttpTypes } from "@medusajs/types"
+import { isWebxpay } from "@lib/constants"
 
 export const listCartPaymentMethods = async (regionId: string) => {
-  const headers = {
-    ...(await getAuthHeaders()),
+  if (!regionId) {
+    return null
   }
 
-  const next = {
-    ...(await getCacheOptions("payment_providers")),
+  const headers = {
+    ...(await getAuthHeaders()),
   }
 
   return sdk.client
@@ -20,12 +21,15 @@ export const listCartPaymentMethods = async (regionId: string) => {
         method: "GET",
         query: { region_id: regionId },
         headers,
-        next,
-        cache: "force-cache",
+        // Payment provider links change via Admin/setup scripts; never serve a
+        // stale force-cached list that omits newly linked gateways like WEBXPAY.
+        cache: "no-store",
       }
     )
     .then(({ payment_providers }) =>
-      payment_providers.sort((a, b) => {
+      (payment_providers ?? []).sort((a, b) => {
+        if (isWebxpay(a.id) && !isWebxpay(b.id)) return -1
+        if (!isWebxpay(a.id) && isWebxpay(b.id)) return 1
         return a.id > b.id ? 1 : -1
       })
     )

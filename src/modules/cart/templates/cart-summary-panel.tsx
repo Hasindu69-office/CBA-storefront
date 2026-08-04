@@ -66,28 +66,32 @@ export default function CartSummaryPanel({
             </span>
           </div>
         )}
-        <div className="flex items-start justify-between gap-4">
-          <span className="text-[#111111]">Shipping</span>
-          <span className="text-right">
-            {mapped.shippingBeforeDiscountDisplay && (
-              <span className="block text-[13px] font-medium text-[#8b90a0] line-through">
-                {mapped.shippingBeforeDiscountDisplay}
+        {mapped.shippingVisible && (
+          <div className="flex items-start justify-between gap-4">
+            <span className="text-[#111111]">Shipping</span>
+            <span className="text-right">
+              {mapped.shippingBeforeDiscountDisplay && (
+                <span className="block text-[13px] font-medium text-[#8b90a0] line-through">
+                  {mapped.shippingBeforeDiscountDisplay}
+                </span>
+              )}
+              <span
+                className={`font-medium ${
+                  mapped.shippingIsFree || mapped.hasDiscount
+                    ? "text-[#27a137]"
+                    : "text-[#333740]"
+                }`}
+              >
+                {mapped.shippingDisplay}
               </span>
-            )}
-            <span
-              className={`font-medium ${
-                mapped.hasDiscount ? "text-[#27a137]" : "text-[#333740]"
-              }`}
-            >
-              {mapped.shippingDisplay}
+              {mapped.shippingBeforeDiscountDisplay && (
+                <span className="mt-1 block text-[12px] font-semibold text-[#27a137]">
+                  Free shipping applied
+                </span>
+              )}
             </span>
-            {mapped.shippingBeforeDiscountDisplay && (
-              <span className="mt-1 block text-[12px] font-semibold text-[#27a137]">
-                Free shipping applied
-              </span>
-            )}
-          </span>
-        </div>
+          </div>
+        )}
         {taxRow && (
           <div className="flex items-start justify-between gap-4">
             <span className="text-[#111111]">{taxRow.label}</span>

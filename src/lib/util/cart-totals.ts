@@ -69,6 +69,11 @@ export type TotalDisplay = {
   taxNote: string | null
   shippingDisplay: string
   shippingBeforeDiscountDisplay: string | null
+  /** True when no shipping method is on the cart yet — fee is unknown, not free. */
+  shippingIsPending: boolean
+  /** True when a method is selected and its fee may be shown. */
+  shippingVisible: boolean
+  /** True only when a method is selected and the fee after discount is zero. */
   shippingIsFree: boolean
   hasDiscount: boolean
   discountLabel: string
@@ -106,10 +111,13 @@ export function mapAuthoritativeTotals(
   }
 
   const address = source?.shipping_address
+  const shippingMethodSelected = (source?.shipping_methods?.length ?? 0) > 0
+  const shippingIsPending = Boolean(source && !shippingMethodSelected)
+
   if (source && !address?.address_1) {
     states.push("address_required")
   }
-  if (source && !(source.shipping_methods?.length ?? 0)) {
+  if (shippingIsPending) {
     states.push("shipping_required")
   }
   if (options.reviewRequired) {
@@ -133,6 +141,8 @@ export function mapAuthoritativeTotals(
   const isInclusive = hasInclusivePricing(source)
   const automaticTaxes = source?.region?.automatic_taxes === true
   const hasTaxLines = hasAnyTaxLines(source)
+  const shippingIsFree = shippingMethodSelected && shippingAfterDiscount <= 0
+  const shippingVisible = shippingMethodSelected
 
   if (automaticTaxes && !hasTaxLines && !states.includes("address_required") && !states.includes("shipping_required")) {
     states.push("tax_pending")
@@ -165,9 +175,18 @@ export function mapAuthoritativeTotals(
     )
   }
 
-  rows.push(
-    row("shipping", "Delivery Fee", shippingAfterDiscount, currencyCode, options, shippingAfterDiscount <= 0 ? "success" : "default")
-  )
+  if (shippingVisible) {
+    rows.push(
+      row(
+        "shipping",
+        "Delivery Fee",
+        shippingAfterDiscount,
+        currencyCode,
+        options,
+        shippingIsFree ? "success" : "default"
+      )
+    )
+  }
 
   if (itemTax > 0) {
     rows.push(row("item-tax", "Item tax", itemTax, currencyCode, options))
@@ -186,13 +205,19 @@ export function mapAuthoritativeTotals(
     states,
     taxLabel: taxLabelFor(states),
     taxNote: taxNoteFor(states),
-    shippingDisplay: shippingAfterDiscount <= 0 ? "Free" : formatTotalAmount(shippingAfterDiscount, currencyCode, { compact: options.compactMoney }),
+    shippingDisplay: shippingVisible
+      ? shippingIsFree
+        ? "Free"
+        : formatTotalAmount(shippingAfterDiscount, currencyCode, { compact: options.compactMoney })
+      : "",
     shippingBeforeDiscountDisplay:
-      shippingDiscount > 0
+      shippingVisible && shippingDiscount > 0
         ? formatTotalAmount(shippingBeforeDiscount, currencyCode, { compact: options.compactMoney })
         : null,
-    shippingIsFree: shippingAfterDiscount <= 0,
-    hasDiscount: itemDiscount > 0 || shippingDiscount > 0,
+    shippingIsPending,
+    shippingVisible,
+    shippingIsFree,
+    hasDiscount: itemDiscount > 0 || (shippingVisible && shippingDiscount > 0),
     discountLabel,
   }
 }

@@ -9,9 +9,11 @@ import {
   setShippingMethod,
 } from "@lib/data/cart"
 import { calculatePriceForShippingOption } from "@lib/data/fulfillment"
-import { isManual, isStripeLike, paymentInfoMap } from "@lib/constants"
+import { isManual, isStripeLike, isWebxpay, paymentInfoMap } from "@lib/constants"
+import type { WebxpayCheckoutBranding } from "@lib/data/webxpay-branding"
 import { convertToLocale } from "@lib/util/money"
 import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
+import { getStoreCountryCode, localizedPath } from "@lib/util/routes"
 import { HttpTypes } from "@medusajs/types"
 import {
   ArrowRight,
@@ -53,6 +55,7 @@ type CbaCheckoutTemplateProps = {
   customer: HttpTypes.StoreCustomer | null
   shippingMethods: HttpTypes.StoreCartShippingOption[]
   paymentMethods: HttpTypes.StorePaymentProvider[]
+  webxpayBranding?: WebxpayCheckoutBranding | null
 }
 
 type CbaCheckoutCart = HttpTypes.StoreCart & {
@@ -72,7 +75,13 @@ function lineTotal(item: HttpTypes.StoreCartLineItem, currencyCode: string) {
   return money(item.total ?? item.subtotal ?? 0, currencyCode)
 }
 
-function paymentTitle(providerId: string) {
+function paymentTitle(
+  providerId: string,
+  webxpayBranding?: WebxpayCheckoutBranding | null
+) {
+  if (isWebxpay(providerId) && webxpayBranding?.label) {
+    return webxpayBranding.label
+  }
   const mapped = paymentInfoMap[providerId]?.title
   if (mapped) {
     return mapped
@@ -83,7 +92,19 @@ function paymentTitle(providerId: string) {
   return providerId.replace(/^pp_/, "").replace(/[_-]+/g, " ")
 }
 
-function paymentIcon(providerId: string) {
+function paymentIcon(
+  providerId: string,
+  webxpayBranding?: WebxpayCheckoutBranding | null
+) {
+  if (isWebxpay(providerId) && webxpayBranding?.image_url) {
+    return (
+      <img
+        src={webxpayBranding.image_url}
+        alt={webxpayBranding.image_alt_text || "WEBXPAY"}
+        className="h-6 w-10 object-contain"
+      />
+    )
+  }
   if (/cash|cod/i.test(providerId)) return <Cash />
   if (/bank|manual/i.test(providerId)) return <BuildingTax />
   return paymentInfoMap[providerId]?.icon ?? <CreditCard />
@@ -112,6 +133,7 @@ export default function CbaCheckoutTemplate({
   customer,
   shippingMethods,
   paymentMethods,
+  webxpayBranding = null,
 }: CbaCheckoutTemplateProps) {
   const activeSession = selectedPaymentSession(cart)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
@@ -188,6 +210,7 @@ export default function CbaCheckoutTemplate({
             setCardComplete={setCardComplete}
             isSavingCheckoutDetails={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+            webxpayBranding={webxpayBranding}
           />
         </section>
 
@@ -198,6 +221,7 @@ export default function CbaCheckoutTemplate({
             selectedPaymentMethod={selectedPaymentMethod}
             isSavingCheckoutDetails={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+            webxpayBranding={webxpayBranding}
           />
         </aside>
       </div>
@@ -529,6 +553,7 @@ function PaymentMethodSelector({
   setCardComplete,
   isSavingCheckoutDetails,
   saveCurrentCheckoutDetails,
+  webxpayBranding,
 }: {
   cart: HttpTypes.StoreCart
   paymentMethods: HttpTypes.StorePaymentProvider[]
@@ -537,6 +562,7 @@ function PaymentMethodSelector({
   setCardComplete: (complete: boolean) => void
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
+  webxpayBranding?: WebxpayCheckoutBranding | null
 }) {
   const router = useRouter()
   const activeSession = selectedPaymentSession(cart)
@@ -595,11 +621,22 @@ function PaymentMethodSelector({
                 } disabled:cursor-not-allowed disabled:opacity-60`}
               >
                 <Radio checked={checked} />
-                <span className="text-[#6f7b8e]">{paymentIcon(method.id)}</span>
-                <span className="flex-1 text-[13px] font-bold text-[#252a33]">
-                  {paymentTitle(method.id)}
+                <span className="text-[#6f7b8e]">
+                  {paymentIcon(method.id, webxpayBranding)}
                 </span>
-                <span className="text-[#1f4f8a]">{paymentInfoMap[method.id]?.icon}</span>
+                <span className="flex-1 text-[13px] font-bold text-[#252a33]">
+                  {paymentTitle(method.id, webxpayBranding)}
+                  {checked && isWebxpay(method.id) ? (
+                    <span className="mt-1 block text-[11px] font-medium text-[#6b7280]">
+                      You will be redirected to WEBXPAY to complete payment securely.
+                    </span>
+                  ) : null}
+                </span>
+                <span className="text-[#1f4f8a]">
+                  {isWebxpay(method.id) && webxpayBranding?.image_url
+                    ? null
+                    : paymentInfoMap[method.id]?.icon}
+                </span>
               </button>
               {checked && isStripeLike(method.id) && isActiveSession && (
                 <div className="border-b border-gray-100 px-4 py-4">
@@ -638,12 +675,14 @@ function CheckoutOrderSummary({
   cardComplete,
   isSavingCheckoutDetails,
   saveCurrentCheckoutDetails,
+  webxpayBranding,
 }: {
   cart: CbaCheckoutCart
   selectedPaymentMethod: string
   cardComplete: boolean
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
+  webxpayBranding?: WebxpayCheckoutBranding | null
 }) {
   const router = useRouter()
   const [isRefreshingTotals, setIsRefreshingTotals] = useState(false)
@@ -725,22 +764,28 @@ function CheckoutOrderSummary({
               accent="green"
             />
           )}
-          <SummaryLine
-            label="Delivery Fee"
-            value={
-              mapped.shippingBeforeDiscountDisplay ? (
-                <span className="text-right">
-                  <span className="block text-[12px] font-semibold text-[#8b90a0] line-through">
-                    {mapped.shippingBeforeDiscountDisplay}
+          {mapped.shippingVisible && (
+            <SummaryLine
+              label="Delivery Fee"
+              value={
+                mapped.shippingBeforeDiscountDisplay ? (
+                  <span className="text-right">
+                    <span className="block text-[12px] font-semibold text-[#8b90a0] line-through">
+                      {mapped.shippingBeforeDiscountDisplay}
+                    </span>
+                    <span>{mapped.shippingDisplay}</span>
                   </span>
-                  <span>{mapped.shippingDisplay}</span>
-                </span>
-              ) : (
-                mapped.shippingDisplay
-              )
-            }
-            accent={mapped.shippingBeforeDiscountDisplay ? "green" : undefined}
-          />
+                ) : (
+                  mapped.shippingDisplay
+                )
+              }
+              accent={
+                mapped.shippingIsFree || mapped.shippingBeforeDiscountDisplay
+                  ? "green"
+                  : undefined
+              }
+            />
+          )}
           {taxRows.map((row) => (
             <SummaryLine key={row.key} label={row.label} value={row.display} />
           ))}
@@ -783,6 +828,7 @@ function CheckoutOrderSummary({
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
             termsAccepted={termsAccepted}
             setTermsAccepted={setTermsAccepted}
+            webxpayBranding={webxpayBranding}
           />
         </div>
       </section>
@@ -862,6 +908,7 @@ function PlaceOrderControl({
   saveCurrentCheckoutDetails,
   termsAccepted,
   setTermsAccepted,
+  webxpayBranding,
 }: {
   cart: HttpTypes.StoreCart
   selectedPaymentMethod: string
@@ -870,6 +917,7 @@ function PlaceOrderControl({
   saveCurrentCheckoutDetails: () => Promise<string | null>
   termsAccepted: boolean
   setTermsAccepted: (accepted: boolean) => void
+  webxpayBranding?: WebxpayCheckoutBranding | null
 }) {
   const activeSession = selectedPaymentSession(cart)
   const totals = mapAuthoritativeTotals(cart)
@@ -908,6 +956,20 @@ function PlaceOrderControl({
           disabled={!baseReady || !cardComplete || isSavingCheckoutDetails}
           saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
           termsAccepted={termsAccepted}
+        />
+      </>
+    )
+  }
+
+  if (isWebxpay(activeSession?.provider_id)) {
+    return (
+      <>
+        {termsControl}
+        <WebxPayPlaceOrderButton
+          cart={cart}
+          disabled={!baseReady || isSavingCheckoutDetails}
+          saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+          label={webxpayBranding?.label || "Pay with WEBXPAY"}
         />
       </>
     )
@@ -1042,6 +1104,76 @@ function StripePlaceOrderButton({
         <ArrowRight />
       </button>
       {error && <p className="mt-3 text-small-regular text-red-600" role="status" aria-live="polite">{error}</p>}
+    </>
+  )
+}
+
+function WebxPayPlaceOrderButton({
+  cart,
+  disabled,
+  saveCurrentCheckoutDetails,
+  label,
+}: {
+  cart: HttpTypes.StoreCart
+  disabled: boolean
+  saveCurrentCheckoutDetails: () => Promise<string | null>
+  label: string
+}) {
+  const router = useRouter()
+  const [isPending, setIsPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const submittingRef = useRef(false)
+
+  const submit = async () => {
+    if (submittingRef.current) {
+      return
+    }
+    submittingRef.current = true
+    setIsPending(true)
+    setError(null)
+
+    const checkoutDetailsError = await saveCurrentCheckoutDetails()
+    if (checkoutDetailsError) {
+      setError(checkoutDetailsError)
+      setIsPending(false)
+      submittingRef.current = false
+      return
+    }
+
+    const countryCode = getStoreCountryCode(
+      cart.shipping_address?.country_code ?? cart.region?.countries?.[0]?.iso_2
+    )
+    // Public URLs omit /{countryCode}; middleware restores [countryCode] routes.
+    // Absolute /checkout/webxpay-redirect — never relative "webxpay-redirect"
+    // which incorrectly resolves to /webxpay-redirect and 404s.
+    const target = localizedPath(`/${countryCode}/checkout/webxpay-redirect`)
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[webxpay] navigating to redirect page", {
+        target,
+        cart_id: cart.id,
+        provider_id: selectedPaymentSession(cart)?.provider_id ?? null,
+      })
+    }
+    router.push(target)
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => void submit()}
+        disabled={disabled || isPending}
+        aria-busy={isPending}
+        className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {isPending ? "Continuing to WEBXPAY..." : label}
+        <ArrowRight />
+      </button>
+      {error && (
+        <p className="mt-3 text-small-regular text-red-600" role="status" aria-live="polite">
+          {error}
+        </p>
+      )}
     </>
   )
 }

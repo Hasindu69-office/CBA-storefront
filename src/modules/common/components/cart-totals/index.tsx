@@ -15,6 +15,12 @@ type CartTotalsProps = {
     shipping_total?: number | null
     discount_subtotal?: number | null
     discount_total?: number | null
+    shipping_discount_total?: number | null
+    original_shipping_subtotal?: number | null
+    shipping_methods?: Array<{
+      is_tax_inclusive?: boolean | null
+      tax_lines?: unknown[] | null
+    }> | null
   }
 }
 
@@ -43,23 +49,31 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
               convertToLocale({ amount: item_subtotal ?? 0, currency_code })}
           </span>
         </div>
-        <div className="flex items-center justify-between">
-          <span>Shipping</span>
-          <span
-            className="text-right"
-            data-testid="cart-shipping"
-            data-value={shipping_total || 0}
-          >
-            {mapped.shippingBeforeDiscountDisplay && (
-              <span className="block text-xs text-ui-fg-muted line-through">
-                {mapped.shippingBeforeDiscountDisplay}
+        {mapped.shippingVisible && (
+          <div className="flex items-center justify-between">
+            <span>Shipping</span>
+            <span
+              className="text-right"
+              data-testid="cart-shipping"
+              data-value={shipping_total || 0}
+            >
+              {mapped.shippingBeforeDiscountDisplay && (
+                <span className="block text-xs text-ui-fg-muted line-through">
+                  {mapped.shippingBeforeDiscountDisplay}
+                </span>
+              )}
+              <span
+                className={
+                  mapped.shippingIsFree || mapped.hasDiscount
+                    ? "text-ui-fg-interactive"
+                    : ""
+                }
+              >
+                {mapped.shippingDisplay}
               </span>
-            )}
-            <span className={mapped.hasDiscount ? "text-ui-fg-interactive" : ""}>
-              {mapped.shippingDisplay}
             </span>
-          </span>
-        </div>
+          </div>
+        )}
         {productDiscount > 0 && (
           <div className="flex items-center justify-between">
             <span>Discount</span>

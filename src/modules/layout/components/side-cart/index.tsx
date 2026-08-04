@@ -851,26 +851,30 @@ function SideCartSummary({
             </span>
           </div>
         )}
-        <div className="flex items-center justify-between gap-4">
-          <span className="inline-flex items-center gap-1.5">
-            Delivery Fee
-            <InformationCircle className="h-4 w-4 text-[#8b90a0]" />
-          </span>
-          <span className="text-right">
-            {mapped.shippingBeforeDiscountDisplay && (
-              <span className="block text-[12px] font-medium text-[#8b90a0] line-through">
-                {mapped.shippingBeforeDiscountDisplay}
-              </span>
-            )}
-            <span
-              className={`font-medium ${
-                mapped.hasDiscount ? "text-emerald-700" : ""
-              }`}
-            >
-              {mapped.shippingDisplay}
+        {mapped.shippingVisible && (
+          <div className="flex items-center justify-between gap-4">
+            <span className="inline-flex items-center gap-1.5">
+              Delivery Fee
+              <InformationCircle className="h-4 w-4 text-[#8b90a0]" />
             </span>
-          </span>
-        </div>
+            <span className="text-right">
+              {mapped.shippingBeforeDiscountDisplay && (
+                <span className="block text-[12px] font-medium text-[#8b90a0] line-through">
+                  {mapped.shippingBeforeDiscountDisplay}
+                </span>
+              )}
+              <span
+                className={`font-medium ${
+                  mapped.shippingIsFree || mapped.hasDiscount
+                    ? "text-emerald-700"
+                    : ""
+                }`}
+              >
+                {mapped.shippingDisplay}
+              </span>
+            </span>
+          </div>
+        )}
         {taxRow && (
           <div className="flex items-center justify-between gap-4">
             <span>{taxRow.label}</span>
