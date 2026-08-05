@@ -118,3 +118,32 @@ function signOrderId(orderId: string) {
     "development-confirmation-secret"
   return crypto.createHmac("sha256", secret).update(orderId).digest("hex")
 }
+
+const GUEST_TRACKING_SESSION_COOKIE = "_cba_guest_tracking_session"
+
+export async function setGuestTrackingSessionToken(
+  token: string,
+  maxAgeSeconds = 30 * 60
+) {
+  const cookies = await nextCookies()
+  cookies.set(GUEST_TRACKING_SESSION_COOKIE, token, {
+    maxAge: maxAgeSeconds,
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+  })
+}
+
+export async function getGuestTrackingSessionToken() {
+  const cookies = await nextCookies()
+  return cookies.get(GUEST_TRACKING_SESSION_COOKIE)?.value ?? null
+}
+
+export async function clearGuestTrackingSessionToken() {
+  const cookies = await nextCookies()
+  cookies.set(GUEST_TRACKING_SESSION_COOKIE, "", {
+    maxAge: -1,
+    path: "/",
+  })
+}

@@ -137,7 +137,7 @@ export const DEFAULT_HEADER_LAYOUT: HeaderLayoutSettings = {
     delivery_label: "Delivery Islandwide",
     language_label: "English",
     track_order_label: "Track Order",
-    track_order_url: "/account/orders",
+    track_order_url: "/track-order",
     currency_label: "LKR",
   },
   commerce: {

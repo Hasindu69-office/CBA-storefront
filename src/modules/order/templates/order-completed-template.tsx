@@ -512,11 +512,17 @@ export default async function OrderCompletedTemplate({
 
               <div className="mt-8 grid gap-4">
                 <LocalizedClientLink
-                  href="/contact"
+                  href={`/account/orders/details/${order.id}`}
                   className="inline-flex h-14 items-center justify-center gap-3 rounded-[8px] border border-brand text-[15px] font-bold text-brand transition-colors hover:bg-brand hover:text-white"
                 >
                   <PackageIcon className="h-6 w-6" />
                   Track Order
+                </LocalizedClientLink>
+                <LocalizedClientLink
+                  href="/track-order"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-[8px] text-[14px] font-semibold text-[#59616e] transition-colors hover:text-brand"
+                >
+                  Guest order tracking
                 </LocalizedClientLink>
                 <LocalizedClientLink
                   href="/store"
