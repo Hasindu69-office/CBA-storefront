@@ -3,13 +3,19 @@
 import {
   initiatePaymentSession,
   applyPromotions,
+  calculateCartTaxes,
   placeOrder,
   saveCheckoutDetails,
   setShippingMethod,
 } from "@lib/data/cart"
 import { calculatePriceForShippingOption } from "@lib/data/fulfillment"
-import { isManual, isStripeLike, paymentInfoMap } from "@lib/constants"
+import { isManual, isStripeLike, isWebxpay, paymentInfoMap } from "@lib/constants"
+import type { WebxpayCheckoutBranding } from "@lib/data/webxpay-branding"
+import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
+import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
+import { focusCheckoutValidationField } from "@lib/util/checkout-validation-focus"
+import { getStoreCountryCode, localizedPath } from "@lib/util/routes"
 import { HttpTypes } from "@medusajs/types"
 import {
   ArrowRight,
@@ -51,6 +57,7 @@ type CbaCheckoutTemplateProps = {
   customer: HttpTypes.StoreCustomer | null
   shippingMethods: HttpTypes.StoreCartShippingOption[]
   paymentMethods: HttpTypes.StorePaymentProvider[]
+  webxpayBranding?: WebxpayCheckoutBranding | null
 }
 
 type CbaCheckoutCart = HttpTypes.StoreCart & {
@@ -70,10 +77,15 @@ function lineTotal(item: HttpTypes.StoreCartLineItem, currencyCode: string) {
   return money(item.total ?? item.subtotal ?? 0, currencyCode)
 }
 
-function paymentTitle(providerId: string) {
+function paymentTitle(
+  providerId: string,
+  webxpayBranding?: WebxpayCheckoutBranding | null
+) {
+  if (isWebxpay(providerId) && webxpayBranding?.label) {
+    return webxpayBranding.label
+  }
   const mapped = paymentInfoMap[providerId]?.title
   if (mapped) {
-    if (isManual(providerId)) return "Bank Transfer"
     return mapped
   }
   if (/cash|cod/i.test(providerId)) return "Cash on Delivery"
@@ -82,7 +94,19 @@ function paymentTitle(providerId: string) {
   return providerId.replace(/^pp_/, "").replace(/[_-]+/g, " ")
 }
 
-function paymentIcon(providerId: string) {
+function paymentIcon(
+  providerId: string,
+  webxpayBranding?: WebxpayCheckoutBranding | null
+) {
+  if (isWebxpay(providerId) && webxpayBranding?.image_url) {
+    return (
+      <img
+        src={webxpayBranding.image_url}
+        alt={webxpayBranding.image_alt_text || "WEBXPAY"}
+        className="h-6 w-10 object-contain"
+      />
+    )
+  }
   if (/cash|cod/i.test(providerId)) return <Cash />
   if (/bank|manual/i.test(providerId)) return <BuildingTax />
   return paymentInfoMap[providerId]?.icon ?? <CreditCard />
@@ -111,6 +135,7 @@ export default function CbaCheckoutTemplate({
   customer,
   shippingMethods,
   paymentMethods,
+  webxpayBranding = null,
 }: CbaCheckoutTemplateProps) {
   const activeSession = selectedPaymentSession(cart)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
@@ -118,19 +143,17 @@ export default function CbaCheckoutTemplate({
   )
   const [cardComplete, setCardComplete] = useState(false)
   const addressFormRef = useRef<HTMLFormElement>(null)
-  const [checkoutDetailsError, setCheckoutDetailsError] = useState<string | null>(
-    null
-  )
   const [isSavingCheckoutDetails, setIsSavingCheckoutDetails] = useState(false)
 
   const saveCurrentCheckoutDetails = useCallback(async () => {
     const form = addressFormRef.current
     if (!form) {
-      return "Delivery details are not ready."
+      const message = "Delivery details are not ready."
+      notify.error(message, message, { id: "checkout-details" })
+      return message
     }
 
     setIsSavingCheckoutDetails(true)
-    setCheckoutDetailsError(null)
 
     let result: string | null = null
     try {
@@ -143,10 +166,14 @@ export default function CbaCheckoutTemplate({
     }
 
     if (result) {
-      setCheckoutDetailsError(result)
+      notify.error(result, "Could not save delivery details.", {
+        id: "checkout-details",
+      })
+      focusCheckoutValidationField(form, result)
       return result
     }
 
+    notify.dismiss("checkout-details")
     return null
   }, [])
 
@@ -169,7 +196,6 @@ export default function CbaCheckoutTemplate({
             cart={cart}
             customer={customer}
             formRef={addressFormRef}
-            error={checkoutDetailsError}
             isSaving={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
           />
@@ -187,6 +213,7 @@ export default function CbaCheckoutTemplate({
             setCardComplete={setCardComplete}
             isSavingCheckoutDetails={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+            webxpayBranding={webxpayBranding}
           />
         </section>
 
@@ -197,6 +224,7 @@ export default function CbaCheckoutTemplate({
             selectedPaymentMethod={selectedPaymentMethod}
             isSavingCheckoutDetails={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+            webxpayBranding={webxpayBranding}
           />
         </aside>
       </div>
@@ -208,14 +236,12 @@ function ShippingInformationForm({
   cart,
   customer,
   formRef,
-  error,
   isSaving,
   saveCurrentCheckoutDetails,
 }: {
   cart: HttpTypes.StoreCart
   customer: HttpTypes.StoreCustomer | null
   formRef: RefObject<HTMLFormElement | null>
-  error: string | null
   isSaving: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
 }) {
@@ -339,9 +365,6 @@ function ShippingInformationForm({
           </span>
         )}
       </div>
-      {error && (
-        <p className="mt-3 text-small-regular text-red-600">{error}</p>
-      )}
     </form>
   )
 }
@@ -404,7 +427,6 @@ function DeliveryMethodSelector({
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState(
     cart.shipping_methods?.at(-1)?.shipping_option_id ?? ""
   )
@@ -432,21 +454,22 @@ function DeliveryMethodSelector({
 
   const selectMethod = (methodId: string) => {
     setSelected(methodId)
-    setError(null)
     startTransition(async () => {
       try {
         const checkoutDetailsError = await saveCurrentCheckoutDetails()
         if (checkoutDetailsError) {
           setSelected(cart.shipping_methods?.at(-1)?.shipping_option_id ?? "")
-          setError(checkoutDetailsError)
           return
         }
 
         await setShippingMethod({ cartId: cart.id, shippingMethodId: methodId })
         router.refresh()
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Could not set delivery method."
+        setSelected(cart.shipping_methods?.at(-1)?.shipping_option_id ?? "")
+        notify.error(
+          err,
+          "Could not set delivery method.",
+          { id: "checkout-shipping" }
         )
       }
     })
@@ -515,7 +538,6 @@ function DeliveryMethodSelector({
           )
         })}
       </div>
-      {error && <p className="mt-3 text-small-regular text-red-600">{error}</p>}
     </div>
   )
 }
@@ -528,6 +550,7 @@ function PaymentMethodSelector({
   setCardComplete,
   isSavingCheckoutDetails,
   saveCurrentCheckoutDetails,
+  webxpayBranding,
 }: {
   cart: HttpTypes.StoreCart
   paymentMethods: HttpTypes.StorePaymentProvider[]
@@ -536,32 +559,31 @@ function PaymentMethodSelector({
   setCardComplete: (complete: boolean) => void
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
+  webxpayBranding?: WebxpayCheckoutBranding | null
 }) {
   const router = useRouter()
   const activeSession = selectedPaymentSession(cart)
   const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
 
   const selectPayment = (providerId: string) => {
     const previousPaymentMethod = selectedPaymentMethod
     setSelectedPaymentMethod(providerId)
     setCardComplete(false)
-    setError(null)
     startTransition(async () => {
       try {
         const checkoutDetailsError = await saveCurrentCheckoutDetails()
         if (checkoutDetailsError) {
           setSelectedPaymentMethod(previousPaymentMethod)
-          setError(checkoutDetailsError)
           return
         }
 
         await initiatePaymentSession(cart, { provider_id: providerId })
         router.refresh()
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Could not set payment method."
-        )
+        setSelectedPaymentMethod(previousPaymentMethod)
+        notify.error(err, "Could not set payment method.", {
+          id: "checkout-payment",
+        })
       }
     })
   }
@@ -594,11 +616,22 @@ function PaymentMethodSelector({
                 } disabled:cursor-not-allowed disabled:opacity-60`}
               >
                 <Radio checked={checked} />
-                <span className="text-[#6f7b8e]">{paymentIcon(method.id)}</span>
-                <span className="flex-1 text-[13px] font-bold text-[#252a33]">
-                  {paymentTitle(method.id)}
+                <span className="text-[#6f7b8e]">
+                  {paymentIcon(method.id, webxpayBranding)}
                 </span>
-                <span className="text-[#1f4f8a]">{paymentInfoMap[method.id]?.icon}</span>
+                <span className="flex-1 text-[13px] font-bold text-[#252a33]">
+                  {paymentTitle(method.id, webxpayBranding)}
+                  {checked && isWebxpay(method.id) ? (
+                    <span className="mt-1 block text-[11px] font-medium text-[#6b7280]">
+                      You will be redirected to WEBXPAY to complete payment securely.
+                    </span>
+                  ) : null}
+                </span>
+                <span className="text-[#1f4f8a]">
+                  {isWebxpay(method.id) && webxpayBranding?.image_url
+                    ? null
+                    : paymentInfoMap[method.id]?.icon}
+                </span>
               </button>
               {checked && isStripeLike(method.id) && isActiveSession && (
                 <div className="border-b border-gray-100 px-4 py-4">
@@ -617,7 +650,13 @@ function PaymentMethodSelector({
                     }}
                     onChange={(event) => {
                       setCardComplete(event.complete)
-                      setError(event.error?.message ?? null)
+                      if (event.error?.message) {
+                        notify.error(event.error.message, "Card details are invalid.", {
+                          id: "checkout-payment",
+                        })
+                      } else {
+                        notify.dismiss("checkout-payment")
+                      }
                     }}
                   />
                 </div>
@@ -626,7 +665,6 @@ function PaymentMethodSelector({
           )
         })}
       </div>
-      {error && <p className="mt-3 text-small-regular text-red-600">{error}</p>}
     </div>
   )
 }
@@ -637,39 +675,46 @@ function CheckoutOrderSummary({
   cardComplete,
   isSavingCheckoutDetails,
   saveCurrentCheckoutDetails,
+  webxpayBranding,
 }: {
   cart: CbaCheckoutCart
   selectedPaymentMethod: string
   cardComplete: boolean
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
+  webxpayBranding?: WebxpayCheckoutBranding | null
 }) {
   const router = useRouter()
+  const [isRefreshingTotals, setIsRefreshingTotals] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const itemCount = cart.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
-  const subtotal = cart.item_subtotal ?? cart.subtotal ?? 0
-  const shippingBeforeDiscount =
-    cart.shipping_subtotal ?? cart.shipping_total ?? 0
-  const shippingAfterDiscount = cart.shipping_total ?? shippingBeforeDiscount
-  const shippingDiscount = Math.max(
-    shippingBeforeDiscount - shippingAfterDiscount,
-    0
-  )
-  const inferredDiscount = Math.max(
-    subtotal + shippingBeforeDiscount - (cart.total ?? 0),
-    0
-  )
-  const totalDiscount = Math.max(
-    cart.discount_subtotal ?? 0,
-    cart.discount_total ?? 0,
-    inferredDiscount
-  )
-  const productDiscount = Math.max(totalDiscount - shippingDiscount, 0)
   const automaticPromotions = hasAutomaticPromotions(cart.promotions)
-  const discountLabel = automaticPromotions ? "Store discount" : "Coupon discount"
+  const mapped = mapAuthoritativeTotals(cart, {
+    itemCount,
+    automaticPromotionApplied: automaticPromotions,
+  })
+  const subtotalRow = mapped.rows.find((row) => row.key === "subtotal")
+  const discountRow = mapped.rows.find((row) => row.key === "discount")
+  const taxRows = mapped.rows.filter((row) =>
+    ["item-tax", "shipping-tax", "tax"].includes(row.key)
+  )
 
   const applyCheckoutCoupon = async (code: string) => {
     await applyPromotions(manualCodesWithNewCoupon(cart.promotions, code))
     router.refresh()
+  }
+
+  const refreshTotals = async () => {
+    setIsRefreshingTotals(true)
+    try {
+      await calculateCartTaxes(cart.id)
+      notify.dismiss("checkout-totals")
+      router.refresh()
+    } catch (error) {
+      notify.error(error, "Could not refresh totals.", { id: "checkout-totals" })
+    } finally {
+      setIsRefreshingTotals(false)
+    }
   }
 
   return (
@@ -707,31 +752,40 @@ function CheckoutOrderSummary({
         <div className="mt-4 border-t border-gray-100 pt-5 text-[14px]">
           <SummaryLine
             label="Subtotal"
-            value={money(subtotal, cart.currency_code)}
+            value={subtotalRow?.display ?? money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)}
           />
-          {productDiscount > 0 && (
+          {discountRow && (
             <SummaryLine
-              label={discountLabel}
-              value={`- ${money(productDiscount, cart.currency_code)}`}
+              label={discountRow.label}
+              value={`- ${discountRow.display}`}
               accent="green"
             />
           )}
-          <SummaryLine
-            label="Delivery Fee"
-            value={
-              shippingDiscount > 0 ? (
-                <span className="text-right">
-                  <span className="block text-[12px] font-semibold text-[#8b90a0] line-through">
-                    {money(shippingBeforeDiscount, cart.currency_code)}
+          {mapped.shippingVisible && (
+            <SummaryLine
+              label="Delivery Fee"
+              value={
+                mapped.shippingBeforeDiscountDisplay ? (
+                  <span className="text-right">
+                    <span className="block text-[12px] font-semibold text-[#8b90a0] line-through">
+                      {mapped.shippingBeforeDiscountDisplay}
+                    </span>
+                    <span>{mapped.shippingDisplay}</span>
                   </span>
-                  <span>Free</span>
-                </span>
-              ) : (
-                money(shippingAfterDiscount, cart.currency_code)
-              )
-            }
-            accent={shippingDiscount > 0 ? "green" : undefined}
-          />
+                ) : (
+                  mapped.shippingDisplay
+                )
+              }
+              accent={
+                mapped.shippingIsFree || mapped.shippingBeforeDiscountDisplay
+                  ? "green"
+                  : undefined
+              }
+            />
+          )}
+          {taxRows.map((row) => (
+            <SummaryLine key={row.key} label={row.label} value={row.display} />
+          ))}
         </div>
 
         <div className="mt-5 border-t border-gray-100 pt-5">
@@ -739,19 +793,41 @@ function CheckoutOrderSummary({
             <span className="text-[20px] font-bold text-[#111111]">Total</span>
             <span className="text-right">
               <span className="block text-[24px] font-bold text-brand">
-                {money(cart.total, cart.currency_code)}
+                {mapped.total.display}
               </span>
-              <span className="text-[12px] font-semibold text-[#7b8493]">
-                (incl. VAT)
-              </span>
+          {mapped.taxNote && (
+            <span className="text-[12px] font-semibold text-[#7b8493]" aria-live="polite">
+              {mapped.taxNote}
+            </span>
+          )}
             </span>
           </div>
+          {(mapped.states.includes("tax_pending") ||
+            mapped.states.includes("configuration_unavailable") ||
+            mapped.states.includes("calculation_failed")) && (
+            <div className="mt-4 rounded-md border border-brand/20 bg-brand/5 px-3 py-3">
+              <p className="text-[12px] font-semibold text-[#626978]" aria-live="polite">
+                {mapped.taxNote}
+              </p>
+              <button
+                type="button"
+                onClick={refreshTotals}
+                disabled={isRefreshingTotals}
+                className="mt-3 inline-flex h-9 items-center justify-center rounded-md border border-brand px-4 text-[13px] font-bold text-brand transition hover:bg-brand hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isRefreshingTotals ? "Refreshing..." : "Retry totals"}
+              </button>
+            </div>
+          )}
           <PlaceOrderControl
             cart={cart}
             selectedPaymentMethod={selectedPaymentMethod}
             cardComplete={cardComplete}
             isSavingCheckoutDetails={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+            termsAccepted={termsAccepted}
+            setTermsAccepted={setTermsAccepted}
+            webxpayBranding={webxpayBranding}
           />
         </div>
       </section>
@@ -829,36 +905,86 @@ function PlaceOrderControl({
   cardComplete,
   isSavingCheckoutDetails,
   saveCurrentCheckoutDetails,
+  termsAccepted,
+  setTermsAccepted,
+  webxpayBranding,
 }: {
   cart: HttpTypes.StoreCart
   selectedPaymentMethod: string
   cardComplete: boolean
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
+  termsAccepted: boolean
+  setTermsAccepted: (accepted: boolean) => void
+  webxpayBranding?: WebxpayCheckoutBranding | null
 }) {
   const activeSession = selectedPaymentSession(cart)
+  const totals = mapAuthoritativeTotals(cart)
+  const totalsReady = !totals.states.some((state) =>
+    ["tax_pending", "configuration_unavailable", "calculation_failed", "review_required"].includes(state)
+  )
   const baseReady =
     hasAddress(cart) &&
     Boolean(cart.billing_address) &&
     (cart.shipping_methods?.length ?? 0) > 0 &&
-    Boolean(activeSession)
+    Boolean(activeSession) &&
+    totalsReady &&
+    termsAccepted
+
+  const termsControl = (
+    <label className="mt-5 flex items-start gap-3 rounded-md border border-gray-100 p-3 text-[12px] font-semibold text-[#4b5260]">
+      <input
+        type="checkbox"
+        checked={termsAccepted}
+        onChange={(event) => setTermsAccepted(event.target.checked)}
+        className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-brand"
+      />
+      <span>
+        I agree to the terms and conditions and confirm the checkout details are correct.
+      </span>
+    </label>
+  )
 
   if (isStripeLike(activeSession?.provider_id)) {
     return (
-      <StripePlaceOrderButton
-        cart={cart}
-        disabled={!baseReady || !cardComplete || isSavingCheckoutDetails}
-        saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
-      />
+      <>
+        {termsControl}
+        <StripePlaceOrderButton
+          cart={cart}
+          providerId={activeSession?.provider_id}
+          disabled={!baseReady || !cardComplete || isSavingCheckoutDetails}
+          saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+          termsAccepted={termsAccepted}
+        />
+      </>
+    )
+  }
+
+  if (isWebxpay(activeSession?.provider_id)) {
+    return (
+      <>
+        {termsControl}
+        <WebxPayPlaceOrderButton
+          cart={cart}
+          disabled={!baseReady || isSavingCheckoutDetails}
+          saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+          label={webxpayBranding?.label || "Pay with WEBXPAY"}
+        />
+      </>
     )
   }
 
   if (isManual(activeSession?.provider_id) || activeSession?.provider_id) {
     return (
-      <ManualPlaceOrderButton
-        disabled={!baseReady || isSavingCheckoutDetails}
-        saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
-      />
+      <>
+        {termsControl}
+        <ManualPlaceOrderButton
+          providerId={activeSession?.provider_id}
+          disabled={!baseReady || isSavingCheckoutDetails}
+          saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+          termsAccepted={termsAccepted}
+        />
+      </>
     )
   }
 
@@ -869,7 +995,9 @@ function PlaceOrderControl({
       className="mt-6 inline-flex h-12 w-full cursor-not-allowed items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white opacity-60"
       title={
         selectedPaymentMethod
-          ? "Save checkout details and payment method first"
+          ? totalsReady
+            ? "Save checkout details and payment method first"
+            : "Refresh checkout totals before placing the order"
           : "Select a payment method"
       }
     >
@@ -881,35 +1009,48 @@ function PlaceOrderControl({
 
 function StripePlaceOrderButton({
   cart,
+  providerId,
   disabled,
   saveCurrentCheckoutDetails,
+  termsAccepted,
 }: {
   cart: HttpTypes.StoreCart
+  providerId?: string
   disabled: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
+  termsAccepted: boolean
 }) {
   const stripe = useStripe()
   const elements = useElements()
   const [isPending, setIsPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const submittingRef = useRef(false)
   const session = cart.payment_collection?.payment_sessions?.find(
     (item) => item.status === "pending"
   )
 
   const submit = async () => {
+    if (submittingRef.current) {
+      return
+    }
+    submittingRef.current = true
     setIsPending(true)
-    setError(null)
+    notify.loading("Placing order...", { id: "place-order" })
+
     const checkoutDetailsError = await saveCurrentCheckoutDetails()
     if (checkoutDetailsError) {
-      setError(checkoutDetailsError)
+      notify.dismiss("place-order")
       setIsPending(false)
+      submittingRef.current = false
       return
     }
 
     const card = elements?.getElement("card")
     if (!stripe || !elements || !card || !session?.data.client_secret) {
+      notify.error("Payment details are not ready.", "Payment details are not ready.", {
+        id: "place-order",
+      })
       setIsPending(false)
-      setError("Payment details are not ready.")
+      submittingRef.current = false
       return
     }
 
@@ -938,72 +1079,148 @@ function StripePlaceOrderButton({
     )
 
     if (result.error) {
-      setError(result.error.message ?? "Payment could not be confirmed.")
+      notify.error(
+        result.error.message ?? "Payment could not be confirmed.",
+        "Payment could not be confirmed.",
+        { id: "place-order" }
+      )
       setIsPending(false)
+      submittingRef.current = false
       return
     }
 
-    await placeOrder().catch((err) => {
-      setError(err instanceof Error ? err.message : "Could not place order.")
+    await placeOrder({ providerId, termsAccepted }).catch((err) => {
+      notify.error(err, "Could not place order.", { id: "place-order" })
       setIsPending(false)
+      submittingRef.current = false
     })
   }
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={submit}
-        disabled={disabled || isPending}
-        className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isPending ? "Placing Order..." : "Place Order"}
-        <ArrowRight />
-      </button>
-      {error && <p className="mt-3 text-small-regular text-red-600">{error}</p>}
-    </>
+    <button
+      type="button"
+      onClick={submit}
+      disabled={disabled || isPending}
+      aria-busy={isPending}
+      className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {isPending ? "Placing Order..." : "Place Order"}
+      <ArrowRight />
+    </button>
+  )
+}
+
+function WebxPayPlaceOrderButton({
+  cart,
+  disabled,
+  saveCurrentCheckoutDetails,
+  label,
+}: {
+  cart: HttpTypes.StoreCart
+  disabled: boolean
+  saveCurrentCheckoutDetails: () => Promise<string | null>
+  label: string
+}) {
+  const router = useRouter()
+  const [isPending, setIsPending] = useState(false)
+  const submittingRef = useRef(false)
+
+  const submit = async () => {
+    if (submittingRef.current) {
+      return
+    }
+    submittingRef.current = true
+    setIsPending(true)
+    notify.loading("Continuing to WEBXPAY...", { id: "place-order" })
+
+    const checkoutDetailsError = await saveCurrentCheckoutDetails()
+    if (checkoutDetailsError) {
+      notify.dismiss("place-order")
+      setIsPending(false)
+      submittingRef.current = false
+      return
+    }
+
+    const countryCode = getStoreCountryCode(
+      cart.shipping_address?.country_code ?? cart.region?.countries?.[0]?.iso_2
+    )
+    // Public URLs omit /{countryCode}; middleware restores [countryCode] routes.
+    // Absolute /checkout/webxpay-redirect — never relative "webxpay-redirect"
+    // which incorrectly resolves to /webxpay-redirect and 404s.
+    const target = localizedPath(`/${countryCode}/checkout/webxpay-redirect`)
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[webxpay] navigating to redirect page", {
+        target,
+        cart_id: cart.id,
+        provider_id: selectedPaymentSession(cart)?.provider_id ?? null,
+      })
+    }
+    notify.dismiss("place-order")
+    router.push(target)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void submit()}
+      disabled={disabled || isPending}
+      aria-busy={isPending}
+      className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {isPending ? "Continuing to WEBXPAY..." : label}
+      <ArrowRight />
+    </button>
   )
 }
 
 function ManualPlaceOrderButton({
+  providerId,
   disabled,
   saveCurrentCheckoutDetails,
+  termsAccepted,
 }: {
+  providerId?: string
   disabled: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
+  termsAccepted: boolean
 }) {
   const [isPending, setIsPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const submittingRef = useRef(false)
 
   const submit = async () => {
+    if (submittingRef.current) {
+      return
+    }
+    submittingRef.current = true
     setIsPending(true)
-    setError(null)
+    notify.loading("Placing order...", { id: "place-order" })
+
     const checkoutDetailsError = await saveCurrentCheckoutDetails()
     if (checkoutDetailsError) {
-      setError(checkoutDetailsError)
+      notify.dismiss("place-order")
       setIsPending(false)
+      submittingRef.current = false
       return
     }
 
-    await placeOrder().catch((err) => {
-      setError(err instanceof Error ? err.message : "Could not place order.")
+    await placeOrder({ providerId, termsAccepted }).catch((err) => {
+      notify.error(err, "Could not place order.", { id: "place-order" })
       setIsPending(false)
+      submittingRef.current = false
     })
   }
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={submit}
-        disabled={disabled || isPending}
-        className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isPending ? "Placing Order..." : "Place Order"}
-        <ArrowRight />
-      </button>
-      {error && <p className="mt-3 text-small-regular text-red-600">{error}</p>}
-    </>
+    <button
+      type="button"
+      onClick={submit}
+      disabled={disabled || isPending}
+      className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
+      aria-busy={isPending}
+    >
+      {isPending ? "Placing Order..." : "Place Order"}
+      <ArrowRight />
+    </button>
   )
 }
 

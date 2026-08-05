@@ -1,6 +1,7 @@
 "use client"
 
 import { convertToLocale } from "@lib/util/money"
+import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { ArrowRight } from "@medusajs/icons"
@@ -29,34 +30,21 @@ export default function CartSummaryPanel({
   hasDirtyQuantities,
   isUpdating,
 }: CartSummaryPanelProps) {
-  const totals = cart as HttpTypes.StoreCart & {
-    discount_subtotal?: number | null
-  }
   const itemCount =
     cart.items?.reduce((total, item) => total + item.quantity, 0) ?? 0
   const disabled = hasDirtyQuantities || isUpdating
   const checkoutHref = `/checkout?step=${getCheckoutStep(cart)}`
-  const subtotal = cart.item_subtotal ?? cart.subtotal ?? 0
-  const shippingBeforeDiscount =
-    cart.shipping_subtotal ?? cart.shipping_total ?? 0
-  const shippingAfterDiscount = cart.shipping_total ?? shippingBeforeDiscount
-  const shippingDiscount = Math.max(
-    shippingBeforeDiscount - shippingAfterDiscount,
-    0
-  )
-  const inferredDiscount = Math.max(
-    subtotal + shippingBeforeDiscount - (cart.total ?? 0),
-    0
-  )
-  const totalDiscount = Math.max(
-    totals.discount_subtotal ?? 0,
-    cart.discount_total ?? 0,
-    inferredDiscount
-  )
-  const productDiscount = Math.max(totalDiscount - shippingDiscount, 0)
   const hasAutomaticPromotions = Boolean(
     cart.promotions?.some((promotion) => promotion.is_automatic)
   )
+  const mapped = mapAuthoritativeTotals(cart, {
+    itemCount,
+    automaticPromotionApplied: hasAutomaticPromotions,
+    reviewRequired: hasDirtyQuantities,
+  })
+  const discountRow = mapped.rows.find((row) => row.key === "discount")
+  const subtotalRow = mapped.rows.find((row) => row.key === "subtotal")
+  const taxRow = mapped.rows.find((row) => row.key === "tax")
 
   return (
     <section className="rounded-md border border-gray-100 bg-white p-6 shadow-sm">
@@ -65,43 +53,51 @@ export default function CartSummaryPanel({
         <div className="flex items-start justify-between gap-4">
           <span className="text-[#111111]">Subtotal ({itemCount} items)</span>
           <span className="font-medium text-[#333740]">
-            {money(subtotal, cart.currency_code)}
+            {subtotalRow?.display ?? money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)}
           </span>
         </div>
-        {productDiscount > 0 && (
+        {discountRow && (
           <div className="flex items-start justify-between gap-4">
             <span className="text-[#111111]">
               {hasAutomaticPromotions ? "Store discount" : "Discount"}
             </span>
             <span className="font-medium text-brand">
-              -{money(productDiscount, cart.currency_code)}
+              -{discountRow.display}
             </span>
           </div>
         )}
-        <div className="flex items-start justify-between gap-4">
-          <span className="text-[#111111]">Shipping</span>
-          <span className="text-right">
-            {shippingDiscount > 0 && (
-              <span className="block text-[13px] font-medium text-[#8b90a0] line-through">
-                {money(shippingBeforeDiscount, cart.currency_code)}
+        {mapped.shippingVisible && (
+          <div className="flex items-start justify-between gap-4">
+            <span className="text-[#111111]">Shipping</span>
+            <span className="text-right">
+              {mapped.shippingBeforeDiscountDisplay && (
+                <span className="block text-[13px] font-medium text-[#8b90a0] line-through">
+                  {mapped.shippingBeforeDiscountDisplay}
+                </span>
+              )}
+              <span
+                className={`font-medium ${
+                  mapped.shippingIsFree || mapped.hasDiscount
+                    ? "text-[#27a137]"
+                    : "text-[#333740]"
+                }`}
+              >
+                {mapped.shippingDisplay}
               </span>
-            )}
-            <span
-              className={`font-medium ${
-                shippingDiscount > 0 ? "text-[#27a137]" : "text-[#333740]"
-              }`}
-            >
-              {shippingAfterDiscount <= 0
-                ? "Free"
-                : money(shippingAfterDiscount, cart.currency_code)}
+              {mapped.shippingBeforeDiscountDisplay && (
+                <span className="mt-1 block text-[12px] font-semibold text-[#27a137]">
+                  Free shipping applied
+                </span>
+              )}
             </span>
-            {shippingDiscount > 0 && (
-              <span className="mt-1 block text-[12px] font-semibold text-[#27a137]">
-                Free shipping applied
-              </span>
-            )}
-          </span>
-        </div>
+          </div>
+        )}
+        {taxRow && (
+          <div className="flex items-start justify-between gap-4">
+            <span className="text-[#111111]">{taxRow.label}</span>
+            <span className="font-medium text-[#333740]">{taxRow.display}</span>
+          </div>
+        )}
       </div>
 
       <div className="my-7 h-px bg-gray-100" />
@@ -110,11 +106,13 @@ export default function CartSummaryPanel({
         <span className="text-[16px] font-bold text-[#111111]">Total</span>
         <span className="text-right">
           <span className="block text-[20px] font-bold text-brand">
-            {money(cart.total, cart.currency_code)}
+            {mapped.total.display}
           </span>
-          <span className="mt-1 block text-[12px] text-[#8b90a0]">
-            Inclusive of VAT
-          </span>
+          {mapped.taxNote && (
+            <span className="mt-1 block text-[12px] text-[#8b90a0]" aria-live="polite">
+              {mapped.taxNote}
+            </span>
+          )}
         </span>
       </div>
 

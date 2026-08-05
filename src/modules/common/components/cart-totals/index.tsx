@@ -1,6 +1,7 @@
 "use client"
 
 import { convertToLocale } from "@lib/util/money"
+import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
 import React from "react"
 
 type CartTotalsProps = {
@@ -14,6 +15,12 @@ type CartTotalsProps = {
     shipping_total?: number | null
     discount_subtotal?: number | null
     discount_total?: number | null
+    shipping_discount_total?: number | null
+    original_shipping_subtotal?: number | null
+    shipping_methods?: Array<{
+      is_tax_inclusive?: boolean | null
+      tax_lines?: unknown[] | null
+    }> | null
   }
 }
 
@@ -28,23 +35,9 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
     discount_subtotal,
     discount_total,
   } = totals
-  const subtotal = item_subtotal ?? 0
-  const shippingBeforeDiscount = shipping_subtotal ?? shipping_total ?? 0
-  const shippingAfterDiscount = shipping_total ?? shippingBeforeDiscount
-  const shippingDiscount = Math.max(
-    shippingBeforeDiscount - shippingAfterDiscount,
-    0
-  )
-  const inferredDiscount = Math.max(
-    subtotal + shippingBeforeDiscount - (total ?? 0),
-    0
-  )
-  const totalDiscount = Math.max(
-    discount_subtotal ?? 0,
-    discount_total ?? 0,
-    inferredDiscount
-  )
-  const productDiscount = Math.max(totalDiscount - shippingDiscount, 0)
+  const mapped = mapAuthoritativeTotals(totals, { includeTaxWhenZero: true })
+  const productDiscount =
+    mapped.rows.find((row) => row.key === "discount")?.amount ?? 0
 
   return (
     <div>
@@ -52,34 +45,35 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
         <div className="flex items-center justify-between">
           <span>Subtotal (excl. shipping and taxes)</span>
           <span data-testid="cart-subtotal" data-value={item_subtotal || 0}>
-            {convertToLocale({ amount: item_subtotal ?? 0, currency_code })}
+            {mapped.rows.find((row) => row.key === "subtotal")?.display ??
+              convertToLocale({ amount: item_subtotal ?? 0, currency_code })}
           </span>
         </div>
-        <div className="flex items-center justify-between">
-          <span>Shipping</span>
-          <span
-            className="text-right"
-            data-testid="cart-shipping"
-            data-value={shippingAfterDiscount || 0}
-          >
-            {shippingDiscount > 0 && (
-              <span className="block text-xs text-ui-fg-muted line-through">
-                {convertToLocale({
-                  amount: shippingBeforeDiscount,
-                  currency_code,
-                })}
+        {mapped.shippingVisible && (
+          <div className="flex items-center justify-between">
+            <span>Shipping</span>
+            <span
+              className="text-right"
+              data-testid="cart-shipping"
+              data-value={shipping_total || 0}
+            >
+              {mapped.shippingBeforeDiscountDisplay && (
+                <span className="block text-xs text-ui-fg-muted line-through">
+                  {mapped.shippingBeforeDiscountDisplay}
+                </span>
+              )}
+              <span
+                className={
+                  mapped.shippingIsFree || mapped.hasDiscount
+                    ? "text-ui-fg-interactive"
+                    : ""
+                }
+              >
+                {mapped.shippingDisplay}
               </span>
-            )}
-            <span className={shippingDiscount > 0 ? "text-ui-fg-interactive" : ""}>
-              {shippingAfterDiscount <= 0
-                ? "Free"
-                : convertToLocale({
-                    amount: shippingAfterDiscount,
-                    currency_code,
-                  })}
             </span>
-          </span>
-        </div>
+          </div>
+        )}
         {productDiscount > 0 && (
           <div className="flex items-center justify-between">
             <span>Discount</span>
@@ -89,17 +83,15 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
               data-value={productDiscount}
             >
               -{" "}
-              {convertToLocale({
-                amount: productDiscount,
-                currency_code,
-              })}
+              {mapped.rows.find((row) => row.key === "discount")?.display}
             </span>
           </div>
         )}
         <div className="flex justify-between">
-          <span className="flex gap-x-1 items-center ">Taxes</span>
+          <span className="flex gap-x-1 items-center ">{mapped.taxLabel}</span>
           <span data-testid="cart-taxes" data-value={tax_total || 0}>
-            {convertToLocale({ amount: tax_total ?? 0, currency_code })}
+            {mapped.rows.find((row) => row.key === "tax")?.display ??
+              convertToLocale({ amount: tax_total ?? 0, currency_code })}
           </span>
         </div>
       </div>
@@ -111,9 +103,14 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
           data-testid="cart-total"
           data-value={total || 0}
         >
-          {convertToLocale({ amount: total ?? 0, currency_code })}
+          {mapped.total.display}
         </span>
       </div>
+      {mapped.taxNote && (
+        <p className="mt-2 text-right text-xs text-ui-fg-muted" aria-live="polite">
+          {mapped.taxNote}
+        </p>
+      )}
       <div className="h-px w-full border-b border-gray-200 mt-4" />
     </div>
   )
