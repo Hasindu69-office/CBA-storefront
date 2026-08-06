@@ -7,6 +7,7 @@ import {
   guestTrackingLogout,
 } from "@lib/data/order-tracking"
 import type { CbaCustomerOrderTracking } from "types/order-tracking"
+import type { CbaReturnEligibility } from "types/return-intake"
 import {
   validateGuestLookupClient,
   validateOtpClient,
@@ -15,14 +16,19 @@ import AccountOrderTrackingTemplate from "./account-order-tracking-template"
 
 type GuestOrderTrackingTemplateProps = {
   initialTracking?: CbaCustomerOrderTracking | null
+  initialReturnEligibility?: CbaReturnEligibility
 }
 
 export default function GuestOrderTrackingTemplate({
   initialTracking = null,
+  initialReturnEligibility,
 }: GuestOrderTrackingTemplateProps) {
   const [tracking, setTracking] = useState<CbaCustomerOrderTracking | null>(
     initialTracking
   )
+  const [returnEligibility, setReturnEligibility] = useState<
+    CbaReturnEligibility | undefined
+  >(initialReturnEligibility)
   const [step, setStep] = useState<"lookup" | "verify">(
     initialTracking ? "lookup" : "lookup"
   )
@@ -108,6 +114,7 @@ export default function GuestOrderTrackingTemplate({
         return
       }
       setTracking(result.tracking)
+      setReturnEligibility(result.returnEligibility)
     })
   }
 
@@ -115,6 +122,7 @@ export default function GuestOrderTrackingTemplate({
     startTransition(async () => {
       await guestTrackingLogout()
       setTracking(null)
+      setReturnEligibility(undefined)
       resetToLookup({ clearForm: true })
     })
   }
@@ -135,6 +143,7 @@ export default function GuestOrderTrackingTemplate({
         <AccountOrderTrackingTemplate
           tracking={tracking}
           showBackLink={false}
+          returnEligibility={returnEligibility}
         />
       </div>
     )

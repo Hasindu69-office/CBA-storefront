@@ -12,6 +12,7 @@ import type {
   CbaAccountOrderListItem,
   CbaCustomerOrderTracking,
 } from "types/order-tracking"
+import type { CbaReturnEligibility } from "types/return-intake"
 
 const GENERIC_LOOKUP_MESSAGE =
   "If the order details match, a verification code has been sent."
@@ -57,8 +58,28 @@ export async function retrieveAccountOrderTracking(orderId: string) {
       headers,
       cache: "no-store",
     })
-    .then((result) => result.tracking ?? mapDetailToTracking(result.order))
+    .then((result) => ({
+      tracking: result.tracking ?? mapDetailToTracking(result.order),
+      returnEligibility: result.order?.return_eligibility as CbaReturnEligibility | undefined,
+    }))
     .catch(() => null)
+}
+
+export async function retrieveOrderTrackingForRequest(orderId: string) {
+  const account = await retrieveAccountOrderTracking(orderId)
+  if (account?.tracking) {
+    return account
+  }
+
+  const guest = await retrieveGuestTrackingSession()
+  if (guest?.tracking.order.id === orderId) {
+    return {
+      tracking: guest.tracking,
+      returnEligibility: guest.returnEligibility,
+    }
+  }
+
+  return null
 }
 
 export async function guestTrackingLookup(input: {
@@ -136,6 +157,7 @@ export async function guestTrackingVerify(input: {
   try {
     const result = await sdk.client.fetch<{
       tracking: CbaCustomerOrderTracking
+      return_eligibility?: CbaReturnEligibility
       session_token?: string
       expires_at?: string
     }>("/store/cba/v1/order-tracking/verify", {
@@ -156,7 +178,11 @@ export async function guestTrackingVerify(input: {
       await setGuestTrackingSessionToken(result.session_token, maxAge)
     }
 
-    return { ok: true as const, tracking: result.tracking }
+    return {
+      ok: true as const,
+      tracking: result.tracking,
+      returnEligibility: result.return_eligibility,
+    }
   } catch {
     return {
       ok: false as const,
@@ -172,6 +198,7 @@ export async function retrieveGuestTrackingSession() {
   try {
     const result = await sdk.client.fetch<{
       tracking: CbaCustomerOrderTracking
+      return_eligibility?: CbaReturnEligibility
     }>("/store/cba/v1/order-tracking/session", {
       method: "GET",
       headers: {
@@ -179,7 +206,10 @@ export async function retrieveGuestTrackingSession() {
       },
       cache: "no-store",
     })
-    return result.tracking
+    return {
+      tracking: result.tracking,
+      returnEligibility: result.return_eligibility,
+    }
   } catch {
     await clearGuestTrackingSessionToken()
     return null

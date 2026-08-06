@@ -14,7 +14,10 @@ export default async function TrackOrderPage() {
   return (
     <main className="bg-white py-10 small:py-14">
       <div className="content-container">
-        <GuestOrderTrackingTemplate initialTracking={session} />
+        <GuestOrderTrackingTemplate
+          initialTracking={session?.tracking ?? null}
+          initialReturnEligibility={session?.returnEligibility}
+        />
       </div>
     </main>
   )

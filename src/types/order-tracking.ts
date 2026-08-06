@@ -1,3 +1,5 @@
+import type { CbaReturnEligibility } from "types/return-intake"
+
 export type CbaTrackingLabel = {
   tracking_number: string | null
   tracking_url: string | null
@@ -143,4 +145,5 @@ export type CbaAccountOrderDetail = CbaAccountOrderListItem & {
   tax_total?: number
   discount_total?: number
   shipping_total?: number
+  return_eligibility?: CbaReturnEligibility
 }

@@ -171,10 +171,12 @@ export function statusBadgeTone(
   key?: string | null
 ) {
   const normalized = String(key ?? "").toLowerCase()
+  if (kind === "payment" && normalized.includes("refund")) {
+    return "success" as const
+  }
   if (
     normalized.includes("cancel") ||
-    normalized.includes("fail") ||
-    normalized.includes("refund")
+    normalized.includes("fail")
   ) {
     return "danger" as const
   }
@@ -182,7 +184,8 @@ export function statusBadgeTone(
     normalized.includes("deliver") ||
     normalized.includes("captured") ||
     normalized === "complete" ||
-    normalized === "completed"
+    normalized === "completed" ||
+    normalized.includes("refund")
   ) {
     return "success" as const
   }

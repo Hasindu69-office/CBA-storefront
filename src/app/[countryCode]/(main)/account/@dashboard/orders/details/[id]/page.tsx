@@ -11,25 +11,30 @@ type Props = {
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params
-  const tracking = await retrieveAccountOrderTracking(params.id)
+  const result = await retrieveAccountOrderTracking(params.id)
 
-  if (!tracking) {
+  if (!result?.tracking) {
     return { title: "Order" }
   }
 
   return {
-    title: `Order ${formatOrderNumber(tracking.order.display_id)}`,
+    title: `Order ${formatOrderNumber(result.tracking.order.display_id)}`,
     description: "View order status and shipment tracking",
   }
 }
 
 export default async function OrderDetailPage(props: Props) {
   const params = await props.params
-  const tracking = await retrieveAccountOrderTracking(params.id)
+  const result = await retrieveAccountOrderTracking(params.id)
 
-  if (!tracking) {
+  if (!result?.tracking) {
     notFound()
   }
 
-  return <AccountOrderTrackingTemplate tracking={tracking} />
+  return (
+    <AccountOrderTrackingTemplate
+      tracking={result.tracking}
+      returnEligibility={result.returnEligibility}
+    />
+  )
 }

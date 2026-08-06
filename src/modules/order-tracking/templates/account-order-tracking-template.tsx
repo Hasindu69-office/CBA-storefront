@@ -1,6 +1,7 @@
 import { convertToLocale } from "@lib/util/money"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import type { CbaCustomerOrderTracking } from "types/order-tracking"
+import type { CbaReturnEligibility } from "types/return-intake"
 import {
   currentTimelineHighlight,
   formatOrderNumber,
@@ -20,12 +21,14 @@ type AccountOrderTrackingTemplateProps = {
   tracking: CbaCustomerOrderTracking
   backHref?: string
   showBackLink?: boolean
+  returnEligibility?: CbaReturnEligibility
 }
 
 export default function AccountOrderTrackingTemplate({
   tracking,
   backHref = "/account/orders",
   showBackLink = true,
+  returnEligibility,
 }: AccountOrderTrackingTemplateProps) {
   const { order, fulfillments, timeline, next_expected_step } = tracking
   const isCancelled = order.status === "canceled"
@@ -161,7 +164,10 @@ export default function AccountOrderTrackingTemplate({
         </div>
       </section>
 
-      <OrderTrackingSupportBar />
+      <OrderTrackingSupportBar
+        orderId={order.id}
+        returnEligibility={returnEligibility}
+      />
     </div>
   )
 }

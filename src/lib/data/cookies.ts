@@ -147,3 +147,12 @@ export async function clearGuestTrackingSessionToken() {
     path: "/",
   })
 }
+
+export async function getReturnIntakeHeaders(): Promise<Record<string, string>> {
+  const auth = await getAuthHeaders()
+  const guest = await getGuestTrackingSessionToken()
+  return {
+    ...auth,
+    ...(guest ? { "x-cba-guest-tracking-token": guest } : {}),
+  }
+}
