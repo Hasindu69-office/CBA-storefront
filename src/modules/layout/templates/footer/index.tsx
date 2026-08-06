@@ -64,7 +64,7 @@ const accountLinks = [
   { label: "Compare", href: "/compare" },
   { label: "Manage Account", href: "/account" },
   { label: "My Reviews", href: "/account" },
-  { label: "FAQs", href: "#" },
+  { label: "FAQs", href: "/contact" },
   { label: "Terms and Conditions", href: "/terms-and-conditions" },
 ]
 

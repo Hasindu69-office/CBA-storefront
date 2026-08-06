@@ -131,7 +131,7 @@ export const DEFAULT_HEADER_LAYOUT: HeaderLayoutSettings = {
     label: "Need Help ?",
     phone: "011 764 5200",
     support_label: "Support",
-    support_url: "/contact-us",
+    support_url: "/contact",
   },
   topbar: {
     delivery_label: "Delivery Islandwide",
