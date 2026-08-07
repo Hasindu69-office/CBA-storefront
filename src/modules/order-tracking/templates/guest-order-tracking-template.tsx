@@ -144,6 +144,7 @@ export default function GuestOrderTrackingTemplate({
           tracking={tracking}
           showBackLink={false}
           returnEligibility={returnEligibility}
+          orderId={tracking.order.id}
         />
       </div>
     )

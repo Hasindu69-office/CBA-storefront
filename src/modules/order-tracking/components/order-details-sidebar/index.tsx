@@ -1,3 +1,5 @@
+import OrderDocumentsPanel from "@modules/order/components/order-documents-panel"
+import type { CbaOrderDocument } from "types/order-documents"
 import type { CbaCustomerOrderTracking } from "types/order-tracking"
 import OrderAddressCard from "../order-address-card"
 import OrderItemsSummary from "../order-items-summary"
@@ -5,10 +7,17 @@ import OrderPaymentSummary from "../order-payment-summary"
 
 type OrderDetailsSidebarProps = {
   tracking: CbaCustomerOrderTracking
+  documents?: CbaOrderDocument[]
+  orderId?: string
 }
 
-export default function OrderDetailsSidebar({ tracking }: OrderDetailsSidebarProps) {
+export default function OrderDetailsSidebar({
+  tracking,
+  documents,
+  orderId,
+}: OrderDetailsSidebarProps) {
   const shippingMethod = tracking.shipping_methods[0]?.name
+  const resolvedOrderId = orderId ?? tracking.order.id
 
   return (
     <div className="flex flex-col gap-6">
@@ -39,6 +48,13 @@ export default function OrderDetailsSidebar({ tracking }: OrderDetailsSidebarPro
 
       <div className="border-t border-[#eeeeee] pt-5">
         <OrderPaymentSummary tracking={tracking} />
+      </div>
+
+      <div className="border-t border-[#eeeeee] pt-5">
+        <OrderDocumentsPanel
+          documents={documents}
+          orderId={resolvedOrderId}
+        />
       </div>
     </div>
   )

@@ -2,6 +2,7 @@ import {
   removeCartId,
   setOrderConfirmationAccess,
 } from "@lib/data/cookies"
+import { establishGuestSessionFromConfirmation } from "@lib/data/order-tracking"
 import { getStoreCountryCode, localizedPath } from "@lib/util/routes"
 import { Metadata } from "next"
 import { redirect } from "next/navigation"
@@ -42,6 +43,7 @@ export default async function WebxpayCompletePage({ searchParams }: Props) {
   }
 
   await setOrderConfirmationAccess(orderId)
+  await establishGuestSessionFromConfirmation(orderId)
   await removeCartId()
   redirect(localizedPath(`/${countryCode}/order/${orderId}/confirmed`))
 }

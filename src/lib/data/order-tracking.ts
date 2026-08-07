@@ -5,6 +5,7 @@ import {
   clearGuestTrackingSessionToken,
   getAuthHeaders,
   getGuestTrackingSessionToken,
+  getOrderConfirmationToken,
   setGuestTrackingSessionToken,
 } from "./cookies"
 import type {
@@ -228,6 +229,119 @@ export async function guestTrackingLogout() {
     // ignore
   }
   await clearGuestTrackingSessionToken()
+}
+
+export type GuestConfirmSessionResult =
+  | { ok: true }
+  | { ok: false; error: string }
+
+function extractApiErrorMessage(error: unknown, fallback: string) {
+  if (!error || typeof error !== "object") {
+    return fallback
+  }
+  const payload = error as {
+    message?: unknown
+    error?: string | { message?: unknown; code?: unknown }
+    code?: unknown
+  }
+  if (payload.error && typeof payload.error === "object") {
+    const nested = String(payload.error.message ?? "").trim()
+    if (nested) return nested.slice(0, 240)
+  }
+  if (typeof payload.error === "string" && payload.error.trim()) {
+    return payload.error.trim().slice(0, 240)
+  }
+  if (typeof payload.message === "string" && payload.message.trim()) {
+    return payload.message.trim().slice(0, 240)
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim().slice(0, 240)
+  }
+  return fallback
+}
+
+/**
+ * Mint a Phase 4A guest tracking session from the confirmation cookie so
+ * guests can download receipts on the confirmation page without OTP.
+ */
+export async function establishGuestSessionFromConfirmation(
+  orderId: string
+): Promise<boolean> {
+  const result = await establishGuestSessionFromConfirmationDetailed(orderId)
+  return result.ok
+}
+
+export async function establishGuestSessionFromConfirmationDetailed(
+  orderId: string
+): Promise<GuestConfirmSessionResult> {
+  if (!/^order_[A-Za-z0-9]+$/.test(orderId)) {
+    return { ok: false, error: "Invalid order id." }
+  }
+
+  const auth = await getAuthHeaders()
+  if ("authorization" in auth) {
+    return { ok: true }
+  }
+
+  const existing = await getGuestTrackingSessionToken()
+  if (existing) {
+    return { ok: true }
+  }
+
+  const confirmationToken = await getOrderConfirmationToken(orderId)
+  if (!confirmationToken) {
+    return {
+      ok: false,
+      error:
+        "Confirmation access expired. Use Guest order tracking to verify this order, then download again.",
+    }
+  }
+
+  try {
+    const result = await sdk.client.fetch<{
+      session_token: string
+      expires_at: string
+      message?: string
+      error?: string | { message?: string }
+    }>("/store/cba/v1/order-tracking/confirm-session", {
+      method: "POST",
+      body: {
+        order_id: orderId,
+        confirmation_token: confirmationToken,
+      },
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    })
+
+    if (!result?.session_token) {
+      return {
+        ok: false,
+        error: extractApiErrorMessage(
+          result,
+          "Could not create a guest download session."
+        ),
+      }
+    }
+
+    const maxAge = Math.max(
+      60,
+      Math.floor(
+        (new Date(result.expires_at).getTime() - Date.now()) / 1000
+      )
+    )
+    await setGuestTrackingSessionToken(result.session_token, maxAge)
+    return { ok: true }
+  } catch (error) {
+    return {
+      ok: false,
+      error: extractApiErrorMessage(
+        error,
+        "Guest download session unavailable. Check guest tracking is enabled on the backend."
+      ),
+    }
+  }
 }
 
 function mapDetailToTracking(

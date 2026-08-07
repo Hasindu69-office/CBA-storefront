@@ -105,6 +105,15 @@ export const hasOrderConfirmationAccess = async (orderId: string) => {
   return token === signOrderId(orderId)
 }
 
+export const getOrderConfirmationToken = async (orderId: string) => {
+  const cookies = await nextCookies()
+  const token = cookies.get(orderConfirmationCookieName(orderId))?.value
+  if (!token || token !== signOrderId(orderId)) {
+    return null
+  }
+  return token
+}
+
 function orderConfirmationCookieName(orderId: string) {
   const digest = crypto.createHash("sha256").update(orderId).digest("hex").slice(0, 24)
   return `_cba_order_confirm_${digest}`

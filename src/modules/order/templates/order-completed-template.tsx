@@ -1,9 +1,11 @@
 import { paymentInfoMap } from "@lib/constants"
+import { getAuthHeaders } from "@lib/data/cookies"
 import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
 import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import OnboardingCta from "@modules/order/components/onboarding-cta"
+import DownloadReceiptButton from "@modules/order/components/download-receipt-button"
 import Thumbnail from "@modules/products/components/thumbnail"
 import { cookies as nextCookies } from "next/headers"
 
@@ -266,6 +268,11 @@ export default async function OrderCompletedTemplate({
 }: OrderCompletedTemplateProps) {
   const cookies = await nextCookies()
   const isOnboarding = cookies.get("_medusa_onboarding")?.value === "true"
+  const auth = await getAuthHeaders()
+  const isSignedIn = "authorization" in auth
+  const trackOrderHref = isSignedIn
+    ? `/account/orders/details/${order.id}`
+    : "/track-order"
   const items = order.items ?? []
   const addressLines = formatAddress(order)
   const itemCount = items.reduce((total, item) => total + (item.quantity ?? 0), 0)
@@ -511,18 +518,13 @@ export default async function OrderCompletedTemplate({
               )}
 
               <div className="mt-8 grid gap-4">
+                <DownloadReceiptButton orderId={order.id} />
                 <LocalizedClientLink
-                  href={`/account/orders/details/${order.id}`}
+                  href={trackOrderHref}
                   className="inline-flex h-14 items-center justify-center gap-3 rounded-[8px] border border-brand text-[15px] font-bold text-brand transition-colors hover:bg-brand hover:text-white"
                 >
                   <PackageIcon className="h-6 w-6" />
                   Track Order
-                </LocalizedClientLink>
-                <LocalizedClientLink
-                  href="/track-order"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-[8px] text-[14px] font-semibold text-[#59616e] transition-colors hover:text-brand"
-                >
-                  Guest order tracking
                 </LocalizedClientLink>
                 <LocalizedClientLink
                   href="/store"

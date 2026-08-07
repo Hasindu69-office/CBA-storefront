@@ -88,6 +88,20 @@ export type CbaCustomerOrderTracking = {
     title: string
     description: string | null
   } | null
+  /** Optional issued invoice / credit-note summary when order detail includes it */
+  documents_summary?: {
+    available: boolean
+    invoice: {
+      id: string
+      document_number: string | null
+      downloadable: boolean
+    } | null
+    credit_notes: Array<{
+      id: string
+      document_number: string | null
+      downloadable: boolean
+    }>
+  }
 }
 
 export type CbaSafeAddress = {
