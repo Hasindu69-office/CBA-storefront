@@ -121,3 +121,31 @@ export function LayoutGridIcon({ size = 18, ...props }: IconProps) {
     </svg>
   )
 }
+
+export function MenuIcon({ size = 24, ...props }: IconProps) {
+  return (
+    <svg {...baseProps(size)} {...props}>
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h16" />
+    </svg>
+  )
+}
+
+export function XIcon({ size = 24, ...props }: IconProps) {
+  return (
+    <svg {...baseProps(size)} {...props}>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  )
+}
+
+export function TagIcon({ size = 18, ...props }: IconProps) {
+  return (
+    <svg {...baseProps(size)} {...props}>
+      <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z" />
+      <circle cx="7.5" cy="7.5" r="1.5" />
+    </svg>
+  )
+}
