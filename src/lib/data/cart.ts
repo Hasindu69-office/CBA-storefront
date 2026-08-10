@@ -20,6 +20,7 @@ import {
   setCartId,
   setOrderConfirmationAccess,
 } from "./cookies"
+import { establishGuestSessionFromConfirmation } from "./order-tracking"
 import { getRegion } from "./regions"
 import { getLocale } from "@lib/data/locale-actions"
 import { listCartPaymentMethods } from "./payment"
@@ -796,6 +797,7 @@ export async function placeOrder(input?: string | {
     revalidateTag(orderCacheTag)
 
     await setOrderConfirmationAccess(cartRes.order.id)
+    await establishGuestSessionFromConfirmation(cartRes.order.id)
     removeCartId()
     redirect(localizedPath(`/${countryCode}/order/${cartRes?.order.id}/confirmed`))
   }
