@@ -8,6 +8,7 @@ import { retrieveWishlistCount } from "@lib/data/wishlist"
 import { HttpTypes, StoreCartShippingOption } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CbaSearchForm from "@modules/layout/components/cba-search-form"
+import MobileHeaderMenu from "@modules/layout/components/mobile-header-menu"
 import SideCart from "@modules/layout/components/side-cart"
 import {
   ChevronDownIcon,
@@ -17,6 +18,7 @@ import {
   HeartIcon,
   LayoutGridIcon,
   PhoneIcon,
+  TagIcon,
   TruckIcon,
   UserIcon,
 } from "@modules/layout/components/cba-icons"
@@ -106,22 +108,24 @@ export default async function Nav() {
   return (
     <div className="relative z-50 bg-white shadow-sm">
       <header className="w-full flex flex-col">
-        <div className="bg-[#221f1f] text-[#f2f2f2] text-[13px] py-2.5 font-sans">
-          <div className="content-container flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="flex items-center gap-2 whitespace-nowrap">
+        <div className="bg-[#221f1f] py-2 font-sans text-[11px] text-[#f2f2f2] xsmall:text-[12px] small:py-2.5 small:text-[13px]">
+          <div className="content-container flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2 xsmall:gap-3 small:gap-4">
+              <div className="flex items-center gap-1.5 whitespace-nowrap xsmall:gap-2">
                 <PhoneIcon size={14} className="text-brand" strokeWidth={2} />
                 <span>
-                  {cmsLayout.header.help.label}{" "}
+                  <span className="hidden xsmall:inline">
+                    {cmsLayout.header.help.label}{" "}
+                  </span>
                   <span className="text-brand font-medium">
                     {cmsLayout.header.help.phone}
                   </span>
                 </span>
               </div>
-              <span className="hidden medium:block w-px h-3.5 bg-white" />
+              <span className="block h-3.5 w-px bg-white/60" />
               <HeaderLink
                 href={cmsLayout.header.help.support_url}
-                className="hidden medium:flex items-center gap-1.5 hover:text-white transition-colors"
+                className="flex items-center gap-1.5 whitespace-nowrap transition-colors hover:text-white"
               >
                 <HeadphonesIcon
                   size={14}
@@ -129,8 +133,16 @@ export default async function Nav() {
                   strokeWidth={2}
                 />
                 <span>{cmsLayout.header.help.support_label}</span>
-                <ChevronDownIcon size={14} className="text-gray-400" />
+                <ChevronDownIcon
+                  size={14}
+                  className="hidden text-gray-400 xsmall:block"
+                />
               </HeaderLink>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap font-semibold small:hidden">
+              <TruckIcon size={14} strokeWidth={2} />
+              <span>{cmsLayout.header.topbar.delivery_label}</span>
             </div>
 
             <div className="hidden small:flex items-center gap-4">
@@ -168,11 +180,73 @@ export default async function Nav() {
           </div>
         </div>
 
-        <div className="bg-white py-4 small:py-6">
-          <div className="content-container flex flex-col small:flex-row small:items-center justify-between gap-5 medium:gap-12">
+        <div className="bg-white py-3 small:py-6">
+          <div className="content-container flex flex-col justify-between gap-3 small:flex-row small:items-center small:gap-5 medium:gap-12">
+            <div className="flex w-full items-center justify-between gap-2 small:hidden">
+              <MobileHeaderMenu
+                primaryLinks={navLinks}
+                categoryLinks={dropdownItems}
+                logo={{
+                  imageUrl: cmsLayout.header.logo.image_url,
+                  altText: cmsLayout.header.logo.alt_text,
+                }}
+              />
+              <HeaderLink
+                href={cmsLayout.header.logo.href}
+                className="min-w-0 flex-1"
+              >
+                <Image
+                  src={cmsLayout.header.logo.image_url}
+                  alt={cmsLayout.header.logo.alt_text}
+                  width={244}
+                  height={104}
+                  priority
+                  className="h-auto w-[116px] max-w-full xsmall:w-[132px]"
+                />
+              </HeaderLink>
+
+              <div className="flex shrink-0 items-center justify-end gap-3 text-[11px] xsmall:gap-4 xsmall:text-[12px]">
+                <LocalizedClientLink
+                  href="/account"
+                  className="flex min-w-[38px] flex-col items-center gap-0.5 text-black transition-opacity hover:opacity-80 xsmall:min-w-[42px]"
+                >
+                  <UserIcon
+                    size={23}
+                    strokeWidth={1.55}
+                    className="text-black"
+                  />
+                  <span className="leading-none">Account</span>
+                </LocalizedClientLink>
+
+                <LocalizedClientLink
+                  href="/wishlist"
+                  className="flex min-w-[38px] flex-col items-center gap-0.5 text-black transition-opacity hover:opacity-80 xsmall:min-w-[42px]"
+                  aria-label={`Wishlist with ${wishlistCount} ${
+                    wishlistCount === 1 ? "item" : "items"
+                  }`}
+                >
+                  <span className="relative block">
+                    <HeartIcon
+                      size={23}
+                      strokeWidth={1.55}
+                      className="text-black"
+                    />
+                    {wishlistCount > 0 && (
+                      <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white">
+                        {wishlistCount}
+                      </span>
+                    )}
+                  </span>
+                  <span className="leading-none">Wishlist</span>
+                </LocalizedClientLink>
+
+                <SideCart cart={cart} shippingOptions={shippingOptions} />
+              </div>
+            </div>
+
             <HeaderLink
               href={cmsLayout.header.logo.href}
-              className="flex-shrink-0 self-start"
+              className="hidden flex-shrink-0 self-start small:block"
             >
               <Image
                 src={cmsLayout.header.logo.image_url}
@@ -188,7 +262,7 @@ export default async function Nav() {
               <CbaSearchForm />
             </div>
 
-            <div className="flex items-center justify-between small:justify-end gap-5 medium:gap-8 text-sm">
+            <div className="hidden items-center justify-between gap-5 text-sm small:flex small:justify-end medium:gap-8">
               <LocalizedClientLink
                 href="/account"
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity"
@@ -228,7 +302,30 @@ export default async function Nav() {
           </div>
         </div>
 
-        <nav className="bg-white pb-2">
+        <div className="border-y border-gray-100 bg-white small:hidden">
+          <div className="grid h-12 grid-cols-[1fr_1fr]">
+            <div className="border-r border-gray-100">
+              <MobileHeaderMenu
+                primaryLinks={navLinks}
+                categoryLinks={dropdownItems}
+                logo={{
+                  imageUrl: cmsLayout.header.logo.image_url,
+                  altText: cmsLayout.header.logo.alt_text,
+                }}
+                variant="categories"
+              />
+            </div>
+            <HeaderLink
+              href={cmsLayout.header.commerce.deals_url}
+              className="flex items-center justify-center gap-2 px-3 text-[14px] font-bold text-brand xsmall:text-[15px]"
+            >
+              <TagIcon size={18} strokeWidth={2} />
+              <span>{cmsLayout.header.commerce.deals_label}</span>
+            </HeaderLink>
+          </div>
+        </div>
+
+        <nav className="hidden bg-white pb-2 small:block">
           <div className="content-container">
             <div className="flex items-center border border-gray-100 rounded-md overflow-visible">
               <div className="bg-[#1f1a1a] text-white h-[46px] flex items-center px-5 cursor-pointer font-medium w-[220px] justify-between group relative rounded-md flex-shrink-0">

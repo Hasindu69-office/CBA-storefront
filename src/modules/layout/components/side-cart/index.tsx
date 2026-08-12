@@ -197,16 +197,27 @@ export default function SideCart({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-3 text-left transition-opacity hover:opacity-80"
+        className="flex min-w-[38px] flex-col items-center gap-0.5 text-center transition-opacity hover:opacity-80 xsmall:min-w-[42px] small:flex-row small:gap-3 small:text-left"
         aria-label={`Open cart with ${itemCount} ${
           itemCount === 1 ? "item" : "items"
         }`}
         data-testid="nav-cart-link"
       >
-        <ShoppingCartIcon size={26} strokeWidth={1.5} className="text-black" />
-        <div className="hidden medium:block leading-tight">
-          <p className="text-[15px] font-semibold text-black">Cart</p>
-          <p className="mt-0.5 text-[12px] text-gray-400">
+        <span className="relative block">
+          <ShoppingCartIcon
+            size={23}
+            strokeWidth={1.5}
+            className="h-[23px] w-[23px] text-black small:h-[26px] small:w-[26px]"
+          />
+          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white small:h-5 small:min-w-5 small:text-[11px]">
+            {itemCount}
+          </span>
+        </span>
+        <div className="leading-tight">
+          <p className="text-[13px] font-medium text-black small:hidden medium:block medium:text-[15px] medium:font-semibold">
+            Cart
+          </p>
+          <p className="mt-0.5 hidden text-[12px] text-gray-400 medium:block">
             {itemCount} {itemCount === 1 ? "item" : "items"}
           </p>
         </div>

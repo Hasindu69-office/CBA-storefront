@@ -78,23 +78,23 @@ const Hero = ({ sections }: HeroProps) => {
   }, [autoplay, intervalMs, slides.length])
 
   return (
-    <section className="w-full bg-white pt-2 sm:pt-3">
-      <div className="content-container">
+    <section className="w-full overflow-hidden bg-white pt-2 sm:pt-3">
+      <div className="mx-0 w-full max-w-full overflow-hidden px-0 small:mx-auto small:w-[90%] small:max-w-[1440px]">
         <div
-          className="relative isolate aspect-[1839/710] min-h-[430px] overflow-visible text-white sm:min-h-[450px] lg:min-h-0"
+          className="relative isolate aspect-[16/9] min-h-[210px] overflow-hidden text-white xsmall:min-h-[230px] sm:aspect-[1839/710] sm:min-h-[300px] small:min-h-0"
           aria-roledescription="carousel"
           aria-label="Homepage featured banners"
         >
           <div
-            className="absolute inset-0 z-10 overflow-hidden bg-black"
+            className="absolute inset-0 z-10 overflow-hidden bg-black [--hero-mask-image:url(/images/homepagebanner-01.svg)] [--hero-mask-position:center_47.6%] [--hero-mask-size:156%_auto] sm:[--hero-mask-size:132%_auto] small:[--hero-mask-position:center_47.6%] small:[--hero-mask-size:104.5%_auto]"
             style={{
-              WebkitMaskImage: "url('/images/homepagebanner-01.svg')",
-              WebkitMaskSize: "104.5% auto",
-              WebkitMaskPosition: "center 47.6%",
+              WebkitMaskImage: "var(--hero-mask-image)",
+              WebkitMaskSize: "var(--hero-mask-size)",
+              WebkitMaskPosition: "var(--hero-mask-position)",
               WebkitMaskRepeat: "no-repeat",
-              maskImage: "url('/images/homepagebanner-01.svg')",
-              maskSize: "104.5% auto",
-              maskPosition: "center 47.6%",
+              maskImage: "var(--hero-mask-image)",
+              maskSize: "var(--hero-mask-size)",
+              maskPosition: "var(--hero-mask-position)",
               maskRepeat: "no-repeat",
             }}
           >
@@ -116,42 +116,42 @@ const Hero = ({ sections }: HeroProps) => {
                   />
                   <div className="absolute inset-0 z-10 bg-gradient-to-r from-black via-black/55 to-transparent" />
 
-                  <div className="relative z-20 flex h-full w-full max-w-[920px] -translate-y-8 flex-col justify-center px-8 py-12 sm:px-20 lg:pl-[112px] xl:pl-[132px]">
-                    <div className="mb-6 flex flex-wrap items-center gap-4 text-[13px] leading-none sm:flex-nowrap">
+                  <div className="relative z-20 flex h-full w-full max-w-full -translate-y-3 flex-col justify-center px-4 py-7 xsmall:px-5 sm:max-w-[720px] sm:-translate-y-2 sm:px-10 small:max-w-[920px] small:-translate-y-8 small:px-20 small:py-12 small:pl-[112px] xl:pl-[132px]">
+                    <div className="mb-2.5 flex max-w-full flex-wrap items-center gap-1.5 text-[7px] leading-none xsmall:text-[8px] sm:mb-4 sm:flex-nowrap sm:gap-2.5 small:mb-6 small:gap-4 small:text-[13px]">
                       {slide.eyebrow && (
-                        <span className="inline-flex h-[38px] items-center rounded-full border border-[#ff5c0e] px-6 text-[13px] font-bold uppercase tracking-normal text-white">
+                        <span className="inline-flex h-5 max-w-full items-center rounded-full border border-[#ff5c0e] px-2 text-[7px] font-bold uppercase tracking-normal text-white xsmall:h-6 xsmall:text-[8px] small:h-[38px] small:px-6 small:text-[13px]">
                           {slide.eyebrow}
                         </span>
                       )}
                       {slide.subtitle && (
                         <>
-                          <span className="hidden h-6 w-px bg-white sm:block" />
-                          <p className="text-[13px] font-bold leading-[18px] text-white sm:whitespace-nowrap">
+                          <span className="hidden h-5 w-px bg-white sm:block small:h-6" />
+                          <p className="min-w-0 max-w-full break-words text-[7px] font-bold leading-[10px] text-white xsmall:text-[8px] xsmall:leading-[11px] sm:whitespace-nowrap small:text-[13px] small:leading-[18px]">
                             {slide.subtitle}
                           </p>
                         </>
                       )}
                     </div>
 
-                    <h1 className="max-w-[560px] text-[34px] font-bold leading-[1.25] text-white sm:text-[40px]">
+                    <h1 className="max-w-[min(100%,280px)] break-words text-[15px] font-bold leading-[1.1] text-white xsmall:text-[16px] sm:max-w-[430px] sm:text-[22px] small:max-w-[560px] small:text-[40px]">
                       {renderHighlightedTitle(slide.title, slide.highlightText)}
                     </h1>
 
                     {slide.descriptionHtml && (
                       <div
-                        className="mt-4 max-w-[410px] text-[13px] leading-[20px] text-white/90"
+                        className="mt-2.5 max-w-[min(100%,280px)] break-words text-[8px] leading-[11px] text-white/90 xsmall:text-[9px] xsmall:leading-[12px] sm:mt-3 sm:max-w-[360px] sm:text-[10px] sm:leading-[15px] small:mt-4 small:max-w-[410px] small:text-[13px] small:leading-[20px]"
                         dangerouslySetInnerHTML={{ __html: slide.descriptionHtml }}
                       />
                     )}
 
-                    <div className="mt-6 flex flex-wrap gap-5 sm:flex-nowrap">
+                    <div className="mt-3.5 flex max-w-full flex-wrap gap-2 sm:mt-4 sm:flex-nowrap small:mt-6 small:gap-5">
                       {slide.primaryLabel && slide.primaryUrl && (
                         <LocalizedClientLink
                           href={slide.primaryUrl}
-                          className="inline-flex h-[43px] min-w-[174px] items-center justify-center rounded-[7px] bg-[#ff5c0e] px-7 text-[13px] font-bold text-white transition-colors hover:bg-[#e6530c]"
+                          className="inline-flex h-7 min-w-0 max-w-full items-center justify-center rounded-[6px] bg-[#ff5c0e] px-3 text-[8px] font-bold text-white transition-colors hover:bg-[#e6530c] xsmall:text-[9px] small:h-[43px] small:min-w-[174px] small:rounded-[7px] small:px-7 small:text-[13px]"
                         >
                           {slide.primaryLabel}
-                          <span className="ml-3 text-base leading-none" aria-hidden="true">
+                          <span className="ml-2 text-sm leading-none small:ml-3 small:text-base" aria-hidden="true">
                             &rsaquo;
                           </span>
                         </LocalizedClientLink>
@@ -159,7 +159,7 @@ const Hero = ({ sections }: HeroProps) => {
                       {slide.secondaryLabel && slide.secondaryUrl && (
                         <LocalizedClientLink
                           href={slide.secondaryUrl}
-                          className="inline-flex h-[43px] min-w-[198px] items-center justify-center rounded-[7px] border border-white px-7 text-[13px] font-bold text-white transition-colors hover:bg-white hover:text-black"
+                          className="inline-flex h-7 min-w-0 max-w-full items-center justify-center rounded-[6px] border border-white px-3 text-[8px] font-bold text-white transition-colors hover:bg-white hover:text-black xsmall:text-[9px] small:h-[43px] small:min-w-[198px] small:rounded-[7px] small:px-7 small:text-[13px]"
                         >
                           {slide.secondaryLabel}
                         </LocalizedClientLink>
@@ -171,12 +171,12 @@ const Hero = ({ sections }: HeroProps) => {
             </div>
           </div>
 
-          <div className="absolute bottom-[4.4%] left-1/2 z-30 flex -translate-x-1/2 items-center gap-4">
+          <div className="absolute bottom-[3.6%] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2.5 small:bottom-[4.4%] small:gap-4">
             {slides.map((slide, index) => (
               <button
                 key={`${slide.title}-${index}`}
                 type="button"
-                className={`h-[13px] w-[13px] rounded-full border-0 p-0 transition-colors ${
+                className={`h-2.5 w-2.5 rounded-full border-0 p-0 transition-colors small:h-[13px] small:w-[13px] ${
                   index === activeIndex ? "bg-[#ff5c0e]" : "bg-[#d4d7da]"
                 }`}
                 aria-label={`Show banner ${index + 1}`}
