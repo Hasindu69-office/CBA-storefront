@@ -82,18 +82,18 @@ const FeaturedProductSlider = ({
 
   const sectionClassName = embedded
     ? "mt-12 border-t border-gray-200 pt-10"
-    : "bg-white py-10 small:py-14"
+    : "bg-white pt-8 pb-12 sm:pt-9 sm:pb-14 md:pb-16 small:py-14"
 
   const content = (
     <>
-      <div className="mb-8 flex items-start justify-between gap-6 small:mb-10">
+      <div className="mb-6 flex items-start justify-between gap-6 sm:mb-7 small:mb-10">
         <div className="min-w-0">
           <h2
             id={titleId}
             className={
               embedded
                 ? "text-lg font-black uppercase text-black"
-                : "text-[30px] font-bold leading-[1.15] tracking-normal text-black small:text-[34px]"
+                : "text-[26px] font-bold leading-[1.15] tracking-normal text-black xsmall:text-[28px] small:text-[34px]"
             }
           >
             {title}
@@ -109,7 +109,7 @@ const FeaturedProductSlider = ({
               {description}
             </p>
           )}
-          {!embedded && <div className="mt-4 h-px w-[220px] bg-[#cfcfcf] small:w-[295px]" />}
+          {!embedded && <div className="mt-4 h-px w-[200px] bg-[#cfcfcf] xsmall:w-[220px] small:w-[295px]" />}
         </div>
         {ctaLabel && ctaHref && (
           <ProductSliderCta
@@ -126,7 +126,7 @@ const FeaturedProductSlider = ({
         className={
           embedded
             ? "no-scrollbar grid auto-cols-[minmax(210px,calc((100%_-_20px)_/_2))] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
-            : "no-scrollbar grid auto-cols-[minmax(280px,calc(100vw_-_48px))] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-2 pr-1 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
+            : "no-scrollbar grid auto-cols-[minmax(260px,82vw)] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 pr-4 xsmall:auto-cols-[minmax(280px,76vw)] sm:auto-cols-[minmax(300px,52vw)] md:auto-cols-[calc((100%_-_16px)_/_2)] md:pr-1 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
         }
       >
         {products.map((product, index) => (
@@ -141,7 +141,7 @@ const FeaturedProductSlider = ({
       {ctaLabel && ctaHref && (
         <ProductSliderCta
           href={ctaHref}
-          className="mt-7 flex h-11 items-center justify-center rounded border border-[#dedee5] bg-white px-6 text-[14px] font-semibold text-[#333333] transition-colors hover:border-brand hover:text-brand small:hidden"
+          className="mt-8 flex h-11 items-center justify-center rounded border border-[#dedee5] bg-white px-6 text-[14px] font-semibold text-[#333333] transition-colors hover:border-brand hover:text-brand small:hidden"
         >
           {ctaLabel}
         </ProductSliderCta>
@@ -188,9 +188,11 @@ const ProductSliderCta = ({
 export const FeaturedProductCardItem = ({
   product,
   priority,
+  mobileCompact = false,
 }: {
   product: FeaturedProductCard
   priority: boolean
+  mobileCompact?: boolean
 }) => {
   const countryCode = useParams().countryCode as string
   const [isAddingToCart, setIsAddingToCart] = useState(false)
@@ -273,9 +275,21 @@ export const FeaturedProductCardItem = ({
   return (
     <article
       data-featured-product-card
-      className="group flex h-[512px] min-w-0 snap-start flex-col overflow-hidden rounded-[8px] border border-[#e5e7eb] bg-white transition-colors hover:border-brand/50 medium:h-[468px]"
+      className={[
+        "group flex min-w-0 snap-start flex-col overflow-hidden rounded-[8px] border border-[#e5e7eb] bg-white transition-colors hover:border-brand/50 medium:h-[468px]",
+        mobileCompact
+          ? "h-[342px] small:h-[356px]"
+          : "h-[436px] xsmall:h-[454px] sm:h-[468px] md:h-[488px] small:h-[512px]",
+      ].join(" ")}
     >
-      <div className="relative h-[250px] flex-shrink-0 overflow-hidden rounded-t-[8px] bg-white medium:h-[212px] large:h-[224px]">
+      <div
+        className={[
+          "relative flex-shrink-0 overflow-hidden rounded-t-[8px] bg-white medium:h-[212px] large:h-[224px]",
+          mobileCompact
+            ? "h-[142px] small:h-[156px]"
+            : "h-[188px] xsmall:h-[202px] sm:h-[214px] md:h-[226px] small:h-[250px]",
+        ].join(" ")}
+      >
         <LocalizedClientLink
           href={`/products/${product.handle}`}
           className="block h-full w-full"
@@ -287,8 +301,11 @@ export const FeaturedProductCardItem = ({
               alt={product.thumbnail.alt || product.title}
               fill
               priority={priority}
-              sizes="(min-width: 1280px) 190px, (min-width: 1024px) 28vw, calc(100vw - 96px)"
-              className="object-contain object-center p-5 transition-transform duration-300 group-hover:scale-[1.03] medium:p-4"
+              sizes="(min-width: 1280px) 190px, (min-width: 1024px) 28vw, (min-width: 768px) 45vw, 82vw"
+              className={[
+                "object-contain object-center transition-transform duration-300 group-hover:scale-[1.03] medium:p-4",
+                mobileCompact ? "p-3 small:p-4" : "p-4 sm:p-5",
+              ].join(" ")}
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
@@ -298,13 +315,18 @@ export const FeaturedProductCardItem = ({
         </LocalizedClientLink>
 
         {!!displayBadges.length && (
-          <div className="absolute left-3 top-4 flex max-w-[calc(100%-72px)] flex-wrap gap-1.5">
+          <div
+            className={[
+              "absolute flex max-w-[calc(100%-64px)] flex-wrap gap-1.5 medium:left-3 medium:top-4 medium:max-w-[calc(100%-72px)]",
+              mobileCompact ? "left-2.5 top-3" : "left-3 top-3",
+            ].join(" ")}
+          >
             {displayBadges.map((badge) => (
               <span
                 key={badge.key}
                 className={`${badgeColorClassName(
                   badge
-                )} min-w-[68px] rounded-[6px] px-2.5 py-1 text-center text-[10px] font-bold uppercase leading-4 text-white`}
+                )} min-w-[64px] rounded-[6px] px-2 py-1 text-center text-[9px] font-bold uppercase leading-3 text-white medium:min-w-[68px] medium:px-2.5 medium:text-[10px] medium:leading-4`}
               >
                 {badge.label}
               </span>
@@ -318,24 +340,46 @@ export const FeaturedProductCardItem = ({
           title="Add to wishlist"
           onClick={handleAddToWishlist}
           disabled={isAddingToWishlist || !product.default_variant?.id}
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#ff3b30] shadow-sm transition-colors hover:bg-[#fff3f0] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#ff3b30] shadow-sm transition-colors hover:bg-[#fff3f0] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:h-9 sm:w-9"
         >
-          <HeartIcon size={18} strokeWidth={1.8} />
+          <HeartIcon size={17} strokeWidth={1.8} />
         </button>
 
         {product.price.discount_percentage !== null && (
-          <div className="absolute right-4 top-[62px] z-10 flex h-[48px] w-[48px] flex-col items-center justify-center rounded-full bg-[#ff2d55] text-center text-white shadow-[0_10px_24px_rgba(255,45,85,0.28)]">
-            <span className="text-[14px] font-bold leading-[15px]">
+          <div
+            className={[
+              "absolute z-10 flex flex-col items-center justify-center rounded-full bg-[#ff2d55] text-center text-white shadow-[0_10px_24px_rgba(255,45,85,0.28)] medium:right-4 medium:top-[62px] medium:h-[48px] medium:w-[48px]",
+              mobileCompact
+                ? "right-3 top-[58px] h-[40px] w-[40px]"
+                : "right-4 top-[62px] h-[48px] w-[48px]",
+            ].join(" ")}
+          >
+            <span
+              className={[
+                "font-bold medium:text-[14px] medium:leading-[15px]",
+                mobileCompact ? "text-[12px] leading-[13px]" : "text-[14px] leading-[15px]",
+              ].join(" ")}
+            >
               {product.price.discount_percentage}%
             </span>
-            <span className="text-[8px] font-bold uppercase leading-[10px]">
+            <span
+              className={[
+                "font-bold uppercase medium:text-[8px] medium:leading-[10px]",
+                mobileCompact ? "text-[7px] leading-[9px]" : "text-[8px] leading-[10px]",
+              ].join(" ")}
+            >
               Off
             </span>
           </div>
         )}
 
         {!!benefitItems.length && (
-          <div className="absolute bottom-2 left-2.5 right-2.5 z-10 flex h-8 items-center justify-center overflow-hidden rounded-[6px] bg-[#fff3ed] pt-0.5 text-[#ff5c0e] shadow-sm">
+          <div
+            className={[
+              "absolute bottom-2 left-2.5 right-2.5 z-10 h-8 items-center justify-center overflow-hidden rounded-[6px] bg-[#fff3ed] pt-0.5 text-[#ff5c0e] shadow-sm",
+              mobileCompact ? "hidden medium:flex" : "flex",
+            ].join(" ")}
+          >
             {benefitItems.map((item, index) => (
               <div
                 key={item.key}
@@ -354,7 +398,12 @@ export const FeaturedProductCardItem = ({
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col px-3 py-3">
+      <div
+        className={[
+          "flex min-h-0 flex-1 flex-col medium:px-3 medium:py-3",
+          mobileCompact ? "px-2.5 py-2.5" : "px-3 py-3 sm:px-3.5 sm:py-3.5 small:px-3 small:py-3",
+        ].join(" ")}
+      >
         <div className="flex min-h-[22px] items-center gap-2">
           {product.brand?.logo_url ? (
             <span className="relative block h-5 w-[72px] flex-shrink-0">
@@ -383,14 +432,29 @@ export const FeaturedProductCardItem = ({
 
         <LocalizedClientLink
           href={`/products/${product.handle}`}
-          className="mt-2 block focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className={[
+            "block focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 medium:mt-2",
+            mobileCompact ? "mt-1.5" : "mt-2",
+          ].join(" ")}
         >
-          <h3 className="line-clamp-2 min-h-[42px] text-[16px] font-bold leading-[21px] tracking-normal text-black medium:text-[15px] medium:leading-5">
+          <h3
+            className={[
+              "line-clamp-2 font-bold tracking-normal text-black medium:min-h-[42px] medium:text-[15px] medium:leading-5",
+              mobileCompact
+                ? "min-h-[38px] text-[14px] leading-[19px]"
+                : "min-h-[40px] text-[15px] leading-5 sm:min-h-[42px] sm:text-[16px] sm:leading-[21px]",
+            ].join(" ")}
+          >
             {product.title}
           </h3>
         </LocalizedClientLink>
 
-        <div className="mt-2 flex min-h-[22px] items-center justify-between gap-2">
+        <div
+          className={[
+            "mt-2 min-h-[22px] items-center justify-between gap-2",
+            mobileCompact ? "hidden medium:flex" : "flex",
+          ].join(" ")}
+        >
           <ProductRating rating={product.rating} />
           <span
             className={`line-clamp-1 flex-shrink-0 text-[10px] leading-4 ${
@@ -404,13 +468,18 @@ export const FeaturedProductCardItem = ({
           </span>
         </div>
 
-        <div className="mt-auto border-t border-[#e5e7eb] pt-2.5">
-          <ProductCardPrice product={product} />
+        <div
+          className={[
+            "border-t border-[#e5e7eb] pt-2.5 medium:mt-auto",
+            mobileCompact ? "mt-3" : "mt-auto",
+          ].join(" ")}
+        >
+          <ProductCardPrice product={product} mobileCompact={mobileCompact} />
           <button
             type="button"
             onClick={handleAddToCart}
             disabled={!isPurchasable || isAddingToCart}
-            className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-brand bg-white px-3 text-[11px] font-bold uppercase tracking-normal text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white"
+            className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-brand bg-white px-3 text-[11px] font-bold uppercase tracking-normal text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white sm:h-10"
           >
             <ShoppingCartIcon size={16} />
             {isAddingToCart ? "Adding..." : "Add to cart"}
@@ -507,7 +576,13 @@ const ProductRating = ({
   )
 }
 
-const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
+const ProductCardPrice = ({
+  product,
+  mobileCompact = false,
+}: {
+  product: FeaturedProductCard
+  mobileCompact?: boolean
+}) => {
   if (
     product.price.status !== "available" ||
     product.price.calculated_amount === null
@@ -529,12 +604,24 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
       : null
 
   return (
-    <div className="flex min-h-[26px] min-w-0 items-baseline gap-2 overflow-hidden">
+    <div
+      className={[
+        "min-h-[26px] min-w-0 overflow-hidden medium:flex medium:items-baseline medium:gap-2",
+        mobileCompact ? "flex flex-col gap-0.5" : "flex items-baseline gap-2",
+      ].join(" ")}
+    >
       <span className="min-w-0 flex-shrink text-[15px] font-bold leading-6 text-black medium:text-[14px] large:text-[15px]">
         {calculated}
       </span>
       {original && (
-        <span className="min-w-0 flex-1 truncate text-[10px] font-medium leading-4 text-[#8a8a8f] line-through">
+        <span
+          className={[
+            "min-w-0 text-[#8a8a8f] line-through medium:flex-1 medium:truncate medium:text-[10px] medium:font-medium medium:leading-4",
+            mobileCompact
+              ? "block text-[11px] font-semibold leading-3"
+              : "flex-1 truncate text-[10px] font-medium leading-4",
+          ].join(" ")}
+        >
           {original}
         </span>
       )}
