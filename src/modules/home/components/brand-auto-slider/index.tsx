@@ -40,9 +40,9 @@ const BrandAutoSlider = async ({ sections }: BrandAutoSliderProps) => {
     : [brands]
 
   return (
-    <section className="bg-white pb-8 pt-2 small:pb-10" aria-label="Featured brands">
+    <section className="bg-white pb-6 pt-1.5 sm:pb-7 md:pb-8 small:pb-10 small:pt-2" aria-label="Featured brands">
       <div className="mx-auto w-[92%] small:w-[90%]">
-        <div className="w-full overflow-hidden rounded-[4px] border border-[#e2e2e2] bg-white px-4 py-5 small:px-8">
+        <div className="w-full overflow-hidden rounded-[4px] border border-[#e2e2e2] bg-white px-3 py-4 sm:px-4 sm:py-[18px] md:px-5 md:py-5 small:px-8">
           <div
             className={[
               "brand-slider-track flex items-center",
@@ -59,7 +59,7 @@ const BrandAutoSlider = async ({ sections }: BrandAutoSliderProps) => {
             {displayGroups.map((group, groupIndex) => (
               <div
                 key={groupIndex}
-                className="brand-slider-group flex min-w-max items-center gap-8 small:gap-12 medium:gap-16"
+                className="brand-slider-group flex min-w-max items-center gap-6 sm:gap-7 md:gap-10 small:gap-12 medium:gap-16"
               >
                 {group.map((brand, brandIndex) => (
                   <BrandLogoLink
@@ -90,7 +90,7 @@ function BrandLogoLink({
   return (
     <div
       aria-hidden={hiddenFromA11y}
-      className="flex h-10 w-[112px] flex-shrink-0 items-center justify-center small:w-[132px]"
+      className="flex h-9 w-[96px] flex-shrink-0 items-center justify-center sm:w-[104px] md:h-10 md:w-[118px] small:w-[132px]"
     >
       <Image
         src={brand.logo_url ?? ""}
@@ -98,8 +98,8 @@ function BrandLogoLink({
         width={132}
         height={40}
         priority={priority}
-        sizes="132px"
-        className="max-h-10 w-auto max-w-[132px] object-contain"
+        sizes="(min-width: 1024px) 132px, (min-width: 768px) 118px, 104px"
+        className="max-h-9 w-auto max-w-[96px] object-contain sm:max-w-[104px] md:max-h-10 md:max-w-[118px] small:max-w-[132px]"
       />
     </div>
   )

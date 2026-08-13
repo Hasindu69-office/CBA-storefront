@@ -17,6 +17,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import SkeletonProductGrid from "@modules/skeletons/templates/skeleton-product-grid"
 import ShopFilterPanel, {
   ShopSortSelect,
+  StoreMobileFilterDrawer,
 } from "@modules/store/components/shop-filter-panel"
 
 import PaginatedProducts from "./paginated-products"
@@ -97,13 +98,13 @@ const StoreTemplate = async ({
     <main className="bg-white pb-14">
       <div className="content-container pt-8">
         <section
-          className="relative min-h-[214px] overflow-hidden rounded-[8px] bg-[#fbfbfb] bg-cover bg-center px-8 py-7 shadow-[0_18px_50px_rgba(0,0,0,0.06)] small:px-11 small:py-9"
+          className="relative min-h-[184px] overflow-hidden rounded-[8px] bg-[#fbfbfb] bg-cover bg-[position:62%_center] px-5 py-5 shadow-[0_18px_50px_rgba(0,0,0,0.06)] xsmall:min-h-[204px] xsmall:bg-[position:70%_center] xsmall:px-7 xsmall:py-6 small:min-h-[214px] small:bg-center small:px-11 small:py-9"
           style={{ backgroundImage: `url("${banner.backgroundImageUrl}")` }}
           aria-label={banner.backgroundAltText}
         >
           <nav
             aria-label="Breadcrumb"
-            className="flex items-center gap-3 text-[13px] font-medium leading-5 text-[#1f1f22]"
+            className="flex items-center gap-2.5 text-[12px] font-medium leading-5 text-[#1f1f22] xsmall:gap-3 xsmall:text-[13px]"
           >
             <LocalizedClientLink
               href="/"
@@ -115,34 +116,49 @@ const StoreTemplate = async ({
             <span className="font-bold">{banner.breadcrumbLabel}</span>
           </nav>
 
-          <div className="mt-8 max-w-[430px]">
+          <div className="mt-7 max-w-[230px] xsmall:mt-8 xsmall:max-w-[330px] small:max-w-[430px]">
             <h1
               data-testid="store-page-title"
-              className="text-[30px] font-bold leading-[38px] tracking-normal text-black small:text-[34px]"
+              className="text-[28px] font-bold leading-[34px] tracking-normal text-black xsmall:text-[30px] xsmall:leading-[38px] small:text-[34px]"
             >
               {banner.title}
             </h1>
-            <p className="mt-2 text-[15px] leading-6 text-[#18181b]">
+            <p className="mt-2 text-[14px] leading-[22px] text-[#18181b] xsmall:text-[15px] xsmall:leading-6">
               {banner.subtitle}
             </p>
           </div>
         </section>
 
         <div className="mt-8 flex flex-col gap-6 small:flex-row small:items-start">
-          <ShopFilterPanel
-            categories={categories.filter((item) => !item.parent_category)}
-            brands={brands}
-            facets={facets}
-            selectedCategory={category}
-            selectedBrand={brand}
-            selectedMinPrice={selectedMinPrice}
-            selectedMaxPrice={selectedMaxPrice}
-            priceRangeMax={priceRangeMax}
-            selectedFilters={selectedFilters}
-            sidebarPromo={shopContent.sidebarPromo}
-          />
+          <div className="hidden small:block">
+            <ShopFilterPanel
+              categories={categories.filter((item) => !item.parent_category)}
+              brands={brands}
+              facets={facets}
+              selectedCategory={category}
+              selectedBrand={brand}
+              selectedMinPrice={selectedMinPrice}
+              selectedMaxPrice={selectedMaxPrice}
+              priceRangeMax={priceRangeMax}
+              selectedFilters={selectedFilters}
+              sidebarPromo={shopContent.sidebarPromo}
+            />
+          </div>
 
           <section className="min-w-0 flex-1">
+            <StoreMobileFilterDrawer
+              categories={categories.filter((item) => !item.parent_category)}
+              brands={brands}
+              facets={facets}
+              selectedCategory={category}
+              selectedBrand={brand}
+              selectedMinPrice={selectedMinPrice}
+              selectedMaxPrice={selectedMaxPrice}
+              priceRangeMax={priceRangeMax}
+              selectedFilters={selectedFilters}
+              resultCount={resultCount}
+            />
+
             <div className="mb-6 flex flex-col gap-4 small:flex-row small:items-center small:justify-between">
               <p className="text-[15px] leading-6 text-[#6f6f76]">
                 <span className="font-bold text-black">

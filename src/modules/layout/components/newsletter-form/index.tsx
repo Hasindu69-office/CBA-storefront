@@ -48,7 +48,11 @@ export default function NewsletterForm() {
 
   return (
     <div className="w-full max-w-[444px] mx-auto">
-      <form ref={formRef} action={formAction} className="relative flex items-center">
+      <form
+        ref={formRef}
+        action={formAction}
+        className="flex flex-col gap-4 medium:relative medium:flex-row medium:items-center medium:gap-0"
+      >
         <label htmlFor="newsletter-email" className="sr-only">
           Email address
         </label>
@@ -56,18 +60,20 @@ export default function NewsletterForm() {
           id="newsletter-email"
           name="email"
           type="email"
+          inputMode="email"
           autoComplete="email"
+          maxLength={254}
           required
           placeholder="Email address"
           disabled={isPending}
           aria-invalid={state.status === "error"}
-          className="w-full px-7 py-3.5 rounded-[10px] border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 pr-36 sm:pr-44 disabled:opacity-50 text-gray-900"
+          className="w-full rounded-[10px] border border-gray-200 px-7 py-3.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 medium:pr-44"
         />
         <button
           type="submit"
           disabled={isPending}
           aria-busy={isPending}
-          className="absolute right-0 top-0 bottom-0 min-w-32 sm:min-w-40 px-6 bg-[#ff5c0e] hover:bg-[#e6530c] text-white font-medium rounded-[10px] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+          className="w-full rounded-[10px] bg-[#ff5c0e] px-6 py-3.5 font-medium text-white transition-colors hover:bg-[#e6530c] disabled:cursor-not-allowed disabled:opacity-70 medium:absolute medium:right-0 medium:top-0 medium:bottom-0 medium:w-auto medium:min-w-40 medium:py-0"
         >
           {isPending ? "Subscribing..." : "Subscribe"}
         </button>

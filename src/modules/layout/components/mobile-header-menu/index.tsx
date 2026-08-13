@@ -9,6 +9,7 @@ import {
 } from "@modules/layout/components/cba-icons"
 import Image from "next/image"
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 
 export type MobileHeaderLink = {
   label: string
@@ -22,7 +23,8 @@ type MobileHeaderMenuProps = {
     imageUrl: string
     altText: string
   }
-  variant?: "hamburger" | "categories"
+  variant?: "hamburger" | "categories" | "bottom-categories"
+  active?: boolean
 }
 
 type MobileMenuTab = "menu" | "categories"
@@ -32,6 +34,7 @@ export default function MobileHeaderMenu({
   categoryLinks,
   logo,
   variant = "hamburger",
+  active = false,
 }: MobileHeaderMenuProps) {
   const [isMounted, setIsMounted] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
@@ -70,7 +73,11 @@ export default function MobileHeaderMenu({
     if (closeTimerRef.current) {
       window.clearTimeout(closeTimerRef.current)
     }
-    setActiveTab(variant === "categories" ? "categories" : "menu")
+    setActiveTab(
+      variant === "categories" || variant === "bottom-categories"
+        ? "categories"
+        : "menu"
+    )
     setIsMounted(true)
     window.requestAnimationFrame(() => setIsOpen(true))
   }
@@ -81,6 +88,94 @@ export default function MobileHeaderMenu({
       setIsMounted(false)
     }, 300)
   }
+
+  const menuOverlay = isMounted ? (
+    <div className="fixed inset-0 z-[100] small:hidden">
+      <button
+        type="button"
+        className={`absolute inset-0 h-full w-full bg-black/45 transition-opacity duration-300 ease-out ${
+          isOpen ? "opacity-100" : "opacity-0"
+        }`}
+        aria-label="Close navigation menu"
+        onClick={closeMenu}
+      />
+      <aside
+        className={`relative flex h-[100dvh] max-h-[100dvh] w-[min(86vw,360px)] flex-col overflow-hidden bg-white shadow-2xl transition-transform duration-300 ease-out will-change-transform ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+        aria-label="Mobile navigation"
+      >
+        <div className="relative flex min-h-[76px] items-center justify-center border-b border-gray-100 px-14 py-4">
+          <Image
+            src={logo.imageUrl}
+            alt={logo.altText}
+            width={244}
+            height={104}
+            className="h-auto w-[136px]"
+            priority={false}
+          />
+          <button
+            type="button"
+            onClick={closeMenu}
+            className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-black transition hover:bg-gray-50"
+            aria-label="Close navigation menu"
+          >
+            <XIcon size={24} strokeWidth={2} />
+          </button>
+        </div>
+
+        <div className="relative grid grid-cols-2 border-b border-gray-100">
+          <button
+            type="button"
+            onClick={() => setActiveTab("menu")}
+            className={`h-12 text-[14px] font-bold transition-colors duration-200 ${
+              activeTab === "menu" ? "text-brand" : "text-[#596070]"
+            }`}
+          >
+            Main Menu
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("categories")}
+            className={`h-12 text-[14px] font-bold transition-colors duration-200 ${
+              activeTab === "categories" ? "text-brand" : "text-[#596070]"
+            }`}
+          >
+            Categories
+          </button>
+          <span
+            className={`absolute bottom-0 left-0 h-0.5 w-1/2 bg-brand transition-transform duration-300 ease-out ${
+              activeTab === "categories" ? "translate-x-full" : "translate-x-0"
+            }`}
+          />
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <div
+            className={`flex h-full w-[200%] transition-transform duration-300 ease-out ${
+              activeTab === "categories"
+                ? "-translate-x-1/2"
+                : "translate-x-0"
+            }`}
+          >
+            <MobileMenuLinkPanel links={primaryLinks} onNavigate={closeMenu} />
+            <MobileMenuLinkPanel links={categoryLinks} onNavigate={closeMenu} />
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t border-gray-100 bg-white p-4 shadow-[0_-8px_20px_rgba(17,24,39,0.04)]">
+          <LocalizedClientLink
+            href="/store"
+            onClick={closeMenu}
+            className="flex h-12 items-center justify-center gap-2 rounded-md bg-brand text-[15px] font-bold text-white transition hover:bg-brand-hover"
+          >
+            <LayoutGridIcon size={18} />
+            Shop All Products
+          </LocalizedClientLink>
+        </div>
+      </aside>
+    </div>
+  ) : null
 
   return (
     <>
@@ -96,6 +191,25 @@ export default function MobileHeaderMenu({
           <span>All Categories</span>
           <ChevronDownIcon size={14} className="text-[#111827]" />
         </button>
+      ) : variant === "bottom-categories" ? (
+        <button
+          type="button"
+          onClick={openMenu}
+          className={`group flex h-full min-h-[58px] w-full flex-col items-center justify-center gap-1.5 px-1 text-[11px] font-bold leading-none transition-colors xsmall:text-[12px] ${
+            active ? "text-brand" : "text-[#596070] hover:text-[#111827]"
+          }`}
+          aria-label="Open categories"
+          aria-expanded={isOpen}
+        >
+          <span
+            className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+              active ? "bg-brand/10" : "group-hover:bg-gray-50"
+            }`}
+          >
+            <LayoutGridIcon size={22} strokeWidth={2} />
+          </span>
+          <span className="max-w-full truncate">Categories</span>
+        </button>
       ) : (
         <button
           type="button"
@@ -108,96 +222,7 @@ export default function MobileHeaderMenu({
         </button>
       )}
 
-      {isMounted && (
-        <div className="fixed inset-0 z-[100] small:hidden">
-          <button
-            type="button"
-            className={`absolute inset-0 h-full w-full bg-black/45 transition-opacity duration-300 ease-out ${
-              isOpen ? "opacity-100" : "opacity-0"
-            }`}
-            aria-label="Close navigation menu"
-            onClick={closeMenu}
-          />
-          <aside
-            className={`relative flex h-[100dvh] max-h-[100dvh] w-[min(86vw,360px)] flex-col overflow-hidden bg-white shadow-2xl transition-transform duration-300 ease-out will-change-transform ${
-              isOpen ? "translate-x-0" : "-translate-x-full"
-            }`}
-            aria-label="Mobile navigation"
-          >
-            <div className="relative flex min-h-[76px] items-center justify-center border-b border-gray-100 px-14 py-4">
-              <Image
-                src={logo.imageUrl}
-                alt={logo.altText}
-                width={244}
-                height={104}
-                className="h-auto w-[136px]"
-                priority={false}
-              />
-              <button
-                type="button"
-                onClick={closeMenu}
-                className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-black transition hover:bg-gray-50"
-                aria-label="Close navigation menu"
-              >
-                <XIcon size={24} strokeWidth={2} />
-              </button>
-            </div>
-
-            <div className="relative grid grid-cols-2 border-b border-gray-100">
-              <button
-                type="button"
-                onClick={() => setActiveTab("menu")}
-                className={`h-12 text-[14px] font-bold transition-colors duration-200 ${
-                  activeTab === "menu" ? "text-brand" : "text-[#596070]"
-                }`}
-              >
-                Main Menu
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("categories")}
-                className={`h-12 text-[14px] font-bold transition-colors duration-200 ${
-                  activeTab === "categories" ? "text-brand" : "text-[#596070]"
-                }`}
-              >
-                Categories
-              </button>
-              <span
-                className={`absolute bottom-0 left-0 h-0.5 w-1/2 bg-brand transition-transform duration-300 ease-out ${
-                  activeTab === "categories" ? "translate-x-full" : "translate-x-0"
-                }`}
-              />
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-hidden">
-              <div
-                className={`flex h-full w-[200%] transition-transform duration-300 ease-out ${
-                  activeTab === "categories"
-                    ? "-translate-x-1/2"
-                    : "translate-x-0"
-                }`}
-              >
-                <MobileMenuLinkPanel links={primaryLinks} onNavigate={closeMenu} />
-                <MobileMenuLinkPanel
-                  links={categoryLinks}
-                  onNavigate={closeMenu}
-                />
-              </div>
-            </div>
-
-            <div className="shrink-0 border-t border-gray-100 bg-white p-4 shadow-[0_-8px_20px_rgba(17,24,39,0.04)]">
-              <LocalizedClientLink
-                href="/store"
-                onClick={closeMenu}
-                className="flex h-12 items-center justify-center gap-2 rounded-md bg-brand text-[15px] font-bold text-white transition hover:bg-brand-hover"
-              >
-                <LayoutGridIcon size={18} />
-                Shop All Products
-              </LocalizedClientLink>
-            </div>
-          </aside>
-        </div>
-      )}
+      {menuOverlay ? createPortal(menuOverlay, document.body) : null}
     </>
   )
 }

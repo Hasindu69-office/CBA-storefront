@@ -8,6 +8,7 @@ import { retrieveWishlistCount } from "@lib/data/wishlist"
 import { HttpTypes, StoreCartShippingOption } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CbaSearchForm from "@modules/layout/components/cba-search-form"
+import MobileBottomNav from "@modules/layout/components/mobile-bottom-nav"
 import MobileHeaderMenu from "@modules/layout/components/mobile-header-menu"
 import SideCart from "@modules/layout/components/side-cart"
 import {
@@ -105,6 +106,11 @@ export default async function Nav() {
       }))
     : fallbackDropdownItems.map((label) => ({ label, href: "/store" }))
 
+  const mobileMenuLogo = {
+    imageUrl: cmsLayout.header.logo.image_url,
+    altText: cmsLayout.header.logo.alt_text,
+  }
+
   return (
     <div className="relative z-50 bg-white shadow-sm">
       <header className="w-full flex flex-col">
@@ -186,10 +192,7 @@ export default async function Nav() {
               <MobileHeaderMenu
                 primaryLinks={navLinks}
                 categoryLinks={dropdownItems}
-                logo={{
-                  imageUrl: cmsLayout.header.logo.image_url,
-                  altText: cmsLayout.header.logo.alt_text,
-                }}
+                logo={mobileMenuLogo}
               />
               <HeaderLink
                 href={cmsLayout.header.logo.href}
@@ -297,6 +300,7 @@ export default async function Nav() {
                 cart={cart}
                 shippingOptions={shippingOptions}
                 wishlistCount={wishlistCount}
+                listenForOpenEvents
               />
             </div>
           </div>
@@ -308,10 +312,7 @@ export default async function Nav() {
               <MobileHeaderMenu
                 primaryLinks={navLinks}
                 categoryLinks={dropdownItems}
-                logo={{
-                  imageUrl: cmsLayout.header.logo.image_url,
-                  altText: cmsLayout.header.logo.alt_text,
-                }}
+                logo={mobileMenuLogo}
                 variant="categories"
               />
             </div>
@@ -378,6 +379,12 @@ export default async function Nav() {
           </div>
         </nav>
       </header>
+      <MobileBottomNav
+        cart={cart}
+        primaryLinks={navLinks}
+        categoryLinks={dropdownItems}
+        logo={mobileMenuLogo}
+      />
     </div>
   )
 }
