@@ -18,8 +18,8 @@ const FALLBACK_TILES = [
     alt: "Office multifunction printer",
     itemClassName: "",
     cardClassName: "medium:aspect-[1.9/1]",
-    textClassName: "max-w-[240px] small:max-w-[280px] large:ml-16 large:mt-16",
-    titleClassName: "text-[26px] font-normal small:text-[30px] large:text-[31px] text-white",
+    textClassName: "max-w-[220px] md:max-w-[250px] medium:max-w-[280px] large:ml-16 large:mt-16",
+    titleClassName: "text-[23px] font-normal sm:text-[24px] md:text-[26px] medium:text-[30px] large:text-[31px] text-white",
     descriptionClassName: "text-white/90 uppercase",
   },
   {
@@ -30,8 +30,8 @@ const FALLBACK_TILES = [
     alt: "Portable projector",
     itemClassName: "medium:col-span-1",
     cardClassName: "medium:aspect-[0.92/1]",
-    textClassName: "mx-auto mt-10 max-w-[300px] text-center",
-    titleClassName: "text-[27px] font-bold small:text-[30px] text-white",
+    textClassName: "mt-6 max-w-[250px] text-left md:mt-8 md:max-w-[280px] medium:mx-auto medium:mt-10 medium:max-w-[300px] medium:text-center",
+    titleClassName: "text-[24px] font-bold sm:text-[26px] md:text-[27px] medium:text-[30px] text-white",
     descriptionClassName: "text-white/90",
   },
   {
@@ -42,8 +42,8 @@ const FALLBACK_TILES = [
     alt: "Tablet with keyboard case",
     itemClassName: "medium:basis-[40%]",
     cardClassName: "medium:aspect-[2.78/1]",
-    textClassName: "mt-7 max-w-[280px]",
-    titleClassName: "text-[27px] font-bold small:text-[30px] text-black",
+    textClassName: "mt-5 max-w-[245px] md:mt-6 md:max-w-[270px] medium:mt-7 medium:max-w-[280px]",
+    titleClassName: "text-[24px] font-bold sm:text-[26px] md:text-[27px] medium:text-[30px] text-black",
     descriptionClassName: "text-black/55",
   },
   {
@@ -54,8 +54,8 @@ const FALLBACK_TILES = [
     alt: "Money counting machine",
     itemClassName: "medium:basis-[calc((60%_-_48px)/2)]",
     cardClassName: "medium:aspect-[1.42/1]",
-    textClassName: "mt-7 max-w-[210px]",
-    titleClassName: "text-[20px] font-bold small:text-[21px] text-white",
+    textClassName: "mt-5 max-w-[190px] md:mt-6 md:max-w-[205px] medium:mt-7 medium:max-w-[210px]",
+    titleClassName: "text-[19px] font-bold md:text-[20px] medium:text-[21px] text-white",
     descriptionClassName: "text-white/80",
   },
   {
@@ -66,8 +66,8 @@ const FALLBACK_TILES = [
     alt: "Office paper shredder",
     itemClassName: "medium:basis-[calc((60%_-_48px)/2)]",
     cardClassName: "medium:aspect-[1.42/1]",
-    textClassName: "mt-6 max-w-[205px]",
-    titleClassName: "text-[20px] font-bold small:text-[21px] text-black",
+    textClassName: "mt-5 max-w-[190px] md:max-w-[200px] medium:mt-6 medium:max-w-[205px]",
+    titleClassName: "text-[19px] font-bold md:text-[20px] medium:text-[21px] text-black",
     descriptionClassName: "text-black/65",
   },
 ] as const
@@ -90,17 +90,17 @@ const HomepagePromoTileGrid = ({ sections }: HomepagePromoTileGridProps) => {
 
   return (
     <section
-      className="bg-white pb-10 pt-2 small:pb-12 large:pt-0"
+      className="bg-white pb-8 pt-1.5 sm:pb-9 md:pb-10 medium:pb-12 medium:pt-2 large:pt-0"
       aria-label="Homepage product promotions"
     >
       <div className="content-container">
-        <div className="grid w-full gap-7">
-          <div className="grid gap-7 medium:grid-cols-[minmax(0,2.08fr)_minmax(0,1fr)]">
+        <div className="grid w-full gap-4 sm:gap-5 md:gap-6 medium:gap-7">
+          <div className="grid gap-4 sm:gap-5 md:gap-6 medium:grid-cols-[minmax(0,2.08fr)_minmax(0,1fr)] medium:gap-7">
             {items.slice(0, 2).map((item, index) => (
               <PromoTile key={tileKey(item, index)} item={item} index={index} priority />
             ))}
           </div>
-          <div className="grid gap-7 medium:grid-cols-[minmax(0,2.12fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="grid gap-4 sm:gap-5 md:gap-6 medium:grid-cols-[minmax(0,2.12fr)_minmax(0,1fr)_minmax(0,1fr)] medium:gap-7">
             {items.slice(2).map((item, offset) => (
               <PromoTile
                 key={tileKey(item, offset + 2)}
@@ -130,7 +130,7 @@ function PromoTile({
   const content = (
     <article
       className={[
-        "group relative h-full w-full aspect-[1.45/1] min-h-[206px] overflow-hidden rounded-[18px] bg-[#f4f4f4] px-7 py-6 shadow-sm",
+        "group relative h-full w-full aspect-[1.55/1] min-h-[190px] overflow-hidden rounded-[18px] bg-[#f4f4f4] px-5 py-5 shadow-sm sm:min-h-[198px] sm:px-6 md:min-h-[206px] medium:aspect-[1.45/1] medium:px-7 medium:py-6",
         "transition-transform duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(15,23,42,0.12)]",
         fallback.cardClassName,
       ].join(" ")}
@@ -153,7 +153,7 @@ function PromoTile({
           {item.title}
         </h2>
         {(item.subtitle || fallback.description) && (
-          <p className={["mt-7 text-[11px] leading-[1.55] tracking-normal", fallback.descriptionClassName].join(" ")}>
+          <p className={["mt-4 text-[11px] leading-[1.55] tracking-normal md:mt-5 medium:mt-7", fallback.descriptionClassName].join(" ")}>
             {item.subtitle || fallback.description}
           </p>
         )}

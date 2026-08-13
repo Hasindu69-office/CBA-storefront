@@ -27,6 +27,8 @@ type FeaturedProductSliderProps = {
   ctaHref?: string | null
   titleId?: string
   embedded?: boolean
+  mobileCompactCards?: boolean
+  sectionClassName?: string
 }
 
 const FeaturedProductSlider = ({
@@ -37,6 +39,8 @@ const FeaturedProductSlider = ({
   ctaHref = "/store",
   titleId = "featured-products-title",
   embedded = false,
+  mobileCompactCards = false,
+  sectionClassName,
 }: FeaturedProductSliderProps) => {
   const scrollerRef = useRef<HTMLDivElement>(null)
 
@@ -80,9 +84,15 @@ const FeaturedProductSlider = ({
     return null
   }
 
-  const sectionClassName = embedded
+  const baseSectionClassName = embedded
     ? "mt-12 border-t border-gray-200 pt-10"
     : "bg-white pt-8 pb-12 sm:pt-9 sm:pb-14 md:pb-16 small:py-14"
+  const resolvedSectionClassName = sectionClassName ?? baseSectionClassName
+  const scrollerClassName = embedded
+    ? "no-scrollbar grid auto-cols-[minmax(210px,calc((100%_-_20px)_/_2))] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
+    : mobileCompactCards
+      ? "no-scrollbar grid auto-cols-[minmax(218px,64vw)] grid-flow-col gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 pr-5 2xsmall:auto-cols-[minmax(224px,62vw)] xsmall:auto-cols-[minmax(232px,46vw)] sm:auto-cols-[minmax(238px,42vw)] md:auto-cols-[calc((100%_-_16px)_/_2)] md:gap-4 md:pr-1 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
+      : "no-scrollbar grid auto-cols-[minmax(260px,82vw)] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 pr-4 xsmall:auto-cols-[minmax(280px,76vw)] sm:auto-cols-[minmax(300px,52vw)] md:auto-cols-[calc((100%_-_16px)_/_2)] md:pr-1 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
 
   const content = (
     <>
@@ -123,17 +133,14 @@ const FeaturedProductSlider = ({
 
       <div
         ref={scrollerRef}
-        className={
-          embedded
-            ? "no-scrollbar grid auto-cols-[minmax(210px,calc((100%_-_20px)_/_2))] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
-            : "no-scrollbar grid auto-cols-[minmax(260px,82vw)] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 pr-4 xsmall:auto-cols-[minmax(280px,76vw)] sm:auto-cols-[minmax(300px,52vw)] md:auto-cols-[calc((100%_-_16px)_/_2)] md:pr-1 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
-        }
+        className={scrollerClassName}
       >
         {products.map((product, index) => (
           <FeaturedProductCardItem
             key={product.id}
             product={product}
             priority={index < 4}
+            mobileCompact={mobileCompactCards}
           />
         ))}
       </div>
@@ -150,7 +157,7 @@ const FeaturedProductSlider = ({
   )
 
   return (
-    <section className={sectionClassName} aria-labelledby={titleId}>
+    <section className={resolvedSectionClassName} aria-labelledby={titleId}>
       {embedded ? content : <div className="content-container">{content}</div>}
     </section>
   )

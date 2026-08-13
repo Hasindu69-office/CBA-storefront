@@ -78,7 +78,7 @@
   }
 
   .brand-slider-track--animated .brand-slider-group {
-    padding-right: 4rem;
+    padding-right: 2rem;
   }
 
   .brand-slider-track--animated:hover,
@@ -95,6 +95,18 @@
     .order-success-icon__check {
       animation: none;
       stroke-dashoffset: 0;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .brand-slider-track--animated .brand-slider-group {
+      padding-right: 2.75rem;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .brand-slider-track--animated .brand-slider-group {
+      padding-right: 4rem;
     }
   }
 }

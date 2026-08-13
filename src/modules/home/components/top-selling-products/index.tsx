@@ -56,6 +56,8 @@ const TopSellingProductsSection = async ({
       ctaLabel={ctaLabel}
       ctaHref={ctaHref}
       titleId="top-selling-products-title"
+      mobileCompactCards
+      sectionClassName="bg-white pt-7 pb-11 sm:pt-9 sm:pb-14 md:pb-16 small:py-14"
     />
   )
 }
