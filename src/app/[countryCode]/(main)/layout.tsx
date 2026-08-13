@@ -48,10 +48,6 @@ export default async function PageLayout(props: { children: React.ReactNode }) {
       <div className="cba-site-chrome">
         <Footer />
       </div>
-      <div
-        className="cba-site-chrome h-[calc(96px+env(safe-area-inset-bottom))] small:hidden"
-        aria-hidden="true"
-      />
     </>
   )
 }

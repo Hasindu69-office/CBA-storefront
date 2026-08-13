@@ -18,15 +18,18 @@ type NewsletterResponse = {
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const MAX_EMAIL_LENGTH = 254
 const CONSENT_VERSION = "2026-07-cba-marketing-v1"
 
 export async function subscribeToNewsletter(
   _prevState: NewsletterFormState,
   formData: FormData
 ): Promise<NewsletterFormState> {
-  const email = String(formData.get("email") ?? "").trim()
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase()
 
-  if (!EMAIL_PATTERN.test(email)) {
+  if (email.length > MAX_EMAIL_LENGTH || !EMAIL_PATTERN.test(email)) {
     return {
       status: "error",
       error: "Please enter a valid email address.",
