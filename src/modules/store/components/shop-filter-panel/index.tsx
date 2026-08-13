@@ -1,13 +1,16 @@
 "use client"
 
+import { Dialog, Transition } from "@headlessui/react"
+import { notify } from "@lib/notifications"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { type ReactNode, useEffect, useMemo, useState } from "react"
+import { Fragment, type ReactNode, useEffect, useMemo, useState } from "react"
 
 import type { ShopSidebarPromoContent } from "@lib/data/shop-banner"
 import type { StorefrontBrand } from "@lib/data/brands"
 import type { StoreSearchFacet, StoreSearchFilters, StoreSearchSort } from "@lib/data/store-search"
 import type { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import { XIcon } from "@modules/layout/components/cba-icons"
 
 type ShopFilterPanelProps = {
   categories: HttpTypes.StoreProductCategory[]
@@ -20,6 +23,7 @@ type ShopFilterPanelProps = {
   priceRangeMax: number
   selectedFilters: StoreSearchFilters
   sidebarPromo?: ShopSidebarPromoContent | null
+  presentation?: "sidebar" | "drawer"
 }
 
 const sortOptions: Array<{ value: StoreSearchSort; label: string }> = [
@@ -28,6 +32,9 @@ const sortOptions: Array<{ value: StoreSearchSort; label: string }> = [
   { value: "title", label: "Name A-Z" },
   { value: "-title", label: "Name Z-A" },
 ]
+
+const FILTER_OPTION_LIST_CLASS =
+  "flex max-h-[250px] flex-col gap-4 overflow-y-auto pr-1"
 
 export default function ShopFilterPanel({
   categories,
@@ -40,6 +47,7 @@ export default function ShopFilterPanel({
   priceRangeMax,
   selectedFilters,
   sidebarPromo,
+  presentation = "sidebar",
 }: ShopFilterPanelProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -89,23 +97,27 @@ export default function ShopFilterPanel({
   }
 
   function toggleCategory(categoryId: string) {
+    const isRemoving = selectedCategory === categoryId
     pushParams((params) => {
-      if (selectedCategory === categoryId) {
+      if (isRemoving) {
         params.delete("category")
       } else {
         params.set("category", categoryId)
       }
     })
+    notifyFilterChange(isRemoving ? "removed" : "applied")
   }
 
   function toggleBrand(brandId: string) {
+    const isRemoving = selectedBrand === brandId
     pushParams((params) => {
-      if (selectedBrand === brandId) {
+      if (isRemoving) {
         params.delete("brand")
       } else {
         params.set("brand", brandId)
       }
     })
+    notifyFilterChange(isRemoving ? "removed" : "applied")
   }
 
   function toggleFilter(key: string, value: string) {
@@ -126,6 +138,9 @@ export default function ShopFilterPanel({
         params.delete("filters")
       }
     })
+    notifyFilterChange(
+      values.length > (selectedFilters[key] ?? []).length ? "applied" : "removed"
+    )
   }
 
   function toggleFilterValue(key: string, currentValues: string[], value: string) {
@@ -161,6 +176,7 @@ export default function ShopFilterPanel({
       params.delete("filters")
       params.delete("sortBy")
     })
+    notifyFilterChange("cleared")
   }
 
   function applyPrice() {
@@ -184,11 +200,37 @@ export default function ShopFilterPanel({
         params.delete("price_range")
       }
     })
+    notifyFilterChange(hasPriceFilter ? "applied" : "removed")
+  }
+
+  function notifyFilterChange(action: "applied" | "removed" | "cleared") {
+    if (presentation !== "drawer") {
+      return
+    }
+
+    const message =
+      action === "applied"
+        ? "Filter applied."
+        : action === "removed"
+          ? "Filter removed."
+          : "Filters cleared."
+
+    notify.success(message, { id: "store-filter" })
   }
 
   return (
-      <aside className="small:w-[260px] small:flex-none">
-        <div className="rounded-[8px] border border-[#e5e7eb] bg-white p-6">
+      <aside
+        className={
+          presentation === "sidebar" ? "small:w-[260px] small:flex-none" : "w-full"
+        }
+      >
+        <div
+          className={
+            presentation === "sidebar"
+              ? "rounded-[8px] border border-[#e5e7eb] bg-white p-6"
+              : "bg-white px-5 pb-6"
+          }
+        >
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-[18px] font-bold uppercase leading-6 text-black">
             Categories
@@ -211,7 +253,7 @@ export default function ShopFilterPanel({
           className="mt-5 h-10 w-full rounded-[6px] border border-[#eeeeee] bg-white px-3 text-[14px] leading-5 text-[#2d2d2d] outline-none transition-colors placeholder:text-[#a1a1aa] focus:border-brand focus:ring-2 focus:ring-brand/20"
         />
 
-        <div className="mt-5 flex flex-col gap-4">
+        <div className={`mt-5 ${FILTER_OPTION_LIST_CLASS}`}>
           {visibleCategories.map((category) => {
             const count = Array.isArray(category.products)
               ? category.products.length
@@ -255,7 +297,7 @@ export default function ShopFilterPanel({
               placeholder="Search brands"
               className="mt-5 h-10 w-full rounded-[6px] border border-[#eeeeee] bg-white px-3 text-[14px] leading-5 text-[#2d2d2d] outline-none transition-colors placeholder:text-[#a1a1aa] focus:border-brand focus:ring-2 focus:ring-brand/20"
             />
-            <div className="mt-5 flex max-h-[250px] flex-col gap-4 overflow-y-auto pr-1">
+            <div className={`mt-5 ${FILTER_OPTION_LIST_CLASS}`}>
               {visibleBrands.map((brand) => {
                 const checked = selectedBrand === brand.id
                 return (
@@ -387,8 +429,8 @@ export default function ShopFilterPanel({
                 <h3 className="text-[15px] font-bold leading-6 text-black">
                   {facetLabel(facet.key)}
                 </h3>
-                <div className="mt-4 flex flex-col gap-3">
-                  {facet.options.slice(0, 8).map((option) => {
+                <div className={`mt-4 ${FILTER_OPTION_LIST_CLASS}`}>
+                  {facet.options.map((option) => {
                     const checked = filterOptionSelected(
                       facet.key,
                       selectedFilters[facet.key],
@@ -420,7 +462,7 @@ export default function ShopFilterPanel({
 
         </div>
 
-        {sidebarPromo && (
+        {presentation === "sidebar" && sidebarPromo && (
           <LocalizedClientLink
             href={sidebarPromo.href}
             className="relative mt-8 block aspect-[298/315] overflow-hidden rounded-[16px] bg-[#24262b] p-7 text-white transition-opacity hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
@@ -448,6 +490,215 @@ export default function ShopFilterPanel({
           </LocalizedClientLink>
         )}
       </aside>
+  )
+}
+
+export function StoreMobileFilterDrawer({
+  resultCount,
+  ...filterProps
+}: Omit<ShopFilterPanelProps, "presentation" | "sidebarPromo"> & {
+  resultCount: number
+}) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [isOpen, setIsOpen] = useState(false)
+  const appliedFilters = useMemo(
+    () =>
+      buildAppliedFilterItems({
+        categories: filterProps.categories,
+        brands: filterProps.brands,
+        facets: filterProps.facets,
+        selectedCategory: filterProps.selectedCategory,
+        selectedBrand: filterProps.selectedBrand,
+        selectedMinPrice: filterProps.selectedMinPrice,
+        selectedMaxPrice: filterProps.selectedMaxPrice,
+        selectedFilters: filterProps.selectedFilters,
+      }),
+    [
+      filterProps.categories,
+      filterProps.brands,
+      filterProps.facets,
+      filterProps.selectedCategory,
+      filterProps.selectedBrand,
+      filterProps.selectedMinPrice,
+      filterProps.selectedMaxPrice,
+      filterProps.selectedFilters,
+    ]
+  )
+  const appliedFilterCount = appliedFilters.length
+
+  function pushParams(mutator: (params: URLSearchParams) => void) {
+    const params = new URLSearchParams(searchParams)
+    mutator(params)
+    params.delete("page")
+    const query = params.toString()
+    router.push(query ? `${pathname}?${query}` : pathname)
+  }
+
+  function removeAppliedFilter(item: AppliedFilterItem) {
+    pushParams((params) => {
+      if (item.type === "category" || item.type === "brand") {
+        params.delete(item.type)
+        return
+      }
+
+      if (item.type === "price") {
+        params.delete("min_price")
+        params.delete("max_price")
+        params.delete("price_range")
+        return
+      }
+
+      if (item.type !== "facet") {
+        return
+      }
+
+      const nextFilters = parseSelectedFiltersParam(params.get("filters"))
+      const nextValues = (nextFilters[item.key] ?? []).filter(
+        (value) => value !== item.value
+      )
+
+      if (nextValues.length) {
+        nextFilters[item.key] = nextValues
+      } else {
+        delete nextFilters[item.key]
+      }
+
+      if (Object.keys(nextFilters).length) {
+        params.set("filters", JSON.stringify(nextFilters))
+      } else {
+        params.delete("filters")
+      }
+    })
+    notify.success("Filter removed.", { id: "store-filter" })
+  }
+
+  return (
+    <>
+      <div className="sticky top-0 z-30 -mx-[4.35%] border-y border-[#eeeeee] bg-white/95 px-[4.35%] py-3 backdrop-blur small:hidden">
+        <div className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-3">
+          <button
+            type="button"
+            onClick={() => setIsOpen(true)}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-[8px] border border-brand/20 bg-white px-4 text-[13px] font-bold text-[#2d2d35] shadow-[0_3px_12px_rgba(17,24,39,0.06)] transition-colors hover:border-brand hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+            aria-haspopup="dialog"
+            aria-expanded={isOpen}
+          >
+            <FilterLibraryIcon />
+            <span className="whitespace-nowrap">Filter Library</span>
+            {appliedFilterCount > 0 && (
+              <span className="ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-bold leading-none text-white">
+                {appliedFilterCount}
+              </span>
+            )}
+          </button>
+          <div className="flex h-12 min-w-0 flex-col justify-center rounded-[8px] border border-[#fff2e6] bg-[#fff7f1] px-4 text-left">
+            <span className="truncate text-[13px] font-bold leading-4 text-brand">
+              The Library
+            </span>
+            <span className="mt-0.5 truncate text-[11px] font-medium leading-4 text-[#7a7a80]">
+              {resultCount} {resultCount === 1 ? "Item" : "Items"}
+            </span>
+          </div>
+        </div>
+
+        {appliedFilters.length > 0 && (
+          <div className="mt-3">
+            <p className="sr-only">{appliedFilterCount} filters applied</p>
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 no-scrollbar">
+              {appliedFilters.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => removeAppliedFilter(item)}
+                  className="inline-flex h-8 max-w-[210px] flex-shrink-0 items-center gap-2 rounded-full border border-brand/25 bg-[#fff7f1] px-3 text-[12px] font-semibold text-[#2d2d35] transition-colors hover:border-brand hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                  aria-label={`Remove ${item.label} filter`}
+                >
+                  <span className="truncate">{item.label}</span>
+                  <XIcon size={13} className="flex-shrink-0 text-brand" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Transition appear show={isOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-[95] small:hidden" onClose={setIsOpen}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-150"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/55 backdrop-blur-[2px]" />
+          </Transition.Child>
+
+          <div className="fixed inset-x-0 bottom-0">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="translate-y-full"
+              enterTo="translate-y-0"
+              leave="ease-in duration-200"
+              leaveFrom="translate-y-0"
+              leaveTo="translate-y-full"
+            >
+              <Dialog.Panel
+                className="max-h-[85svh] overflow-hidden rounded-t-[18px] bg-white shadow-[0_-18px_55px_rgba(17,24,39,0.24)]"
+                data-testid="store-mobile-filter-drawer"
+              >
+                <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#eeeeee] bg-white px-5 py-4">
+                  <div className="min-w-0">
+                    <Dialog.Title className="text-[18px] font-bold leading-6 text-black">
+                      Filter Library
+                    </Dialog.Title>
+                    <p className="mt-1 text-[12px] font-medium leading-4 text-[#7a7a80]">
+                      {appliedFilterCount > 0
+                        ? `${appliedFilterCount} ${
+                            appliedFilterCount === 1 ? "filter" : "filters"
+                          } applied`
+                        : "No filters applied"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen(false)}
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#eeeeee] bg-white text-[#4b4b52] transition-colors hover:border-brand hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                    aria-label="Close filters"
+                  >
+                    <XIcon size={18} />
+                  </button>
+                </div>
+
+                <div className="max-h-[calc(85svh-73px)] overflow-y-auto pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5">
+                  <p
+                    className="sr-only"
+                    aria-live="polite"
+                    aria-atomic="true"
+                  >
+                    {appliedFilterCount > 0
+                      ? `${appliedFilterCount} ${
+                          appliedFilterCount === 1 ? "filter is" : "filters are"
+                        } applied. ${resultCount} ${
+                          resultCount === 1 ? "item" : "items"
+                        } available.`
+                      : `No filters applied. ${resultCount} ${
+                          resultCount === 1 ? "item" : "items"
+                        } available.`}
+                  </p>
+                  <ShopFilterPanel {...filterProps} presentation="drawer" />
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </Dialog>
+      </Transition>
+    </>
   )
 }
 
@@ -600,10 +851,166 @@ function filterOptionSelected(
   return selectedValues.some((value) => ratingBucketValue(value) === optionScore)
 }
 
+type AppliedFilterItem =
+  | {
+      id: string
+      type: "category" | "brand" | "price"
+      label: string
+    }
+  | {
+      id: string
+      type: "facet"
+      key: string
+      value: string
+      label: string
+    }
+
+function buildAppliedFilterItems({
+  categories,
+  brands,
+  facets,
+  selectedCategory,
+  selectedBrand,
+  selectedMinPrice,
+  selectedMaxPrice,
+  selectedFilters,
+}: {
+  categories: HttpTypes.StoreProductCategory[]
+  brands: StorefrontBrand[]
+  facets: StoreSearchFacet[]
+  selectedCategory?: string
+  selectedBrand?: string
+  selectedMinPrice?: number
+  selectedMaxPrice?: number
+  selectedFilters: StoreSearchFilters
+}) {
+  const items: AppliedFilterItem[] = []
+
+  if (selectedCategory) {
+    const categoryName =
+      categories.find((category) => category.id === selectedCategory)?.name ??
+      "Category"
+    items.push({
+      id: `category:${selectedCategory}`,
+      type: "category",
+      label: categoryName,
+    })
+  }
+
+  if (selectedBrand) {
+    const brandName =
+      brands.find((brand) => brand.id === selectedBrand)?.name ?? "Brand"
+    items.push({
+      id: `brand:${selectedBrand}`,
+      type: "brand",
+      label: brandName,
+    })
+  }
+
+  if (
+    (typeof selectedMinPrice === "number" && selectedMinPrice > 0) ||
+    (typeof selectedMaxPrice === "number" && selectedMaxPrice > 0)
+  ) {
+    const minLabel =
+      typeof selectedMinPrice === "number" && selectedMinPrice > 0
+        ? formatPriceFilterValue(selectedMinPrice)
+        : "Any"
+    const maxLabel =
+      typeof selectedMaxPrice === "number" && selectedMaxPrice > 0
+        ? formatPriceFilterValue(selectedMaxPrice)
+        : "Any"
+    items.push({
+      id: `price:${selectedMinPrice ?? ""}-${selectedMaxPrice ?? ""}`,
+      type: "price",
+      label: `${minLabel} - ${maxLabel}`,
+    })
+  }
+
+  const facetKeys = new Set(facets.map((facet) => facet.key))
+  for (const [key, values] of Object.entries(selectedFilters)) {
+    if (!Array.isArray(values)) {
+      continue
+    }
+    for (const value of values) {
+      items.push({
+        id: `facet:${key}:${value}`,
+        type: "facet",
+        key,
+        value,
+        label: facetKeys.has(key)
+          ? `${facetLabel(key)}: ${optionLabel(key, value)}`
+          : optionLabel(key, value),
+      })
+    }
+  }
+
+  return items
+}
+
+function parseSelectedFiltersParam(value: string | null): StoreSearchFilters {
+  if (!value?.trim()) {
+    return {}
+  }
+
+  try {
+    const parsed = JSON.parse(value)
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {}
+    }
+
+    const filters: StoreSearchFilters = {}
+    for (const [key, values] of Object.entries(parsed)) {
+      const safeValues = (Array.isArray(values) ? values : [values])
+        .filter((item): item is string => typeof item === "string")
+        .slice(0, 20)
+      if (safeValues.length) {
+        filters[key] = safeValues
+      }
+    }
+
+    return Object.fromEntries(Object.entries(filters).slice(0, 20))
+  } catch {
+    return {}
+  }
+}
+
+function formatPriceFilterValue(value: number) {
+  return `LKR ${new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+  }).format(value)}`
+}
+
 function normalizePriceInput(value: string, max: number) {
   const parsed = Number(value)
   if (!Number.isFinite(parsed) || parsed < 0) {
     return 0
   }
   return Math.min(Math.round(parsed), max)
+}
+
+function FilterLibraryIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-brand"
+    >
+      <path d="M4 6h10" />
+      <path d="M18 6h2" />
+      <path d="M4 12h2" />
+      <path d="M10 12h10" />
+      <path d="M4 18h8" />
+      <path d="M16 18h4" />
+      <circle cx="16" cy="6" r="2" />
+      <circle cx="8" cy="12" r="2" />
+      <circle cx="14" cy="18" r="2" />
+    </svg>
+  )
 }
