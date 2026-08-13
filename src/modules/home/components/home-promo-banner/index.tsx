@@ -49,7 +49,7 @@ const HomePromoBanner = ({ sections }: HomePromoBannerProps) => {
   )
 
   return (
-    <section className="-mt-14 bg-white pt-0 pb-1 small:-mt-16 small:pb-2" aria-label="Homepage promotion">
+    <section className="bg-white pt-0 pb-1 small:pb-2 medium:-mt-16" aria-label="Homepage promotion">
       <div className="content-container">
         {isSafeStorefrontPath(item?.url) ? (
           <LocalizedClientLink
