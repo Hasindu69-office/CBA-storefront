@@ -84,10 +84,10 @@ export default function MobileBottomNav({
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 shadow-[0_-10px_24px_rgba(17,24,39,0.10)] backdrop-blur small:hidden"
+      className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] left-3 right-3 z-40 overflow-hidden rounded-[32px] border border-white/80 bg-white/95 shadow-[0_14px_40px_rgba(17,24,39,0.22),0_3px_10px_rgba(17,24,39,0.10)] backdrop-blur small:hidden xsmall:left-4 xsmall:right-4"
       aria-label="Mobile primary navigation"
     >
-      <div className="grid min-h-[64px] grid-cols-5 items-stretch px-2 pb-[max(env(safe-area-inset-bottom),0px)] pt-1.5">
+      <div className="grid min-h-[66px] grid-cols-5 items-stretch px-2 py-1.5">
         <BottomNavLink
           href="/"
           label="Home"
