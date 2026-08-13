@@ -47,11 +47,93 @@
   input[type="search"]::-webkit-search-results-decoration {
     -webkit-appearance: none;
   }
+
+  @keyframes brand-slider-marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  @keyframes order-success-check-draw {
+    from {
+      stroke-dashoffset: 44;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .order-success-icon__check {
+    stroke-dasharray: 44;
+    stroke-dashoffset: 44;
+    animation: order-success-check-draw 520ms ease-out 180ms forwards;
+  }
+
+  .brand-slider-track--animated {
+    width: max-content;
+    animation: brand-slider-marquee var(--brand-slider-duration, 24s) linear infinite;
+  }
+
+  .brand-slider-track--animated .brand-slider-group {
+    padding-right: 4rem;
+  }
+
+  .brand-slider-track--animated:hover,
+  .brand-slider-track--animated:focus-within {
+    animation-play-state: paused;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .brand-slider-track--animated {
+      animation: none;
+      transform: none;
+    }
+
+    .order-success-icon__check {
+      animation: none;
+      stroke-dashoffset: 0;
+    }
+  }
+}
+
+.pdp-rich-description .pdp-image-grid {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.pdp-rich-description .pdp-image-grid img {
+  aspect-ratio: 4 / 3;
+  height: 100%;
+  margin: 0;
+  object-fit: cover;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .pdp-rich-description .pdp-image-grid[data-columns="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pdp-rich-description .pdp-image-grid[data-columns="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pdp-rich-description .pdp-image-grid[data-columns="4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @layer components {
+  main:has(.cba-auth-page) .cba-site-chrome {
+    display: none;
+  }
+
   .content-container {
-    @apply w-[92%] small:w-[80%] max-w-[1440px] mx-auto;
+    @apply w-[92%] small:w-[90%] max-w-[1440px] mx-auto;
   }
 
   .contrast-btn {

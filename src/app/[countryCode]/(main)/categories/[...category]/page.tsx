@@ -5,13 +5,19 @@ import { getCategoryByHandle, listCategories } from "@lib/data/categories"
 import { listRegions } from "@lib/data/regions"
 import { StoreRegion } from "@medusajs/types"
 import CategoryTemplate from "@modules/categories/templates"
-import { SortOptions } from "@modules/store/components/refinement-list/sort-products"
 
 type Props = {
   params: Promise<{ category: string[]; countryCode: string }>
   searchParams: Promise<{
-    sortBy?: SortOptions
+    sortBy?: string
     page?: string
+    query?: string
+    category?: string
+    brand?: string
+    min_price?: string
+    max_price?: string
+    price_range?: string
+    filters?: string
   }>
 }
 
@@ -47,12 +53,12 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   try {
     const productCategory = await getCategoryByHandle(params.category)
 
-    const title = productCategory.name + " | Medusa Store"
+    const title = `${productCategory.name} | Ebiz`
 
     const description = productCategory.description ?? `${title} category.`
 
     return {
-      title: `${title} | Medusa Store`,
+      title,
       description,
       alternates: {
         canonical: `${params.category.join("/")}`,
@@ -66,7 +72,17 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 export default async function CategoryPage(props: Props) {
   const searchParams = await props.searchParams
   const params = await props.params
-  const { sortBy, page } = searchParams
+  const {
+    sortBy,
+    page,
+    query,
+    category: selectedCategory,
+    brand,
+    min_price,
+    max_price,
+    price_range,
+    filters,
+  } = searchParams
 
   const productCategory = await getCategoryByHandle(params.category)
 
@@ -79,6 +95,13 @@ export default async function CategoryPage(props: Props) {
       category={productCategory}
       sortBy={sortBy}
       page={page}
+      query={query}
+      selectedCategory={selectedCategory}
+      brand={brand}
+      minPrice={min_price}
+      maxPrice={max_price}
+      priceRange={price_range}
+      filters={filters}
       countryCode={params.countryCode}
     />
   )

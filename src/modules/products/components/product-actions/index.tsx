@@ -2,6 +2,8 @@
 
 import { addToCart } from "@lib/data/cart"
 import { useIntersection } from "@lib/hooks/use-in-view"
+import { notify } from "@lib/notifications"
+import { openSideCart } from "@lib/util/side-cart-event"
 import { HttpTypes } from "@medusajs/types"
 import { Button } from "@medusajs/ui"
 import Divider from "@modules/common/components/divider"
@@ -124,15 +126,26 @@ export default function ProductActions({
   const handleAddToCart = async () => {
     if (!selectedVariant?.id) return null
 
+    const toastId = `add-to-cart:${selectedVariant.id}`
+    notify.loading("Adding item to cart...", { id: toastId })
+    openSideCart({ pendingMessage: "Adding item to cart.", refresh: false })
     setIsAdding(true)
 
-    await addToCart({
-      variantId: selectedVariant.id,
-      quantity: 1,
-      countryCode,
-    })
+    try {
+      await addToCart({
+        variantId: selectedVariant.id,
+        quantity: 1,
+        countryCode,
+      })
 
-    setIsAdding(false)
+      openSideCart({ pendingMessage: "Updating cart.", refresh: true })
+      notify.success("Item added to cart.", { id: toastId })
+    } catch (error) {
+      openSideCart({ pendingMessage: null, refresh: false })
+      notify.error(error, "Could not add this item to your cart.", { id: toastId })
+    } finally {
+      setIsAdding(false)
+    }
   }
 
   return (

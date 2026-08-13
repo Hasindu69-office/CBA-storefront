@@ -11,6 +11,7 @@ import Modal from "@modules/common/components/modal"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { HttpTypes } from "@medusajs/types"
 import { addCustomerAddress } from "@lib/data/customer"
+import { notify } from "@lib/notifications"
 
 const AddAddress = ({
   region,
@@ -43,6 +44,11 @@ const AddAddress = ({
   useEffect(() => {
     if (formState.success) {
       setSuccessState(true)
+      notify.success("Address added.", { id: "add-address" })
+    } else if (formState.error) {
+      notify.error(formState.error, "Could not add address.", {
+        id: "add-address",
+      })
     }
   }, [formState])
 

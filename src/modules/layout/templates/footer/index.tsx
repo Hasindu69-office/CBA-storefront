@@ -1,4 +1,9 @@
 import { listCategories } from "@lib/data/categories"
+import {
+  FooterColumn,
+  footerItemsToColumns,
+  retrieveCmsLayout,
+} from "@lib/data/cms-layout"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import NewsletterForm from "@modules/layout/components/newsletter-form"
@@ -59,7 +64,7 @@ const accountLinks = [
   { label: "Compare", href: "/compare" },
   { label: "Manage Account", href: "/account" },
   { label: "My Reviews", href: "/account" },
-  { label: "FAQs", href: "#" },
+  { label: "FAQs", href: "/contact" },
   { label: "Terms and Conditions", href: "/terms-and-conditions" },
 ]
 
@@ -76,6 +81,14 @@ function FooterTextLink({
 }) {
   const className = "hover:text-orange-500 flex items-center gap-2 transition-colors"
 
+  if (/^https?:\/\//i.test(href)) {
+    return (
+      <a href={href} className={className} rel="noopener noreferrer">
+        {children}
+      </a>
+    )
+  }
+
   if (href === "#") {
     return (
       <Link href={href} className={className}>
@@ -91,8 +104,79 @@ function FooterTextLink({
   )
 }
 
+function SocialLink({
+  href,
+  label,
+  children,
+}: {
+  href: string
+  label: string
+  children: React.ReactNode
+}) {
+  const className =
+    "w-10 h-10 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 hover:bg-orange-500 hover:text-white transition-colors"
+
+  if (/^https?:\/\//i.test(href)) {
+    return (
+      <a
+        href={href}
+        className={className}
+        aria-label={label}
+        rel="noopener noreferrer"
+      >
+        {children}
+      </a>
+    )
+  }
+
+  return (
+    <Link href={href} className={className} aria-label={label}>
+      {children}
+    </Link>
+  )
+}
+
+function socialPath(label: string) {
+  const normalized = label.trim().toLowerCase()
+  if (normalized.includes("facebook")) return facebookPath
+  if (normalized.includes("twitter") || normalized.includes("x")) return twitterPath
+  if (normalized.includes("instagram")) return instagramPath
+  if (normalized.includes("linkedin")) return linkedinPath
+  return mailPath
+}
+
+function companyNameLines(value: string) {
+  const normalized = value.replace(/\s+/g, " ").trim()
+  const cbaMatch = normalized.match(
+    /^ceylon business appliances\s+\(pvt\)\s+ltd$/i
+  )
+
+  if (cbaMatch) {
+    return ["Ceylon Business", "Appliances (Pvt)", "Ltd"]
+  }
+
+  return [normalized]
+}
+
+function companyAddressLines(value: string) {
+  const normalized = value.replace(/\s+/g, " ").trim()
+  const sriLankaIndex = normalized.toLowerCase().lastIndexOf("sri lanka")
+
+  if (sriLankaIndex > 0) {
+    return [
+      normalized.slice(0, sriLankaIndex).trim().replace(/,+$/, ","),
+      normalized.slice(sriLankaIndex).trim(),
+    ]
+  }
+
+  return [normalized]
+}
+
 export default async function Footer() {
-  const categories = await listCategories().catch(() => [])
+  const [categories, cmsLayout] = await Promise.all([
+    listCategories().catch(() => []),
+    retrieveCmsLayout(),
+  ])
   const categoryLinks = topLevelCategories(categories).map((category) => ({
     label: category.name,
     href: `/categories/${category.handle}`,
@@ -100,11 +184,22 @@ export default async function Footer() {
   const visibleCategories = categoryLinks.length
     ? categoryLinks
     : fallbackCategories.map((label) => ({ label, href: "/store" }))
+  const fallbackColumns: FooterColumn[] = [
+    { label: "About", href: "/", links: aboutLinks },
+    { label: "Categories", href: "/", links: visibleCategories },
+    { label: "My Account", href: "/", links: accountLinks },
+  ]
+  const footerColumns = footerItemsToColumns(
+    cmsLayout.footerMenuItems,
+    categories,
+    fallbackColumns
+  )
 
   return (
     <footer className="w-full relative isolate mt-20 pt-10">
       <div
-        className="absolute inset-0 w-full h-full z-0"
+        className="absolute inset-0 w-full h-full z-0 pointer-events-none"
+        aria-hidden="true"
         style={{
           backgroundImage: "url('/images/footerbgimg.png')",
           backgroundSize: "cover",
@@ -122,145 +217,91 @@ export default async function Footer() {
         }}
       />
 
-      <div className="absolute top-0 left-0 w-full flex justify-center -mt-[7.5vw] z-10 pointer-events-none px-4">
-        <div className="px-4 sm:px-8 py-8 w-full md:w-[46vw] max-w-3xl pointer-events-auto text-center">
-          <h2 className="text-3xl font-bold text-black mb-3">
-            Subscribe to our newsletter
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Subscribe to our mailing list for news, updates, and exclusive
-            offers.
-          </p>
-          <NewsletterForm />
-        </div>
+      <div className="absolute top-0 left-0 w-full flex justify-center -mt-[7.5vw] z-30 pointer-events-none px-4">
+        {cmsLayout.footer.newsletter.enabled && (
+          <div className="px-4 sm:px-8 py-8 w-full md:w-[46vw] max-w-3xl pointer-events-auto text-center">
+            <h2 className="text-3xl font-bold text-black mb-3">
+              {cmsLayout.footer.newsletter.title}
+            </h2>
+            <p className="text-gray-600 mb-6">
+              {cmsLayout.footer.newsletter.description}
+            </p>
+            <NewsletterForm />
+          </div>
+        )}
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 pt-32 pb-12">
+      <div className="relative z-10 content-container pt-32 pb-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 text-white">
           <div className="space-y-6">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Image
-                src="/images/Logo - White.png"
-                alt="CBA Logo"
+                src={cmsLayout.footer.company.logo_url}
+                alt={cmsLayout.footer.company.logo_alt_text}
                 width={80}
                 height={80}
-                className="object-contain"
+                className="h-20 w-20 flex-shrink-0 object-contain"
               />
               <div>
                 <h3 className="font-bold text-lg leading-tight uppercase tracking-wider">
-                  Ceylon Business
-                  <br />
-                  Appliances (Pvt) Ltd
+                  {companyNameLines(cmsLayout.footer.company.name).map((line) => (
+                    <span key={line} className="block whitespace-nowrap">
+                      {line}
+                    </span>
+                  ))}
                 </h3>
                 <p className="text-xs text-gray-400 mt-1 uppercase">
-                  193, Hill Street, Dehiwala,
-                  <br />
-                  Sri Lanka
+                  {companyAddressLines(cmsLayout.footer.company.address).map(
+                    (line) => (
+                      <span key={line} className="block whitespace-nowrap">
+                        {line}
+                      </span>
+                    )
+                  )}
                 </p>
               </div>
             </div>
             <p className="text-sm text-gray-400 leading-relaxed">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-              eiusmod tempor incididunt ut labore et dolore magna aliqua.
+              {cmsLayout.footer.company.description}
             </p>
             <div className="flex gap-4 pt-2">
-              <Link
-                href="#"
-                className="w-10 h-10 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 hover:bg-orange-500 hover:text-white transition-colors"
-                aria-label="Facebook"
-              >
-                <SocialIcon d={facebookPath} />
-              </Link>
-              <Link
-                href="#"
-                className="w-10 h-10 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 hover:bg-orange-500 hover:text-white transition-colors"
-                aria-label="Twitter"
-              >
-                <SocialIcon d={twitterPath} />
-              </Link>
-              <Link
-                href="#"
-                className="w-10 h-10 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 hover:bg-orange-500 hover:text-white transition-colors"
-                aria-label="Google"
-              >
-                <SocialIcon d={mailPath} />
-              </Link>
-              <Link
-                href="#"
-                className="w-10 h-10 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 hover:bg-orange-500 hover:text-white transition-colors"
-                aria-label="Instagram"
-              >
-                <SocialIcon d={instagramPath} />
-              </Link>
-              <Link
-                href="#"
-                className="w-10 h-10 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 hover:bg-orange-500 hover:text-white transition-colors"
-                aria-label="LinkedIn"
-              >
-                <SocialIcon d={linkedinPath} />
-              </Link>
+              {cmsLayout.footer.social.links.map((item) => (
+                <SocialLink key={item.label} href={item.href} label={item.label}>
+                  <SocialIcon d={socialPath(item.label)} />
+                </SocialLink>
+              ))}
             </div>
           </div>
 
-          <div>
-            <h4 className="text-lg font-semibold mb-6 border-b border-gray-700 pb-2 inline-block w-full">
-              About
-            </h4>
-            <ul className="space-y-4 text-sm text-gray-300">
-              {aboutLinks.map((item) => (
-                <li key={item.label}>
-                  <FooterTextLink href={item.href}>
-                    <span className="text-current text-xs">&rsaquo;</span>{" "}
-                    {item.label}
-                  </FooterTextLink>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-lg font-semibold mb-6 border-b border-gray-700 pb-2 inline-block w-full">
-              Categories
-            </h4>
-            <ul className="space-y-4 text-sm text-gray-300">
-              {visibleCategories.map((item) => (
-                <li key={item.label}>
-                  <FooterTextLink href={item.href}>
-                    <span className="text-current text-xs">&rsaquo;</span>{" "}
-                    {item.label}
-                  </FooterTextLink>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-lg font-semibold mb-6 border-b border-gray-700 pb-2 inline-block w-full">
-              My Account
-            </h4>
-            <ul className="space-y-4 text-sm text-gray-300">
-              {accountLinks.map((item) => (
-                <li key={item.label}>
-                  <FooterTextLink href={item.href}>
-                    <span className="text-current text-xs">&rsaquo;</span>{" "}
-                    {item.label}
-                  </FooterTextLink>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {footerColumns.map((column) => (
+            <div key={column.label}>
+              <h4 className="text-lg font-semibold mb-6 border-b border-gray-700 pb-2 inline-block w-full">
+                {column.label}
+              </h4>
+              <ul className="space-y-4 text-sm text-gray-300">
+                {column.links.map((item) => (
+                  <li key={item.label}>
+                    <FooterTextLink href={item.href}>
+                      <span className="text-current text-xs">&rsaquo;</span>{" "}
+                      {item.label}
+                    </FooterTextLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </div>
 
       <div className="relative z-10">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-6 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="content-container py-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-xs text-gray-400">
-            Copyright &copy; {new Date().getFullYear()} Ceylon Business
-            Appliance. All Rights Reserved.
+            Copyright &copy; {new Date().getFullYear()}{" "}
+            {cmsLayout.footer.copyright.text}
           </p>
           <Image
-            src="/images/paymentmethods.png"
-            alt="Accepted payment methods"
+            src={cmsLayout.footer.payment.image_url}
+            alt={cmsLayout.footer.payment.image_alt_text}
             width={384}
             height={36}
             className="h-auto w-full max-w-[192px] sm:max-w-[240px] object-contain"

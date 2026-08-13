@@ -1,7 +1,15 @@
 "use client"
 
 import { clx } from "@medusajs/ui"
-import { ArrowRightOnRectangle } from "@medusajs/icons"
+import {
+  ArrowRightOnRectangle,
+  CodeCompare,
+  CubeSolid,
+  Heart,
+  House,
+  MapPin as MedusaMapPin,
+  User as MedusaUser,
+} from "@medusajs/icons"
 import { useParams, usePathname } from "next/navigation"
 
 import ChevronDown from "@modules/common/icons/chevron-down"
@@ -11,6 +19,8 @@ import Package from "@modules/common/icons/package"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { HttpTypes } from "@medusajs/types"
 import { signout } from "@lib/data/customer"
+import { getStoreCountryCode, stripCountryCodeFromPath } from "@lib/util/routes"
+import type { ComponentType, ReactNode } from "react"
 
 const AccountNav = ({
   customer,
@@ -19,6 +29,7 @@ const AccountNav = ({
 }) => {
   const route = usePathname()
   const { countryCode } = useParams() as { countryCode: string }
+  const accountRoute = stripCountryCodeFromPath(route, countryCode)
 
   const handleLogout = async () => {
     await signout(countryCode)
@@ -27,7 +38,7 @@ const AccountNav = ({
   return (
     <div>
       <div className="small:hidden" data-testid="mobile-account-nav">
-        {route !== `/${countryCode}/account` ? (
+        {accountRoute !== "/account" ? (
           <LocalizedClientLink
             href="/account"
             className="flex items-center gap-x-2 text-small-regular py-2"
@@ -89,6 +100,45 @@ const AccountNav = ({
                   </LocalizedClientLink>
                 </li>
                 <li>
+                  <LocalizedClientLink
+                    href="/account/returns"
+                    className="flex items-center justify-between py-4 border-b border-gray-200 px-8"
+                    data-testid="returns-link"
+                  >
+                    <div className="flex items-center gap-x-2">
+                      <Package size={20} />
+                      <span>Returns</span>
+                    </div>
+                    <ChevronDown className="transform -rotate-90" />
+                  </LocalizedClientLink>
+                </li>
+                <li>
+                  <LocalizedClientLink
+                    href="/account/invoices"
+                    className="flex items-center justify-between py-4 border-b border-gray-200 px-8"
+                    data-testid="invoices-link"
+                  >
+                    <div className="flex items-center gap-x-2">
+                      <Package size={20} />
+                      <span>Invoices</span>
+                    </div>
+                    <ChevronDown className="transform -rotate-90" />
+                  </LocalizedClientLink>
+                </li>
+                <li>
+                  <LocalizedClientLink
+                    href="/account/support"
+                    className="flex items-center justify-between py-4 border-b border-gray-200 px-8"
+                    data-testid="support-link"
+                  >
+                    <div className="flex items-center gap-x-2">
+                      <Package size={20} />
+                      <span>Support</span>
+                    </div>
+                    <ChevronDown className="transform -rotate-90" />
+                  </LocalizedClientLink>
+                </li>
+                <li>
                   <button
                     type="button"
                     className="flex items-center justify-between py-4 border-b border-gray-200 px-8 w-full"
@@ -108,37 +158,17 @@ const AccountNav = ({
         )}
       </div>
       <div className="hidden small:block" data-testid="account-nav">
-        <div>
-          <div className="pb-4">
-            <h3 className="text-base-semi">Account</h3>
-          </div>
+        <div className="mr-5 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
           <div className="text-base-regular">
-            <ul className="flex mb-0 justify-start items-start flex-col gap-y-4">
+            <ul className="flex mb-0 justify-start items-start flex-col gap-y-1">
               <li>
                 <AccountNavLink
                   href="/account"
                   route={route!}
                   data-testid="overview-link"
+                  icon={House}
                 >
-                  Overview
-                </AccountNavLink>
-              </li>
-              <li>
-                <AccountNavLink
-                  href="/account/profile"
-                  route={route!}
-                  data-testid="profile-link"
-                >
-                  Profile
-                </AccountNavLink>
-              </li>
-              <li>
-                <AccountNavLink
-                  href="/account/addresses"
-                  route={route!}
-                  data-testid="addresses-link"
-                >
-                  Addresses
+                  Dashboard
                 </AccountNavLink>
               </li>
               <li>
@@ -146,17 +176,90 @@ const AccountNav = ({
                   href="/account/orders"
                   route={route!}
                   data-testid="orders-link"
+                  icon={CubeSolid}
                 >
                   Orders
                 </AccountNavLink>
               </li>
-              <li className="text-grey-700">
+              <li>
+                <AccountNavLink
+                  href="/account/returns"
+                  route={route!}
+                  data-testid="returns-link"
+                  icon={Package}
+                >
+                  Returns
+                </AccountNavLink>
+              </li>
+              <li>
+                <AccountNavLink
+                  href="/account/invoices"
+                  route={route!}
+                  data-testid="invoices-link"
+                  icon={Package}
+                >
+                  Invoices
+                </AccountNavLink>
+              </li>
+              <li>
+                <AccountNavLink
+                  href="/account/support"
+                  route={route!}
+                  data-testid="support-link"
+                  icon={Package}
+                >
+                  Support
+                </AccountNavLink>
+              </li>
+              <li>
+                <AccountNavLink
+                  href="/wishlist"
+                  route={route!}
+                  data-testid="wishlist-link"
+                  icon={Heart}
+                >
+                  Wishlist
+                </AccountNavLink>
+              </li>
+              <li>
+                <AccountNavLink
+                  href="/compare"
+                  route={route!}
+                  data-testid="compare-link"
+                  icon={CodeCompare}
+                >
+                  Compare
+                </AccountNavLink>
+              </li>
+              <li>
+                <AccountNavLink
+                  href="/account/addresses"
+                  route={route!}
+                  data-testid="addresses-link"
+                  icon={MedusaMapPin}
+                >
+                  Addresses
+                </AccountNavLink>
+              </li>
+              <li>
+                <AccountNavLink
+                  href="/account/profile"
+                  route={route!}
+                  data-testid="profile-link"
+                  icon={MedusaUser}
+                >
+                  Account Details
+                </AccountNavLink>
+              </li>
+              <li className="w-full pt-2">
                 <button
                   type="button"
                   onClick={handleLogout}
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-small-semi text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-950"
                   data-testid="logout-button"
                 >
-                  Log out
+                  <ArrowRightOnRectangle className="h-5 w-5 text-gray-500" />
+                  <span>Log out</span>
                 </button>
               </li>
             </ul>
@@ -170,7 +273,8 @@ const AccountNav = ({
 type AccountNavLinkProps = {
   href: string
   route: string
-  children: React.ReactNode
+  children: ReactNode
+  icon?: ComponentType<{ className?: string }>
   "data-testid"?: string
 }
 
@@ -178,20 +282,28 @@ const AccountNavLink = ({
   href,
   route,
   children,
+  icon: Icon,
   "data-testid": dataTestId,
 }: AccountNavLinkProps) => {
   const { countryCode }: { countryCode: string } = useParams()
+  const currentCountryCode = getStoreCountryCode(countryCode)
+  const currentRoute = stripCountryCodeFromPath(route, currentCountryCode)
 
-  const active = route.split(countryCode)[1] === href
+  const active = currentRoute === href
   return (
     <LocalizedClientLink
       href={href}
-      className={clx("text-ui-fg-subtle hover:text-ui-fg-base", {
-        "text-ui-fg-base font-semibold": active,
-      })}
+      className={clx(
+        "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-small-semi text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-950",
+        {
+          "bg-orange-50 text-[#ff5c0e] hover:bg-orange-50 hover:text-[#ff5c0e]":
+            active,
+        }
+      )}
       data-testid={dataTestId}
     >
-      {children}
+      {Icon && <Icon className="h-5 w-5 shrink-0" />}
+      <span>{children}</span>
     </LocalizedClientLink>
   )
 }

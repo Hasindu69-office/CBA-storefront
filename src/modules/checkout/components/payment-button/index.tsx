@@ -2,6 +2,7 @@
 
 import { isManual, isStripeLike } from "@lib/constants"
 import { placeOrder } from "@lib/data/cart"
+import { notify } from "@lib/notifications"
 import { HttpTypes } from "@medusajs/types"
 import { Button } from "@medusajs/ui"
 import { useElements, useStripe } from "@stripe/react-stripe-js"
@@ -57,8 +58,10 @@ const StripePaymentButton = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const onPaymentCompleted = async () => {
+    notify.loading("Placing order...", { id: "place-order" })
     await placeOrder()
       .catch((err) => {
+        notify.error(err, "Could not place your order.", { id: "place-order" })
         setErrorMessage(err.message)
       })
       .finally(() => {
@@ -78,9 +81,14 @@ const StripePaymentButton = ({
 
   const handlePayment = async () => {
     setSubmitting(true)
+    setErrorMessage(null)
+    notify.loading("Processing payment...", { id: "stripe-payment" })
 
     if (!stripe || !elements || !card || !cart) {
       setSubmitting(false)
+      notify.error("Payment form is not ready.", "Payment form is not ready.", {
+        id: "stripe-payment",
+      })
       return
     }
 
@@ -114,9 +122,14 @@ const StripePaymentButton = ({
             (pi && pi.status === "requires_capture") ||
             (pi && pi.status === "succeeded")
           ) {
+            notify.dismiss("stripe-payment")
             onPaymentCompleted()
+            return
           }
 
+          notify.error(error.message, "Payment could not be completed.", {
+            id: "stripe-payment",
+          })
           setErrorMessage(error.message || null)
           return
         }
@@ -125,9 +138,13 @@ const StripePaymentButton = ({
           (paymentIntent && paymentIntent.status === "requires_capture") ||
           paymentIntent.status === "succeeded"
         ) {
+          notify.dismiss("stripe-payment")
           return onPaymentCompleted()
         }
 
+        notify.error("Payment could not be completed.", "Payment could not be completed.", {
+          id: "stripe-payment",
+        })
         return
       })
   }
@@ -156,8 +173,12 @@ const ManualTestPaymentButton = ({ notReady }: { notReady: boolean }) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const onPaymentCompleted = async () => {
+    notify.loading("Placing order...", { id: "manual-place-order" })
     await placeOrder()
       .catch((err) => {
+        notify.error(err, "Could not place your order.", {
+          id: "manual-place-order",
+        })
         setErrorMessage(err.message)
       })
       .finally(() => {
@@ -167,6 +188,7 @@ const ManualTestPaymentButton = ({ notReady }: { notReady: boolean }) => {
 
   const handlePayment = () => {
     setSubmitting(true)
+    setErrorMessage(null)
 
     onPaymentCompleted()
   }

@@ -1,14 +1,26 @@
 import { Metadata } from "next"
 
-import FeaturedProducts from "@modules/home/components/featured-products"
+import FeaturedProductSlider from "@modules/home/components/featured-product-slider"
+import BrandAutoSlider from "@modules/home/components/brand-auto-slider"
+import BestSellingProductsSection from "@modules/home/components/best-selling-products"
+import TopSellingProductsSection from "@modules/home/components/top-selling-products"
+import InformationColumnsSection from "@modules/home/components/information-columns"
+import HomepagePromoTileGrid from "@modules/home/components/promo-tile-grid"
+import CategoryShowcase from "@modules/home/components/category-showcase"
+import CategorySlider from "@modules/home/components/category-slider"
+import HomePromoBanner from "@modules/home/components/home-promo-banner"
 import Hero from "@modules/home/components/hero"
+import TabbedSaleProductsSection from "@modules/home/components/tabbed-sale-products"
+import { listCategorySliderItems } from "@lib/data/category-slider"
 import { listCollections } from "@lib/data/collections"
+import { listFeaturedProductCards } from "@lib/data/featured-products"
+import { listHomepageContent } from "@lib/data/homepage"
 import { getRegion } from "@lib/data/regions"
 
 export const metadata: Metadata = {
-  title: "Medusa Next.js Starter Template",
+  title: "CBA Ebiz",
   description:
-    "A performant frontend ecommerce starter template with Next.js 15 and Medusa.",
+    "CBA Ebiz website",
 }
 
 export default async function Home(props: {
@@ -18,11 +30,24 @@ export default async function Home(props: {
 
   const { countryCode } = params
 
-  const region = await getRegion(countryCode)
+  const [
+    region,
+    collectionResult,
+    categorySliderItems,
+    homepageContent,
+    featuredProducts,
+  ] =
+    await Promise.all([
+      getRegion(countryCode),
+      listCollections({
+        fields: "id, handle, title",
+      }),
+      listCategorySliderItems().catch(() => []),
+      listHomepageContent().catch(() => ({ page: null, sections: [] })),
+      listFeaturedProductCards().catch(() => []),
+    ])
 
-  const { collections } = await listCollections({
-    fields: "id, handle, title",
-  })
+  const { collections } = collectionResult
 
   if (!collections || !region) {
     return null
@@ -30,12 +55,17 @@ export default async function Home(props: {
 
   return (
     <>
-      <Hero />
-      <div className="py-12">
-        <ul className="flex flex-col gap-x-6">
-          <FeaturedProducts collections={collections} region={region} />
-        </ul>
-      </div>
+      <Hero sections={homepageContent.sections} />
+      <TabbedSaleProductsSection sections={homepageContent.sections} />
+      <CategorySlider categories={categorySliderItems} />
+      <HomePromoBanner sections={homepageContent.sections} />
+      <FeaturedProductSlider products={featuredProducts} />
+      <BestSellingProductsSection sections={homepageContent.sections} />
+      <TopSellingProductsSection sections={homepageContent.sections} />
+      <InformationColumnsSection sections={homepageContent.sections} />
+      <BrandAutoSlider sections={homepageContent.sections} />
+      <HomepagePromoTileGrid sections={homepageContent.sections} />
+      <CategoryShowcase sections={homepageContent.sections} />
     </>
   )
 }

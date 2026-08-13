@@ -26,20 +26,28 @@ export default async function PageLayout(props: { children: React.ReactNode }) {
 
   return (
     <>
-      <Nav />
+      <div className="cba-site-chrome">
+        <Nav />
+      </div>
       {customer && cart && (
-        <CartMismatchBanner customer={customer} cart={cart} />
+        <div className="cba-site-chrome">
+          <CartMismatchBanner customer={customer} cart={cart} />
+        </div>
       )}
 
       {cart && (
-        <FreeShippingPriceNudge
-          variant="popup"
-          cart={cart}
-          shippingOptions={shippingOptions}
-        />
+        <div className="cba-site-chrome">
+          <FreeShippingPriceNudge
+            variant="popup"
+            cart={cart}
+            shippingOptions={shippingOptions}
+          />
+        </div>
       )}
       {props.children}
-      <Footer />
+      <div className="cba-site-chrome">
+        <Footer />
+      </div>
     </>
   )
 }
