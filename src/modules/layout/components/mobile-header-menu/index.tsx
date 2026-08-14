@@ -179,7 +179,6 @@ export default function MobileHeaderMenu({
         >
           <LayoutGridIcon size={18} strokeWidth={2} />
           <span>All Categories</span>
-          <ChevronDownIcon size={14} className="text-[#111827]" />
         </button>
       ) : variant === "bottom-categories" ? (
         <button

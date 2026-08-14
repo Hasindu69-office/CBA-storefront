@@ -160,10 +160,13 @@ export default async function Nav() {
               </HeaderLink>
             </div>
 
-            <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap font-semibold small:hidden">
-              <TruckIcon size={14} strokeWidth={2} />
-              <span>{cmsLayout.header.topbar.delivery_label}</span>
-            </div>
+            <HeaderLink
+              href={cmsLayout.header.topbar.track_order_url}
+              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap font-semibold transition-colors hover:text-white small:hidden"
+            >
+              <FileTextIcon size={14} strokeWidth={2} />
+              <span>{cmsLayout.header.topbar.track_order_label}</span>
+            </HeaderLink>
 
             <div className="hidden small:flex items-center gap-4">
               <div className="flex items-center gap-2">
