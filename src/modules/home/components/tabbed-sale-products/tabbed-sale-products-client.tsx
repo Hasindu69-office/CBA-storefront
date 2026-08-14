@@ -40,9 +40,13 @@ const TabbedSaleProductsClient = ({
       className="bg-white py-8 small:py-10"
       aria-labelledby="tabbed-sale-products-title"
     >
-      <div className="content-container">
+      <div className="content-container flex flex-col">
         {visibility.tabs && activeTab && (
-        <div className="mb-5 flex flex-col gap-4 border-b border-[#ececf1] pb-0 medium:flex-row medium:items-center medium:justify-between">
+        <div
+          className={`order-2 mb-5 flex flex-col gap-4 border-b border-[#ececf1] pb-0 medium:order-1 medium:flex-row medium:items-center medium:justify-between ${
+            visibility.banner ? "mt-5 medium:mt-0" : ""
+          }`}
+        >
           <div
             className="no-scrollbar flex min-w-0 gap-5 overflow-x-auto"
             role="tablist"
@@ -84,7 +88,7 @@ const TabbedSaleProductsClient = ({
 
         {visibility.banner && (
         <div
-          className="overflow-hidden rounded-[8px] border border-[#eeeeee] bg-[#fff8f4]"
+          className="order-1 overflow-hidden rounded-[8px] border border-[#eeeeee] bg-[#fff8f4] medium:order-2"
           style={{
             backgroundImage: `url("${banner.backgroundUrl}")`,
             backgroundSize: "cover",
@@ -156,7 +160,7 @@ const TabbedSaleProductsClient = ({
         )}
 
         {visibility.tabs && activeTab && activeTab.products.length ? (
-          <div className="mt-5 grid grid-cols-2 gap-3 small:gap-4 medium:grid-cols-5">
+          <div className="order-3 mt-5 grid grid-cols-2 gap-3 small:gap-4 medium:grid-cols-5">
             {activeTab.products.slice(0, 5).map((product, index) => (
               <FeaturedProductCardItem
                 key={product.id}
@@ -167,7 +171,7 @@ const TabbedSaleProductsClient = ({
             ))}
           </div>
         ) : visibility.tabs ? (
-          <div className="mt-5 rounded-[8px] border border-dashed border-[#dedee5] bg-white px-5 py-8 text-center">
+          <div className="order-3 mt-5 rounded-[8px] border border-dashed border-[#dedee5] bg-white px-5 py-8 text-center">
             <p className="text-[14px] font-semibold text-[#3f3f46]">
               No products available in this tab yet.
             </p>
