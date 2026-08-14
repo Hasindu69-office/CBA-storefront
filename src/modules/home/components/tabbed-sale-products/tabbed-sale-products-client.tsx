@@ -74,7 +74,7 @@ const TabbedSaleProductsClient = ({
 
           <SaleCta
             href={banner.ctaUrl}
-            className="mb-3 flex h-10 w-full items-center justify-center gap-2 rounded-[8px] border border-[#e5e7eb] bg-white px-4 text-[12px] font-bold text-[#25252c] transition-colors hover:border-brand hover:text-brand medium:mb-0 medium:w-auto medium:min-w-[150px]"
+            className="mb-3 flex h-10 w-full items-center justify-center gap-2 rounded-[8px] bg-white px-4 text-[12px] font-bold text-[#25252c] transition-colors hover:text-brand medium:mb-0 medium:w-auto medium:min-w-[150px]"
           >
             <span>View All Products</span>
             <span aria-hidden="true">›</span>
@@ -145,7 +145,7 @@ const TabbedSaleProductsClient = ({
               <FeaturedPrice product={banner.product} />
               <SaleCta
                 href={banner.productUrl ?? banner.ctaUrl}
-                className="flex h-11 w-full max-w-[300px] items-center justify-center gap-2 rounded-[8px] border border-brand bg-white px-5 text-[13px] font-bold uppercase text-brand transition-colors hover:bg-brand hover:text-white"
+                className="flex h-11 w-full max-w-[300px] items-center justify-center gap-2 rounded-[8px] border border-black bg-white px-5 text-[13px] font-bold uppercase text-black transition-colors hover:bg-black hover:text-white"
               >
                 <ShoppingCartIcon size={16} />
                 {banner.ctaLabel}
