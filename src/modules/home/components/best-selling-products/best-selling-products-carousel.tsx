@@ -16,8 +16,9 @@ const BestSellingProductsCarousel = ({
   const trackRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<number | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
+  const [pageIndexes, setPageIndexes] = useState([0])
 
-  const updateActiveIndex = useCallback(() => {
+  const updateCarouselState = useCallback(() => {
     const track = trackRef.current
     if (!track) {
       return
@@ -31,9 +32,32 @@ const BestSellingProductsCarousel = ({
       return
     }
 
-    const nextIndex = cards.reduce(
+    const scrollEnd = Math.max(0, track.scrollWidth - track.clientWidth)
+    const nextPageIndexes = cards
+      .map((card) => card.offsetLeft)
+      .filter((offset, index, offsets) => {
+        const clampedOffset = Math.min(offset, scrollEnd)
+        return (
+          index === 0 || clampedOffset > Math.min(offsets[index - 1], scrollEnd)
+        )
+      })
+      .map((offset) => {
+        const clampedOffset = Math.min(offset, scrollEnd)
+
+        return cards.reduce(
+          (closest, card, index) => {
+            const distance = Math.abs(card.offsetLeft - clampedOffset)
+            return distance < closest.distance ? { index, distance } : closest
+          },
+          { index: 0, distance: Number.POSITIVE_INFINITY }
+        ).index
+      })
+
+    setPageIndexes(nextPageIndexes.length ? nextPageIndexes : [0])
+
+    const nextIndex = nextPageIndexes.reduce(
       (closest, card, index) => {
-        const distance = Math.abs(card.offsetLeft - track.scrollLeft)
+        const distance = Math.abs(cards[card].offsetLeft - track.scrollLeft)
         return distance < closest.distance ? { index, distance } : closest
       },
       { index: 0, distance: Number.POSITIVE_INFINITY }
@@ -48,33 +72,38 @@ const BestSellingProductsCarousel = ({
     }
 
     frameRef.current = window.requestAnimationFrame(() => {
-      updateActiveIndex()
+      updateCarouselState()
       frameRef.current = null
     })
-  }, [updateActiveIndex])
+  }, [updateCarouselState])
 
   const handleDotClick = useCallback((index: number) => {
     const track = trackRef.current
+    const productIndex = pageIndexes[index] ?? index
     const card = track?.querySelectorAll<HTMLElement>(
       "[data-best-selling-product-card]"
-    )[index]
+    )[productIndex]
 
     card?.scrollIntoView({
       behavior: "smooth",
       block: "nearest",
       inline: "start",
     })
-  }, [])
+  }, [pageIndexes])
 
   useEffect(() => {
-    updateActiveIndex()
+    updateCarouselState()
+
+    window.addEventListener("resize", updateCarouselState)
 
     return () => {
+      window.removeEventListener("resize", updateCarouselState)
+
       if (frameRef.current !== null) {
         window.cancelAnimationFrame(frameRef.current)
       }
     }
-  }, [updateActiveIndex])
+  }, [updateCarouselState])
 
   return (
     <>
@@ -92,20 +121,20 @@ const BestSellingProductsCarousel = ({
         ))}
       </div>
 
-      {visibleProducts.length > 1 && (
+      {pageIndexes.length > 1 && (
         <div
           className="mt-2 flex items-center justify-center gap-3 medium:hidden"
           aria-label="Best selling products carousel pagination"
         >
-          {visibleProducts.map((product, index) => {
+          {pageIndexes.map((productIndex, index) => {
             const isActive = index === activeIndex
 
             return (
               <button
-                key={product.id}
+                key={`${visibleProducts[productIndex]?.id ?? productIndex}:${index}`}
                 type="button"
                 aria-label={`Show product ${index + 1} of ${
-                  visibleProducts.length
+                  pageIndexes.length
                 }`}
                 aria-current={isActive ? "true" : undefined}
                 onClick={() => handleDotClick(index)}
