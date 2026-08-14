@@ -56,6 +56,7 @@ type SideCartProps = {
   cart?: HttpTypes.StoreCart | null
   shippingOptions?: StoreCartShippingOption[]
   wishlistCount?: number
+  listenForOpenEvents?: boolean
 }
 type CartPromotion = NonNullable<HttpTypes.StoreCart["promotions"]>[number]
 
@@ -150,6 +151,7 @@ function buildFreeShippingTarget(currentAmount: number, price: StorePrice) {
 export default function SideCart({
   cart,
   shippingOptions = [],
+  listenForOpenEvents = false,
 }: SideCartProps) {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
@@ -160,6 +162,10 @@ export default function SideCart({
   const previousCartSignature = useRef(cartSignature)
 
   useEffect(() => {
+    if (!listenForOpenEvents) {
+      return
+    }
+
     const openCart = (event: Event) => {
       const detail = (event as CustomEvent<SideCartOpenOptions>).detail ?? {}
 
@@ -179,7 +185,7 @@ export default function SideCart({
     return () => {
       window.removeEventListener(SIDE_CART_OPEN_EVENT, openCart)
     }
-  }, [router])
+  }, [listenForOpenEvents, router])
 
   useEffect(() => {
     if (previousCartSignature.current !== cartSignature) {

@@ -40,8 +40,11 @@ const BestSellingProductCard = ({
     .filter((badge) => !isFeaturedBadge(badge) && !isBenefitBadge(badge))
     .slice(0, 1)
   const benefitItems = productCardBenefits(product)
+  const isFlat = variant === "flat"
   const sizeClassName =
-    "h-[400px] w-[220px] min-w-0 flex-none snap-start medium:h-full medium:w-full"
+    variant === "flat"
+      ? "h-[342px] w-full min-w-0 medium:h-full"
+      : "h-[400px] w-[220px] min-w-0 flex-none snap-start md:h-[430px] small:h-[400px] medium:h-full medium:w-full"
 
   const handleAddToCart = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
@@ -99,7 +102,11 @@ const BestSellingProductCard = ({
     })
 
     if (result.success) {
-      notify.success(result.message, { id: toastId })
+      if (result.status === "already_present") {
+        notify.info(result.message, { id: toastId })
+      } else {
+        notify.success(result.message, { id: toastId })
+      }
     } else {
       notify.error(result.message, "Could not add this item to wishlist.", {
         id: toastId,
@@ -112,12 +119,12 @@ const BestSellingProductCard = ({
     <article
       data-best-selling-product-card
       className={`group flex ${sizeClassName} flex-col overflow-hidden rounded-[8px] border border-[#ededed] bg-white transition-shadow ${
-        variant === "flat"
+        isFlat
           ? "shadow-none hover:shadow-none"
           : "shadow-[0_12px_28px_rgba(0,0,0,0.16)] hover:shadow-[0_0_24px_rgba(255,92,24,0.72)]"
       }`}
     >
-      <div className="relative aspect-[4/3] w-full flex-shrink-0 overflow-hidden rounded-t-[8px] border-b border-[#f0f0f0] bg-white">
+      <div className="relative aspect-[4/3] w-full flex-shrink-0 overflow-hidden rounded-t-[8px] border-b border-[#f0f0f0] bg-white md:aspect-[16/9] small:aspect-[4/3]">
         <LocalizedClientLink
           href={`/products/${product.handle}`}
           className="block h-full w-full"
@@ -129,8 +136,14 @@ const BestSellingProductCard = ({
               alt={product.thumbnail.alt || product.title}
               fill
               priority={priority}
-              sizes="(min-width: 1280px) 20vw, 220px"
-              className="object-contain object-center p-3.5 transition-transform duration-300 group-hover:scale-[1.03] medium:p-3 large:p-4"
+              sizes={
+                isFlat
+                  ? "(min-width: 1280px) 20vw, (min-width: 1024px) 28vw, 50vw"
+                  : "(min-width: 1280px) 20vw, (min-width: 768px) 50vw, 220px"
+              }
+              className={`object-contain object-center transition-transform duration-300 group-hover:scale-[1.03] ${
+                isFlat ? "p-2.5 xsmall:p-3 medium:p-3 large:p-4" : "p-3.5 medium:p-3 large:p-4"
+              }`}
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
@@ -140,13 +153,13 @@ const BestSellingProductCard = ({
         </LocalizedClientLink>
 
         {!!displayBadges.length && (
-          <div className="absolute left-2 top-2 max-w-[108px]">
+          <div className={`${isFlat ? "left-1.5 top-1.5 max-w-[78px] xsmall:left-2 xsmall:top-2 xsmall:max-w-[96px] medium:max-w-[108px]" : "left-2 top-2 max-w-[108px]"} absolute`}>
             {displayBadges.map((badge) => (
               <span
                 key={badge.key}
                 className={`${badgeColorClassName(
                   badge
-                )} block rounded-[5px] px-2.5 py-1 text-center text-[9px] font-bold uppercase leading-3 text-white`}
+                )} block rounded-[5px] px-2 py-0.5 text-center text-[8px] font-bold uppercase leading-3 text-white xsmall:px-2.5 xsmall:py-1 xsmall:text-[9px]`}
               >
                 {badge.label}
               </span>
@@ -160,9 +173,13 @@ const BestSellingProductCard = ({
           title="Add to wishlist"
           onClick={handleAddToWishlist}
           disabled={isAddingToWishlist || !product.default_variant?.id}
-          className="absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#ff3b30] shadow-[0_10px_22px_rgba(0,0,0,0.16)] transition-colors hover:bg-[#fff3f0] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 medium:h-7 medium:w-7"
+          className={`absolute flex items-center justify-center rounded-full bg-white text-[#ff3b30] shadow-[0_10px_22px_rgba(0,0,0,0.16)] transition-colors hover:bg-[#fff3f0] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+            isFlat
+              ? "right-2 top-2 h-7 w-7 medium:h-7 medium:w-7"
+              : "right-2.5 top-2.5 h-8 w-8 medium:h-7 medium:w-7"
+          }`}
         >
-          <HeartIcon size={16} strokeWidth={1.7} />
+          <HeartIcon size={isFlat ? 15 : 16} strokeWidth={1.7} />
         </button>
       </div>
 
@@ -187,10 +204,14 @@ const BestSellingProductCard = ({
         <div aria-hidden="true" className="h-8 flex-shrink-0" />
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col px-3 py-2.5 large:px-3.5">
+      <div className={`flex min-h-0 flex-1 flex-col large:px-3.5 ${
+        isFlat ? "px-2.5 py-2 medium:px-3 medium:py-2.5" : "px-3 py-2.5"
+      }`}>
         <div className="flex min-h-[20px] items-center gap-2">
           {product.brand?.logo_url ? (
-            <span className="relative block h-[18px] w-[50px] flex-shrink-0">
+            <span className={`relative block flex-shrink-0 ${
+              isFlat ? "h-[16px] w-[44px] medium:h-[18px] medium:w-[50px]" : "h-[18px] w-[50px]"
+            }`}>
               <Image
                 src={product.brand.logo_url}
                 alt={product.brand.logo_alt_text || `${product.brand.name} logo`}
@@ -200,7 +221,9 @@ const BestSellingProductCard = ({
               />
             </span>
           ) : product.brand?.name ? (
-            <span className="line-clamp-1 max-w-[58px] text-[10px] font-bold uppercase leading-4 text-black">
+            <span className={`line-clamp-1 font-bold uppercase text-black ${
+              isFlat ? "max-w-[48px] text-[9px] leading-4 medium:max-w-[58px] medium:text-[10px]" : "max-w-[58px] text-[10px] leading-4"
+            }`}>
               {product.brand.name}
             </span>
           ) : null}
@@ -208,7 +231,9 @@ const BestSellingProductCard = ({
             <span className="h-4 w-px flex-shrink-0 bg-[#d4d4d8]" />
           )}
           {product.category?.name && (
-            <span className="line-clamp-1 text-[10px] leading-4 text-[#9ca3af]">
+            <span className={`line-clamp-1 leading-4 text-[#9ca3af] ${
+              isFlat ? "text-[9px] medium:text-[10px]" : "text-[10px]"
+            }`}>
               {product.category.name}
             </span>
           )}
@@ -218,12 +243,18 @@ const BestSellingProductCard = ({
           href={`/products/${product.handle}`}
           className="mt-1 block focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
-          <h3 className="line-clamp-2 min-h-[40px] text-[13px] font-bold leading-5 tracking-normal text-black medium:text-[14px] large:text-[15px]">
+          <h3 className={`line-clamp-2 font-bold tracking-normal text-black ${
+            isFlat
+              ? "min-h-[36px] text-[12px] leading-[18px] xsmall:text-[13px] xsmall:leading-[19px] medium:min-h-[40px] medium:text-[14px] medium:leading-5 large:text-[15px]"
+              : "min-h-[40px] text-[13px] leading-5 medium:text-[14px] large:text-[15px]"
+          }`}>
             {product.title}
           </h3>
         </LocalizedClientLink>
 
-        <div className="mt-1 flex min-h-[20px] items-center justify-between gap-2">
+        <div className={`mt-1 min-h-[20px] items-center justify-between gap-2 ${
+          isFlat ? "hidden medium:flex" : "flex"
+        }`}>
           <ProductRating rating={product.rating} />
           <span
             className={`line-clamp-1 flex-shrink-0 text-[10px] leading-4 ${
@@ -237,7 +268,11 @@ const BestSellingProductCard = ({
           </span>
         </div>
 
-        <div className="mt-auto -mx-3 flex min-h-[52px] items-center justify-between gap-2 border-t border-[#e5e7eb] px-3 pt-2 large:-mx-3.5 large:px-3.5">
+        <div className={`mt-auto flex items-center justify-between gap-2 border-t border-[#e5e7eb] ${
+          isFlat
+            ? "-mx-2.5 min-h-[48px] px-2.5 pt-2 medium:-mx-3 medium:min-h-[52px] medium:px-3 large:-mx-3.5 large:px-3.5"
+            : "-mx-3 min-h-[52px] px-3 pt-2 large:-mx-3.5 large:px-3.5"
+        }`}>
           <ProductCardPrice product={product} />
           <button
             type="button"
@@ -245,7 +280,9 @@ const BestSellingProductCard = ({
             disabled={!isPurchasable || isAddingToCart}
             aria-label={`Add ${product.title} to cart`}
             title={isAddingToCart ? "Adding to cart" : "Add to cart"}
-            className="flex h-9 w-10 flex-shrink-0 items-center justify-center rounded-[8px] border border-brand bg-white text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white medium:h-8 medium:w-9"
+            className={`flex flex-shrink-0 items-center justify-center rounded-[8px] border border-brand bg-white text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white ${
+              isFlat ? "h-8 w-9 medium:h-8 medium:w-9" : "h-9 w-10 medium:h-8 medium:w-9"
+            }`}
           >
             <ShoppingCartIcon size={15} />
           </button>

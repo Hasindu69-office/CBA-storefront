@@ -64,38 +64,38 @@ const InformationColumnsSection = ({
 
   return (
     <section
-      className="bg-white py-8 small:py-10"
+      className="bg-white py-7 sm:py-8 md:py-9 small:py-10"
       aria-label="Homepage business solutions"
     >
       <div className="content-container">
-        <div className="grid gap-4 large:grid-cols-[2.12fr_repeat(3,minmax(0,1fr))]">
+        <div className="grid gap-3 sm:gap-4 md:grid-cols-2 large:grid-cols-[2.12fr_repeat(3,minmax(0,1fr))]">
           <LocalizedClientLink
             href={`/products/${product.handle}`}
-            className="group relative min-h-[342px] overflow-hidden rounded-[10px] border border-[#191919] bg-black p-6 text-white shadow-sm transition-shadow hover:shadow-[0_12px_30px_rgba(0,0,0,0.18)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 small:p-7 large:min-h-[372px]"
+            className="group relative min-h-[304px] overflow-hidden rounded-[10px] border border-[#191919] bg-black p-4 text-white shadow-sm transition-shadow hover:shadow-[0_12px_30px_rgba(0,0,0,0.18)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 xsmall:min-h-[324px] xsmall:p-5 md:col-span-2 md:min-h-[342px] md:p-6 small:p-7 large:col-span-1 large:min-h-[372px]"
           >
             <TileBackground
               src={imageUrl(productItem, 0)}
               alt={productItem.media?.alt_text ?? productItem.media_alt_text ?? product.title}
               priority
             />
-            <div className="relative z-10 flex h-full w-[62%] min-w-[300px] max-w-[430px] flex-col">
-              <p className="text-[16px] font-bold uppercase leading-6 tracking-normal text-brand">
+            <div className="relative z-10 flex h-full min-w-0 max-w-[280px] flex-col xsmall:max-w-[330px] md:w-[58%] md:max-w-[430px] large:w-[62%]">
+              <p className="text-[13px] font-bold uppercase leading-5 tracking-normal text-brand sm:text-[14px] small:text-[16px] small:leading-6">
                 {stringConfig(productItem.config?.eyebrow)}
               </p>
-              <h2 className="mt-3 text-[34px] font-bold leading-[1.18] tracking-normal">
+              <h2 className="mt-2 text-[26px] font-bold leading-[1.16] tracking-normal xsmall:text-[28px] sm:text-[30px] small:mt-3 small:text-[34px] small:leading-[1.18]">
                 {productItem.title}
               </h2>
               {productItem.subtitle && (
-                <p className="mt-4 text-[14px] leading-[1.45] text-white/90">
+                <p className="mt-3 line-clamp-3 text-[13px] leading-[1.45] text-white/90 small:mt-4 small:text-[14px]">
                   {productItem.subtitle}
                 </p>
               )}
-              <div className="mt-auto pt-8">
-                <p className="text-[16px] leading-5 text-white/90">From</p>
-                <p className="mt-2 text-[34px] font-bold leading-none tracking-normal">
+              <div className="mt-auto pt-6 small:pt-8">
+                <p className="text-[14px] leading-5 text-white/90 small:text-[16px]">From</p>
+                <p className="mt-1.5 text-[28px] font-bold leading-none tracking-normal xsmall:text-[30px] small:mt-2 small:text-[34px]">
                   {formatProductPrice(product)}
                 </p>
-                <span className="mt-5 inline-flex h-11 items-center justify-center rounded-[5px] bg-brand px-6 text-[13px] font-bold text-white transition-colors group-hover:bg-[#e94f12]">
+                <span className="mt-4 inline-flex h-10 items-center justify-center rounded-[5px] bg-brand px-5 text-[12px] font-bold text-white transition-colors group-hover:bg-[#e94f12] small:mt-5 small:h-11 small:px-6 small:text-[13px]">
                   {stringConfig(productItem.config?.cta_label) || "View product"}
                   <span className="ml-2" aria-hidden="true">
                     &gt;
@@ -108,7 +108,10 @@ const InformationColumnsSection = ({
           {categories.map(({ item, categories: cardCategories }, index) => (
             <article
               key={item.reference_id ?? index}
-              className="group relative min-h-[342px] overflow-hidden rounded-[10px] border border-[#d6d6d6] bg-white px-5 py-5 text-black transition-colors hover:border-brand/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 large:min-h-[372px]"
+              className={[
+                "group relative min-h-[286px] overflow-hidden rounded-[10px] border border-[#d6d6d6] bg-white px-4 py-4 text-black transition-colors hover:border-brand/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 xsmall:min-h-[304px] xsmall:px-5 xsmall:py-5 md:min-h-[326px] small:min-h-[342px] large:min-h-[372px]",
+                index === 2 ? "md:col-span-2 large:col-span-1" : "",
+              ].join(" ")}
             >
               <TileBackground
                 src={imageUrl(item, index + 1)}
@@ -119,21 +122,21 @@ const InformationColumnsSection = ({
                   cardCategories[0].name
                 }
               />
-              <div className="relative z-10 flex h-full max-w-[178px] flex-col">
+              <div className="relative z-10 flex h-full min-w-0 max-w-[235px] flex-col md:max-w-[260px] large:max-w-[178px]">
                 <div className="flex items-start gap-2">
                   <ComputerIcon />
-                  <h3 className="line-clamp-2 text-[13px] font-bold uppercase leading-[17px] tracking-normal">
+                  <h3 className="line-clamp-2 text-[13px] font-bold uppercase leading-[17px] tracking-normal small:text-[13px]">
                     {item.title || cardCategories[0].name}
                   </h3>
                 </div>
-                <div className="mt-8 h-[52px] max-w-[155px]">
+                <div className="mt-6 h-[52px] max-w-[215px] md:max-w-[230px] small:mt-8 large:max-w-[155px]">
                   {(item.subtitle || cardCategories[0].description) && (
                     <p className="line-clamp-3 text-[12px] leading-[16px] text-black">
                       {item.subtitle || cardCategories[0].description}
                     </p>
                   )}
                 </div>
-                <ul className="mt-5 grid max-w-[165px] gap-1.5 text-[12px] leading-[18px] text-black">
+                <ul className="mt-4 grid max-w-[225px] gap-1.5 text-[12px] leading-[18px] text-black md:max-w-[240px] small:mt-5 large:max-w-[165px]">
                   {cardCategories.slice(0, 4).map((category) => (
                     <li key={category.id} className="flex min-w-0 gap-2">
                       <span className="mt-[0.45rem] h-1 w-1 flex-shrink-0 rounded-full bg-black" />

@@ -196,9 +196,29 @@ export default async function Footer() {
   )
 
   return (
-    <footer className="w-full relative isolate mt-20 pt-10">
+    <footer className="w-full relative isolate mt-24 pt-20 pb-[calc(104px+env(safe-area-inset-bottom))] small:pb-0 medium:mt-20 medium:pt-10">
       <div
-        className="absolute inset-0 w-full h-full z-0 pointer-events-none"
+        className="absolute inset-0 w-full h-full z-0 pointer-events-none medium:hidden"
+        aria-hidden="true"
+        style={{
+          backgroundImage: "url('/images/footerbgimg.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center top",
+          WebkitMaskImage:
+            "url('/images/Asset 1 1.svg'), linear-gradient(to bottom, transparent 52vw, black 52vw)",
+          WebkitMaskSize: "100% auto, 100% 100%",
+          WebkitMaskPosition: "top center, top left",
+          WebkitMaskRepeat: "no-repeat, no-repeat",
+          maskImage:
+            "url('/images/Asset 1 1.svg'), linear-gradient(to bottom, transparent 52vw, black 52vw)",
+          maskSize: "100% auto, 100% 100%",
+          maskPosition: "top center, top left",
+          maskRepeat: "no-repeat, no-repeat",
+        }}
+      />
+
+      <div
+        className="absolute inset-0 w-full h-full z-0 pointer-events-none hidden medium:block"
         aria-hidden="true"
         style={{
           backgroundImage: "url('/images/footerbgimg.png')",
@@ -217,13 +237,13 @@ export default async function Footer() {
         }}
       />
 
-      <div className="absolute top-0 left-0 w-full flex justify-center -mt-[7.5vw] z-30 pointer-events-none px-4">
+      <div className="absolute top-0 left-0 w-full flex justify-center -mt-[112px] max-[399px]:-mt-[148px] z-30 pointer-events-none px-5 min-[640px]:max-[1279px]:-mt-[8px] medium:-mt-[6.25vw] medium:px-4">
         {cmsLayout.footer.newsletter.enabled && (
-          <div className="px-4 sm:px-8 py-8 w-full md:w-[46vw] max-w-3xl pointer-events-auto text-center">
-            <h2 className="text-3xl font-bold text-black mb-3">
+          <div className="w-full max-w-[560px] px-5 py-7 pointer-events-auto text-center small:max-w-[640px] small:px-10 small:py-9 medium:w-[46vw] medium:max-w-3xl medium:px-8 medium:py-7">
+            <h2 className="text-2xl font-bold text-black mb-3 small:text-3xl medium:text-[26px] medium:leading-8">
               {cmsLayout.footer.newsletter.title}
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p className="mx-auto mb-6 max-w-[420px] text-base leading-6 text-gray-600 small:text-lg small:leading-7 medium:max-w-none medium:text-[14px] medium:leading-5">
               {cmsLayout.footer.newsletter.description}
             </p>
             <NewsletterForm />
@@ -231,10 +251,10 @@ export default async function Footer() {
         )}
       </div>
 
-      <div className="relative z-10 content-container pt-32 pb-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 text-white">
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
+      <div className="relative z-10 content-container pt-36 pb-10 min-[640px]:max-[1279px]:pt-[40vw] medium:pt-32 medium:pb-12">
+        <div className="grid grid-cols-1 gap-10 text-white small:grid-cols-2 small:gap-x-8 small:gap-y-12 medium:grid-cols-4 medium:gap-12">
+          <div className="space-y-5 text-center small:col-span-2 medium:col-span-1 medium:space-y-6 medium:text-left">
+            <div className="flex flex-col items-center gap-4 medium:flex-row medium:items-center medium:gap-3">
               <Image
                 src={cmsLayout.footer.company.logo_url}
                 alt={cmsLayout.footer.company.logo_alt_text}
@@ -242,15 +262,15 @@ export default async function Footer() {
                 height={80}
                 className="h-20 w-20 flex-shrink-0 object-contain"
               />
-              <div>
-                <h3 className="font-bold text-lg leading-tight uppercase tracking-wider">
+              <div className="min-w-0">
+                <h3 className="font-bold text-xl leading-tight uppercase tracking-wider medium:text-lg">
                   {companyNameLines(cmsLayout.footer.company.name).map((line) => (
                     <span key={line} className="block whitespace-nowrap">
                       {line}
                     </span>
                   ))}
                 </h3>
-                <p className="text-xs text-gray-400 mt-1 uppercase">
+                <p className="text-xs text-gray-400 mt-2 uppercase medium:mt-1">
                   {companyAddressLines(cmsLayout.footer.company.address).map(
                     (line) => (
                       <span key={line} className="block whitespace-nowrap">
@@ -261,10 +281,10 @@ export default async function Footer() {
                 </p>
               </div>
             </div>
-            <p className="text-sm text-gray-400 leading-relaxed">
+            <p className="mx-auto max-w-[520px] text-base leading-7 text-gray-300 medium:max-w-none medium:text-sm medium:text-gray-400 medium:leading-relaxed">
               {cmsLayout.footer.company.description}
             </p>
-            <div className="flex gap-4 pt-2">
+            <div className="flex justify-center gap-8 pt-2 medium:justify-start medium:gap-4">
               {cmsLayout.footer.social.links.map((item) => (
                 <SocialLink key={item.label} href={item.href} label={item.label}>
                   <SocialIcon d={socialPath(item.label)} />
@@ -275,10 +295,10 @@ export default async function Footer() {
 
           {footerColumns.map((column) => (
             <div key={column.label}>
-              <h4 className="text-lg font-semibold mb-6 border-b border-gray-700 pb-2 inline-block w-full">
+              <h4 className="text-base font-semibold mb-4 border-b border-gray-700 pb-2 inline-block w-full small:text-lg small:mb-6">
                 {column.label}
               </h4>
-              <ul className="space-y-4 text-sm text-gray-300">
+              <ul className="space-y-3 text-sm text-gray-300 small:space-y-4">
                 {column.links.map((item) => (
                   <li key={item.label}>
                     <FooterTextLink href={item.href}>
@@ -294,7 +314,7 @@ export default async function Footer() {
       </div>
 
       <div className="relative z-10">
-        <div className="content-container py-6 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="content-container py-6 flex flex-col items-center justify-between gap-4 text-center medium:flex-row medium:text-left">
           <p className="text-xs text-gray-400">
             Copyright &copy; {new Date().getFullYear()}{" "}
             {cmsLayout.footer.copyright.text}

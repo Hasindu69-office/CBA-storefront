@@ -205,7 +205,7 @@ const Overview = ({ dashboard, recommendedProducts }: OverviewProps) => {
                 <LocalizedClientLink
                   key={product.id}
                   href={`/products/${product.handle}`}
-                  className="group rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-[#ff5c0e]"
+                  className="group rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-black"
                 >
                   <Thumbnail
                     thumbnail={product.thumbnail?.url}

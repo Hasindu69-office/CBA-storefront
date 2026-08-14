@@ -51,6 +51,28 @@ export function ShoppingCartIcon({ size = 26, ...props }: IconProps) {
   )
 }
 
+export function HomeIcon({ size = 24, ...props }: IconProps) {
+  return (
+    <svg {...baseProps(size)} {...props}>
+      <path d="m3 11 9-8 9 8" />
+      <path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10" />
+    </svg>
+  )
+}
+
+export function StoreIcon({ size = 24, ...props }: IconProps) {
+  return (
+    <svg {...baseProps(size)} {...props}>
+      <path d="M4 10h16" />
+      <path d="M5 10l1-6h12l1 6" />
+      <path d="M6 10v10h12V10" />
+      <path d="M9 20v-5h6v5" />
+      <path d="M6 10a3 3 0 0 0 6 0" />
+      <path d="M12 10a3 3 0 0 0 6 0" />
+    </svg>
+  )
+}
+
 export function PhoneIcon({ size = 14, ...props }: IconProps) {
   return (
     <svg {...baseProps(size)} {...props}>

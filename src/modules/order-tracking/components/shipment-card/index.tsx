@@ -22,17 +22,17 @@ export default function ShipmentCard({
     <article
       className={
         embedded
-          ? "rounded-[8px] border border-[#eeeeee] bg-white p-4"
-          : "rounded-[8px] border border-[#eeeeee] bg-white p-5 shadow-[0_2px_12px_rgba(20,26,34,0.04)]"
+          ? "min-w-0 rounded-[8px] border border-[#eeeeee] bg-white p-4"
+          : "min-w-0 rounded-[8px] border border-[#eeeeee] bg-white p-5 shadow-[0_2px_12px_rgba(20,26,34,0.04)]"
       }
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-[16px] font-semibold text-[#151922]">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="break-words text-[16px] font-semibold text-[#151922]">
             Shipment {index + 1}
           </h3>
           {fulfillment.provider_display_name && (
-            <p className="mt-1 text-[13px] text-[#5d6470]">
+            <p className="mt-1 break-words text-[13px] text-[#5d6470]">
               {fulfillment.provider_display_name}
             </p>
           )}
@@ -44,19 +44,19 @@ export default function ShipmentCard({
         />
       </div>
 
-      <dl className="mt-4 grid gap-2 text-[13px] text-[#5d6470] small:grid-cols-2">
+      <dl className="mt-4 grid min-w-0 gap-2 text-[13px] text-[#5d6470] small:grid-cols-2">
         {fulfillment.shipped_at && (
-          <div>
+          <div className="min-w-0">
             <dt className="font-medium">Shipped</dt>
-            <dd className="text-[#151922]">
+            <dd className="break-words text-[#151922]">
               {formatTrackingDate(fulfillment.shipped_at)}
             </dd>
           </div>
         )}
         {fulfillment.delivered_at && (
-          <div>
+          <div className="min-w-0">
             <dt className="font-medium">Delivered</dt>
-            <dd className="text-[#151922]">
+            <dd className="break-words text-[#151922]">
               {formatTrackingDate(fulfillment.delivered_at)}
             </dd>
           </div>
@@ -66,12 +66,15 @@ export default function ShipmentCard({
       {fulfillment.items.length > 0 && (
         <ul className="mt-4 flex flex-col gap-3 border-t border-[#eeeeee] pt-4">
           {fulfillment.items.map((item) => (
-            <li key={`${fulfillment.id}-${item.line_item_id}`} className="flex gap-3">
+            <li
+              key={`${fulfillment.id}-${item.line_item_id}`}
+              className="flex min-w-0 gap-3"
+            >
               <div className="h-14 w-14 shrink-0 overflow-hidden rounded bg-[#f6f7f9]">
                 <Thumbnail thumbnail={item.thumbnail} images={[]} size="square" />
               </div>
-              <div className="min-w-0">
-                <p className="truncate text-[14px] font-semibold text-[#151922]">
+              <div className="min-w-0 flex-1">
+                <p className="break-words text-[14px] font-semibold text-[#151922]">
                   {item.title}
                 </p>
                 <p className="text-[13px] text-[#5d6470]">Qty {item.quantity}</p>
@@ -81,7 +84,7 @@ export default function ShipmentCard({
         </ul>
       )}
 
-      <div className="mt-4 border-t border-[#eeeeee] pt-4">
+      <div className="mt-4 min-w-0 border-t border-[#eeeeee] pt-4">
         <p className="mb-2 text-[13px] font-semibold text-[#5d6470]">Tracking</p>
         <TrackingLabelList labels={fulfillment.labels} />
       </div>
