@@ -113,28 +113,28 @@ export default function AccountOrderTrackingTemplate({
         />
       )}
 
-      <section className="overflow-hidden rounded-[8px] border border-[#eeeeee] bg-white shadow-[0_2px_12px_rgba(20,26,34,0.04)]">
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px]">
-          <div className="border-b border-[#eeeeee] p-5 small:p-6 lg:border-b-0 lg:border-r">
+      <section className="min-w-0 overflow-hidden rounded-[8px] border border-[#eeeeee] bg-white shadow-[0_2px_12px_rgba(20,26,34,0.04)]">
+        <div className="grid min-w-0 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px]">
+          <div className="min-w-0 border-b border-[#eeeeee] p-5 small:p-6 lg:border-b-0 lg:border-r">
             <h2 className="text-[18px] font-semibold text-[#151922]">
               Delivery status
             </h2>
 
-            <div className="mt-5 rounded-[8px] bg-[#fafbfc] px-4 py-4 small:px-5">
+            <div className="mt-5 min-w-0 rounded-[8px] bg-[#fafbfc] px-4 py-4 small:px-5">
               <p className="text-[12px] font-semibold uppercase tracking-wide text-[#8a919c]">
                 Current status
               </p>
-              <p className="mt-1 text-[16px] font-semibold text-[#151922]">
+              <p className="mt-1 break-words text-[16px] font-semibold text-[#151922]">
                 {statusHighlight.title}
               </p>
               {statusHighlight.description && (
-                <p className="mt-1 text-[14px] leading-6 text-[#5d6470]">
+                <p className="mt-1 break-words text-[14px] leading-6 text-[#5d6470]">
                   {statusHighlight.description}
                 </p>
               )}
             </div>
 
-            <div className="mt-6">
+            <div className="mt-6 min-w-0">
               <OrderTimelineHorizontal
                 items={timeline}
                 nextStepTitle={next_expected_step?.title}
@@ -143,7 +143,7 @@ export default function AccountOrderTrackingTemplate({
 
             <div className="mt-8 border-t border-[#eeeeee] pt-6">
               <h3 className="text-[16px] font-semibold text-[#151922]">Shipments</h3>
-              <div className="mt-4 flex flex-col gap-4">
+              <div className="mt-4 flex min-w-0 flex-col gap-4">
                 {fulfillments.length === 0 ? (
                   <OrderTrackingEmptyState
                     title="No shipment yet"
@@ -163,7 +163,7 @@ export default function AccountOrderTrackingTemplate({
             </div>
           </div>
 
-          <aside className="bg-[#fcfcfd] p-5 small:p-6">
+          <aside className="min-w-0 bg-[#fcfcfd] p-5 small:p-6">
             <OrderDetailsSidebar
               tracking={tracking}
               documents={documents}

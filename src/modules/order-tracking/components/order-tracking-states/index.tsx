@@ -36,9 +36,13 @@ export function OrderTrackingEmptyState({
   message: string
 }) {
   return (
-    <div className="rounded-[8px] border border-dashed border-[#d7dbe3] bg-[#fafbfc] px-5 py-8 text-center">
-      <h3 className="text-[16px] font-semibold text-[#151922]">{title}</h3>
-      <p className="mt-2 text-[14px] text-[#5d6470]">{message}</p>
+    <div className="min-w-0 rounded-[8px] border border-dashed border-[#d7dbe3] bg-[#fafbfc] px-5 py-8 text-center">
+      <h3 className="break-words text-[16px] font-semibold text-[#151922]">
+        {title}
+      </h3>
+      <p className="mt-2 break-words text-[14px] leading-6 text-[#5d6470]">
+        {message}
+      </p>
     </div>
   )
 }
