@@ -237,13 +237,13 @@ export default async function Footer() {
         }}
       />
 
-      <div className="absolute top-0 left-0 w-full flex justify-center -mt-[112px] max-[399px]:-mt-[148px] z-30 pointer-events-none px-5 min-[640px]:max-[1279px]:-mt-[8px] medium:-mt-[7.5vw] medium:px-4">
+      <div className="absolute top-0 left-0 w-full flex justify-center -mt-[112px] max-[399px]:-mt-[148px] z-30 pointer-events-none px-5 min-[640px]:max-[1279px]:-mt-[8px] medium:-mt-[6.25vw] medium:px-4">
         {cmsLayout.footer.newsletter.enabled && (
-          <div className="w-full max-w-[560px] px-5 py-7 pointer-events-auto text-center small:max-w-[640px] small:px-10 small:py-9 medium:w-[46vw] medium:max-w-3xl medium:px-8 medium:py-8">
-            <h2 className="text-2xl font-bold text-black mb-3 small:text-3xl medium:text-3xl">
+          <div className="w-full max-w-[560px] px-5 py-7 pointer-events-auto text-center small:max-w-[640px] small:px-10 small:py-9 medium:w-[46vw] medium:max-w-3xl medium:px-8 medium:py-7">
+            <h2 className="text-2xl font-bold text-black mb-3 small:text-3xl medium:text-[26px] medium:leading-8">
               {cmsLayout.footer.newsletter.title}
             </h2>
-            <p className="mx-auto mb-6 max-w-[420px] text-base leading-6 text-gray-600 small:text-lg small:leading-7 medium:max-w-none medium:text-base medium:leading-normal">
+            <p className="mx-auto mb-6 max-w-[420px] text-base leading-6 text-gray-600 small:text-lg small:leading-7 medium:max-w-none medium:text-[14px] medium:leading-5">
               {cmsLayout.footer.newsletter.description}
             </p>
             <NewsletterForm />
