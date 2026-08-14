@@ -11,6 +11,7 @@ import CbaSearchForm from "@modules/layout/components/cba-search-form"
 import MobileBottomNav from "@modules/layout/components/mobile-bottom-nav"
 import MobileHeaderMenu from "@modules/layout/components/mobile-header-menu"
 import SideCart from "@modules/layout/components/side-cart"
+import ReactCountryFlag from "react-country-flag"
 import {
   ChevronDownIcon,
   CoinsIcon,
@@ -44,6 +45,14 @@ const fallbackDropdownItems = [
 
 function topLevelCategories(categories: HttpTypes.StoreProductCategory[]) {
   return categories.filter((category) => !category.parent_category).slice(0, 7)
+}
+
+function phoneNumberToTelHref(phone: string) {
+  const trimmed = phone.trim()
+  const prefix = trimmed.startsWith("+") ? "+" : ""
+  const dialable = `${prefix}${trimmed.replace(/[^\d]/g, "")}`
+
+  return dialable === prefix ? "#" : `tel:${dialable}`
 }
 
 function HeaderLink({
@@ -110,6 +119,7 @@ export default async function Nav() {
     imageUrl: cmsLayout.header.logo.image_url,
     altText: cmsLayout.header.logo.alt_text,
   }
+  const helpPhoneHref = phoneNumberToTelHref(cmsLayout.header.help.phone)
 
   return (
     <div className="relative z-50 bg-white shadow-sm">
@@ -123,9 +133,13 @@ export default async function Nav() {
                   <span className="hidden xsmall:inline">
                     {cmsLayout.header.help.label}{" "}
                   </span>
-                  <span className="text-brand font-medium">
+                  <a
+                    href={helpPhoneHref}
+                    aria-label={`Call ${cmsLayout.header.help.phone}`}
+                    className="text-brand font-medium transition-colors hover:text-brand-hover"
+                  >
                     {cmsLayout.header.help.phone}
-                  </span>
+                  </a>
                 </span>
               </div>
               <span className="block h-3.5 w-px bg-white/60" />
@@ -139,10 +153,6 @@ export default async function Nav() {
                   strokeWidth={2}
                 />
                 <span>{cmsLayout.header.help.support_label}</span>
-                <ChevronDownIcon
-                  size={14}
-                  className="hidden text-gray-400 xsmall:block"
-                />
               </HeaderLink>
             </div>
 
@@ -161,9 +171,18 @@ export default async function Nav() {
                 href="#"
                 className="flex items-center gap-1.5 hover:text-white transition-colors"
               >
-                <span className="inline-block w-[18px] h-[13px] rounded-sm overflow-hidden bg-[#002868] shadow-[inset_0_0_0_999px_rgba(255,255,255,0.02)]" />
+                <ReactCountryFlag
+                  svg
+                  countryCode="US"
+                  aria-label="United States"
+                  style={{
+                    width: "18px",
+                    height: "13px",
+                    borderRadius: "2px",
+                    display: "inline-block",
+                  }}
+                />
                 <span>{cmsLayout.header.topbar.language_label}</span>
-                <ChevronDownIcon size={14} className="text-gray-400" />
               </a>
               <span className="w-px h-3.5 bg-white" />
               <HeaderLink
