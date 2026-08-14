@@ -1,6 +1,6 @@
 import { listBestSellingProductCards } from "@lib/data/best-selling-products"
 import type { HomepageCmsSection } from "@lib/data/homepage"
-import BestSellingProductCard from "./best-selling-product-card"
+import BestSellingProductsCarousel from "./best-selling-products-carousel"
 
 type BestSellingProductsSectionProps = {
   sections: HomepageCmsSection[]
@@ -47,40 +47,32 @@ const BestSellingProductsSection = async ({
     >
       <div className="content-container">
         <div className="relative isolate overflow-visible">
-          <div className="relative mx-auto aspect-[326.5/569.13] w-full max-w-[430px] small:aspect-[1728/830] small:max-w-[1362px]">
+          <div className="relative left-1/2 aspect-[326.5/569.13] w-screen max-w-[100vw] -translate-x-1/2 md:aspect-[1728/1500] small:left-auto small:mx-auto small:aspect-[1728/830] small:w-full small:max-w-[1362px] small:translate-x-0 small:max-[1279px]:aspect-[1728/1200]">
             <MaskedBackground
-              className="small:hidden"
+              className="md:hidden"
               maskImage="/images/Asset 2.svg"
               backgroundPosition="center"
             />
             <MaskedBackground
-              className="hidden small:block"
+              className="hidden md:block"
               maskImage="/images/svgviewer-output.svg"
               backgroundPosition="center"
             />
 
-            <div className="pointer-events-none absolute left-1/2 top-[-10px] z-30 flex h-[92px] w-[min(330px,78%)] -translate-x-1/2 flex-col items-center justify-center px-4 pb-6 text-center xsmall:top-[-8px] xsmall:h-[104px] xsmall:pb-7 small:top-[-12px] small:h-[104px] small:w-[min(620px,48%)] small:pb-2">
+            <div className="pointer-events-none absolute left-1/2 top-[-10px] z-30 flex h-[92px] w-[min(330px,78%)] -translate-x-1/2 flex-col items-center justify-center px-4 pb-6 text-center xsmall:top-[-8px] xsmall:h-[104px] xsmall:pb-7 md:top-[-12px] md:h-[104px] md:w-[min(620px,48%)] md:pb-2 small:max-[1279px]:top-[-24px]">
               <h2
                 id="best-selling-products-title"
-                className="text-[22px] font-bold leading-[1.12] tracking-normal text-black xsmall:text-[26px] small:text-[34px]"
+                className="text-[22px] font-bold leading-[1.12] tracking-normal text-black xsmall:text-[26px] md:text-[24px] small:text-[34px]"
               >
                 {title}
               </h2>
-              <p className="mt-2 max-w-[620px] text-[13px] leading-5 tracking-normal text-black xsmall:text-[14px] small:text-[16px]">
+              <p className="mt-2 max-w-[620px] text-[13px] leading-5 tracking-normal text-black xsmall:text-[14px] md:text-[12px] small:text-[16px]">
                 {description}
               </p>
             </div>
 
-            <div className="absolute inset-x-0 top-[128px] z-20 px-6 xsmall:top-[148px] xsmall:px-7 small:top-[134px] small:px-10 medium:px-7 large:px-9">
-              <div className="no-scrollbar flex snap-x snap-mandatory justify-start gap-3 overflow-x-auto scroll-smooth pb-5 pl-0 pr-2 [&>[data-best-selling-product-card]]:w-[min(78vw,280px)] xsmall:[&>[data-best-selling-product-card]]:w-[calc((100%_-_12px)_/_2)] small:[&>[data-best-selling-product-card]]:w-[220px] medium:grid medium:grid-cols-5 medium:items-stretch medium:gap-3 medium:overflow-visible medium:pb-0 medium:pr-0 medium:[&>[data-best-selling-product-card]]:w-full large:gap-4">
-                {products.slice(0, 5).map((product, index) => (
-                  <BestSellingProductCard
-                    key={product.id}
-                    product={product}
-                    priority={index < 5}
-                  />
-                ))}
-              </div>
+            <div className="absolute inset-x-0 top-[156px] z-20 px-6 xsmall:top-[172px] xsmall:px-7 md:top-[134px] md:px-10 medium:top-[188px] medium:px-7 large:px-9">
+              <BestSellingProductsCarousel products={products} />
             </div>
           </div>
         </div>

@@ -270,7 +270,11 @@ export const FeaturedProductCardItem = ({
     })
 
     if (result.success) {
-      notify.success(result.message, { id: toastId })
+      if (result.status === "already_present") {
+        notify.info(result.message, { id: toastId })
+      } else {
+        notify.success(result.message, { id: toastId })
+      }
     } else {
       notify.error(result.message, "Could not add this item to wishlist.", {
         id: toastId,
@@ -283,7 +287,7 @@ export const FeaturedProductCardItem = ({
     <article
       data-featured-product-card
       className={[
-        "group flex min-w-0 snap-start flex-col overflow-hidden rounded-[8px] border border-[#e5e7eb] bg-white transition-colors hover:border-brand/50 medium:h-[468px]",
+        "group flex min-w-0 snap-start flex-col overflow-hidden rounded-[8px] border border-[#e5e7eb] bg-white transition-colors hover:border-black medium:h-[468px]",
         mobileCompact
           ? "h-[342px] small:h-[356px]"
           : "h-[436px] xsmall:h-[454px] sm:h-[468px] md:h-[488px] small:h-[512px]",
@@ -486,7 +490,7 @@ export const FeaturedProductCardItem = ({
             type="button"
             onClick={handleAddToCart}
             disabled={!isPurchasable || isAddingToCart}
-            className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-brand bg-white px-3 text-[11px] font-bold uppercase tracking-normal text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white sm:h-10"
+            className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-black bg-white px-3 text-[11px] font-bold uppercase tracking-normal text-black transition-colors hover:bg-black hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white sm:h-10"
           >
             <ShoppingCartIcon size={16} />
             {isAddingToCart ? "Adding..." : "Add to cart"}

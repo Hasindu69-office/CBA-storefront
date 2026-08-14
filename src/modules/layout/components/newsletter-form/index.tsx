@@ -67,13 +67,13 @@ export default function NewsletterForm() {
           placeholder="Email address"
           disabled={isPending}
           aria-invalid={state.status === "error"}
-          className="w-full rounded-[10px] border border-gray-200 px-7 py-3.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 medium:pr-44"
+          className="w-full rounded-[10px] border border-gray-200 px-7 py-3.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 medium:px-6 medium:py-3 medium:pr-40 medium:text-[14px]"
         />
         <button
           type="submit"
           disabled={isPending}
           aria-busy={isPending}
-          className="w-full rounded-[10px] bg-[#ff5c0e] px-6 py-3.5 font-medium text-white transition-colors hover:bg-[#e6530c] disabled:cursor-not-allowed disabled:opacity-70 medium:absolute medium:right-0 medium:top-0 medium:bottom-0 medium:w-auto medium:min-w-40 medium:py-0"
+          className="w-full rounded-[10px] bg-[#ff5c0e] px-6 py-3.5 font-medium text-white transition-colors hover:bg-[#e6530c] disabled:cursor-not-allowed disabled:opacity-70 medium:absolute medium:right-0 medium:top-0 medium:bottom-0 medium:w-auto medium:min-w-36 medium:px-5 medium:py-0 medium:text-[14px]"
         >
           {isPending ? "Subscribing..." : "Subscribe"}
         </button>

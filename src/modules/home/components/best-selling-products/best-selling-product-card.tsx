@@ -44,7 +44,7 @@ const BestSellingProductCard = ({
   const sizeClassName =
     variant === "flat"
       ? "h-[342px] w-full min-w-0 medium:h-full"
-      : "h-[400px] w-[220px] min-w-0 flex-none snap-start medium:h-full medium:w-full"
+      : "h-[400px] w-[220px] min-w-0 flex-none snap-start md:h-[430px] small:h-[400px] medium:h-full medium:w-full"
 
   const handleAddToCart = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
@@ -102,7 +102,11 @@ const BestSellingProductCard = ({
     })
 
     if (result.success) {
-      notify.success(result.message, { id: toastId })
+      if (result.status === "already_present") {
+        notify.info(result.message, { id: toastId })
+      } else {
+        notify.success(result.message, { id: toastId })
+      }
     } else {
       notify.error(result.message, "Could not add this item to wishlist.", {
         id: toastId,
@@ -120,7 +124,7 @@ const BestSellingProductCard = ({
           : "shadow-[0_12px_28px_rgba(0,0,0,0.16)] hover:shadow-[0_0_24px_rgba(255,92,24,0.72)]"
       }`}
     >
-      <div className="relative aspect-[4/3] w-full flex-shrink-0 overflow-hidden rounded-t-[8px] border-b border-[#f0f0f0] bg-white">
+      <div className="relative aspect-[4/3] w-full flex-shrink-0 overflow-hidden rounded-t-[8px] border-b border-[#f0f0f0] bg-white md:aspect-[16/9] small:aspect-[4/3]">
         <LocalizedClientLink
           href={`/products/${product.handle}`}
           className="block h-full w-full"
@@ -135,7 +139,7 @@ const BestSellingProductCard = ({
               sizes={
                 isFlat
                   ? "(min-width: 1280px) 20vw, (min-width: 1024px) 28vw, 50vw"
-                  : "(min-width: 1280px) 20vw, 220px"
+                  : "(min-width: 1280px) 20vw, (min-width: 768px) 50vw, 220px"
               }
               className={`object-contain object-center transition-transform duration-300 group-hover:scale-[1.03] ${
                 isFlat ? "p-2.5 xsmall:p-3 medium:p-3 large:p-4" : "p-3.5 medium:p-3 large:p-4"
