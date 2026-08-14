@@ -163,16 +163,6 @@ export default function MobileHeaderMenu({
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-gray-100 bg-white p-4 shadow-[0_-8px_20px_rgba(17,24,39,0.04)]">
-          <LocalizedClientLink
-            href="/store"
-            onClick={closeMenu}
-            className="flex h-12 items-center justify-center gap-2 rounded-md bg-brand text-[15px] font-bold text-white transition hover:bg-brand-hover"
-          >
-            <LayoutGridIcon size={18} />
-            Shop All Products
-          </LocalizedClientLink>
-        </div>
       </aside>
     </div>
   ) : null

@@ -8,6 +8,7 @@ import { retrieveWishlistCount } from "@lib/data/wishlist"
 import { HttpTypes, StoreCartShippingOption } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CbaSearchForm from "@modules/layout/components/cba-search-form"
+import DesktopCategoryDrawer from "@modules/layout/components/desktop-category-drawer"
 import MobileBottomNav from "@modules/layout/components/mobile-bottom-nav"
 import MobileHeaderMenu from "@modules/layout/components/mobile-header-menu"
 import SideCart from "@modules/layout/components/side-cart"
@@ -18,7 +19,6 @@ import {
   FileTextIcon,
   HeadphonesIcon,
   HeartIcon,
-  LayoutGridIcon,
   PhoneIcon,
   TagIcon,
   TruckIcon,
@@ -44,7 +44,16 @@ const fallbackDropdownItems = [
 ]
 
 function topLevelCategories(categories: HttpTypes.StoreProductCategory[]) {
-  return categories.filter((category) => !category.parent_category).slice(0, 7)
+  return categories.filter((category) => !category.parent_category)
+}
+
+function categoryLinks(categories: HttpTypes.StoreProductCategory[]) {
+  return categories
+    .map((category) => ({
+      label: category.name?.trim() ?? "",
+      href: category.handle ? `/categories/${category.handle}` : "",
+    }))
+    .filter((category) => category.label && category.href)
 }
 
 function phoneNumberToTelHref(phone: string) {
@@ -96,11 +105,9 @@ export default async function Nav() {
   }
 
   const navCategories = topLevelCategories(categories)
-  const fallbackPrimaryLinks = navCategories.length
-    ? navCategories.map((category) => ({
-        label: category.name,
-        href: `/categories/${category.handle}`,
-      }))
+  const navCategoryLinks = categoryLinks(navCategories)
+  const fallbackPrimaryLinks = navCategoryLinks.length
+    ? navCategoryLinks
     : fallbackNavLinks
   const navLinks = navigationItemsToLinks(
     cmsLayout.headerMenuItems,
@@ -108,11 +115,8 @@ export default async function Nav() {
     fallbackPrimaryLinks
   )
 
-  const dropdownItems = navCategories.length
-    ? navCategories.slice(0, 6).map((category) => ({
-        label: category.name,
-        href: `/categories/${category.handle}`,
-      }))
+  const dropdownItems = navCategoryLinks.length
+    ? navCategoryLinks
     : fallbackDropdownItems.map((label) => ({ label, href: "/store" }))
 
   const mobileMenuLogo = {
@@ -348,33 +352,10 @@ export default async function Nav() {
         <nav className="hidden bg-white pb-2 small:block">
           <div className="content-container">
             <div className="flex items-center border border-gray-100 rounded-md overflow-visible">
-              <div className="bg-[#1f1a1a] text-white h-[46px] flex items-center px-5 cursor-pointer font-medium w-[220px] justify-between group relative rounded-md flex-shrink-0">
-                <div className="flex items-center gap-3">
-                  <LayoutGridIcon size={18} />
-                  <span className="text-[14.5px]">
-                    {cmsLayout.header.commerce.all_categories_label}
-                  </span>
-                </div>
-                <ChevronDownIcon size={16} className="text-white/80" />
-
-                <div className="absolute top-full left-0 w-full bg-white text-gray-800 shadow-lg border border-gray-100 hidden group-hover:block z-50 rounded-b-md">
-                  <ul className="py-2">
-                    {dropdownItems.map((item) => (
-                      <li
-                        key={item.label}
-                        className="border-b border-gray-50 last:border-b-0"
-                      >
-                        <LocalizedClientLink
-                          href={item.href}
-                          className="block px-6 py-2 hover:bg-gray-50 transition-colors text-sm"
-                        >
-                          {item.label}
-                        </LocalizedClientLink>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+              <DesktopCategoryDrawer
+                label={cmsLayout.header.commerce.all_categories_label}
+                links={dropdownItems}
+              />
 
               <div className="flex items-center flex-1 px-4 small:px-6 font-medium text-[13px] text-[#2d2d2d] overflow-x-auto whitespace-nowrap no-scrollbar">
                 {navLinks.map((link) => (
