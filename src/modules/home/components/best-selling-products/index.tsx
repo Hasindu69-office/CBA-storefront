@@ -1,6 +1,6 @@
 import { listBestSellingProductCards } from "@lib/data/best-selling-products"
 import type { HomepageCmsSection } from "@lib/data/homepage"
-import BestSellingProductCard from "./best-selling-product-card"
+import BestSellingProductsCarousel from "./best-selling-products-carousel"
 
 type BestSellingProductsSectionProps = {
   sections: HomepageCmsSection[]
@@ -47,7 +47,7 @@ const BestSellingProductsSection = async ({
     >
       <div className="content-container">
         <div className="relative isolate overflow-visible">
-          <div className="relative mx-auto aspect-[326.5/569.13] w-full max-w-[430px] small:aspect-[1728/830] small:max-w-[1362px]">
+          <div className="relative left-1/2 aspect-[326.5/569.13] w-screen max-w-[100vw] -translate-x-1/2 small:left-auto small:mx-auto small:aspect-[1728/830] small:w-full small:max-w-[1362px] small:translate-x-0">
             <MaskedBackground
               className="small:hidden"
               maskImage="/images/Asset 2.svg"
@@ -71,16 +71,8 @@ const BestSellingProductsSection = async ({
               </p>
             </div>
 
-            <div className="absolute inset-x-0 top-[128px] z-20 px-6 xsmall:top-[148px] xsmall:px-7 small:top-[134px] small:px-10 medium:px-7 large:px-9">
-              <div className="no-scrollbar flex snap-x snap-mandatory justify-start gap-3 overflow-x-auto scroll-smooth pb-5 pl-0 pr-2 [&>[data-best-selling-product-card]]:w-[min(78vw,280px)] xsmall:[&>[data-best-selling-product-card]]:w-[calc((100%_-_12px)_/_2)] small:[&>[data-best-selling-product-card]]:w-[220px] medium:grid medium:grid-cols-5 medium:items-stretch medium:gap-3 medium:overflow-visible medium:pb-0 medium:pr-0 medium:[&>[data-best-selling-product-card]]:w-full large:gap-4">
-                {products.slice(0, 5).map((product, index) => (
-                  <BestSellingProductCard
-                    key={product.id}
-                    product={product}
-                    priority={index < 5}
-                  />
-                ))}
-              </div>
+            <div className="absolute inset-x-0 top-[156px] z-20 px-6 xsmall:top-[172px] xsmall:px-7 small:top-[134px] small:px-10 medium:px-7 large:px-9">
+              <BestSellingProductsCarousel products={products} />
             </div>
           </div>
         </div>
