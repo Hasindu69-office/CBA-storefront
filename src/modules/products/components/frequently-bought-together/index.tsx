@@ -150,7 +150,11 @@ export default function FrequentlyBoughtTogether({
           message: result.message,
         })
       if (result.success) {
-        notify.success(result.message, { id: toastId })
+        if (result.addedCount === 0 && result.alreadyPresentCount > 0) {
+          notify.info(result.message, { id: toastId })
+        } else {
+          notify.success(result.message, { id: toastId })
+        }
       } else {
         notify.error(result.message, "Could not add selected products to wishlist.", {
           id: toastId,

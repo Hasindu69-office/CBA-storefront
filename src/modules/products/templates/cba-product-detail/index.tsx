@@ -231,7 +231,11 @@ export default function CbaProductDetail({
         message: result.message,
       })
       if (result.success) {
-        notify.success(result.message, { id: toastId })
+        if (result.status === "already_present") {
+          notify.info(result.message, { id: toastId })
+        } else {
+          notify.success(result.message, { id: toastId })
+        }
       } else {
         notify.error(result.message, "Could not add this item to wishlist.", {
           id: toastId,
