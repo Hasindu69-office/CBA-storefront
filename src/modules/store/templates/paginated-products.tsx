@@ -44,8 +44,8 @@ export default async function PaginatedProducts({
   categoryId?: string
   productsIds?: string[]
   query?: string
-  category?: string
-  brand?: string
+  category?: string | string[]
+  brand?: string | string[]
   minPrice?: number
   maxPrice?: number
   filters?: StoreSearchFilters
