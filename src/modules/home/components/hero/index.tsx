@@ -79,7 +79,7 @@ const Hero = ({ sections }: HeroProps) => {
 
   return (
     <section className="w-full overflow-hidden bg-white pt-2 sm:pt-3">
-      <div className="mx-0 w-full max-w-full overflow-hidden px-0 small:mx-auto small:w-[90%] small:max-w-[1440px]">
+      <div className="mx-0 w-full max-w-full overflow-hidden px-0 small:mx-auto small:w-[90%] small:max-w-[1920px]">
         <div
           className="relative isolate aspect-[16/9] min-h-[210px] overflow-hidden text-white xsmall:min-h-[230px] sm:aspect-[1839/710] sm:min-h-[300px] small:min-h-0"
           aria-roledescription="carousel"
