@@ -149,7 +149,7 @@ const TabbedSaleProductsClient = ({
               <FeaturedPrice product={banner.product} />
               <SaleCta
                 href={banner.productUrl ?? banner.ctaUrl}
-                className="flex h-11 w-full max-w-[300px] items-center justify-center gap-2 rounded-[8px] border border-black bg-white px-5 text-[13px] font-bold uppercase text-black transition-colors hover:bg-black hover:text-white"
+                className="flex h-11 w-full max-w-[300px] self-center items-center justify-center gap-2 rounded-[8px] border border-black bg-white px-5 text-[13px] font-bold uppercase text-black transition-colors hover:bg-black hover:text-white medium:self-auto"
               >
                 <ShoppingCartIcon size={16} />
                 {banner.ctaLabel}
@@ -242,7 +242,7 @@ function FeaturedPrice({
   }
 
   return (
-    <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+    <div className="flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 self-center medium:justify-start medium:self-auto">
       <p className="whitespace-nowrap text-[24px] font-bold leading-8 text-black">
         {formatAmount(product.price.calculated_amount, product.price.currency_code)}
       </p>

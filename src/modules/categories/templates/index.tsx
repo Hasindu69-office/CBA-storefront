@@ -19,6 +19,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import SkeletonProductGrid from "@modules/skeletons/templates/skeleton-product-grid"
 import ShopFilterPanel, {
   ShopSortSelect,
+  StoreMobileFilterDrawer,
 } from "@modules/store/components/shop-filter-panel"
 import PaginatedProducts from "@modules/store/templates/paginated-products"
 
@@ -170,20 +171,35 @@ export default async function CategoryTemplate({
         </section>
 
         <div className="mt-8 flex flex-col gap-6 small:flex-row small:items-start">
-          <ShopFilterPanel
-            categories={categories.filter((item) => !item.parent_category)}
-            brands={brands}
-            facets={facets}
-            selectedCategory={activeCategory}
-            selectedBrand={brand}
-            selectedMinPrice={selectedMinPrice}
-            selectedMaxPrice={selectedMaxPrice}
-            priceRangeMax={priceRangeMax}
-            selectedFilters={selectedFilters}
-            sidebarPromo={shopContent.sidebarPromo}
-          />
+          <div className="hidden small:block">
+            <ShopFilterPanel
+              categories={categories.filter((item) => !item.parent_category)}
+              brands={brands}
+              facets={facets}
+              selectedCategory={activeCategory}
+              selectedBrand={brand}
+              selectedMinPrice={selectedMinPrice}
+              selectedMaxPrice={selectedMaxPrice}
+              priceRangeMax={priceRangeMax}
+              selectedFilters={selectedFilters}
+              sidebarPromo={shopContent.sidebarPromo}
+            />
+          </div>
 
           <section className="min-w-0 flex-1">
+            <StoreMobileFilterDrawer
+              categories={categories.filter((item) => !item.parent_category)}
+              brands={brands}
+              facets={facets}
+              selectedCategory={activeCategory}
+              selectedBrand={brand}
+              selectedMinPrice={selectedMinPrice}
+              selectedMaxPrice={selectedMaxPrice}
+              priceRangeMax={priceRangeMax}
+              selectedFilters={selectedFilters}
+              resultCount={resultCount}
+            />
+
             <div className="mb-6 flex flex-col gap-4 small:flex-row small:items-center small:justify-between">
               <p className="text-[15px] leading-6 text-[#6f6f76]">
                 <span className="font-bold text-black">
