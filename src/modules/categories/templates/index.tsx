@@ -6,6 +6,7 @@ import { listCategories } from "@lib/data/categories"
 import { listShopPageContent } from "@lib/data/shop-banner"
 import {
   listStoreSearchFacets,
+  parseStoreMultiSelectParam,
   parseStoreFilters,
   parseStorePage,
   parseStorePriceBound,
@@ -42,8 +43,8 @@ export default async function CategoryTemplate({
   sortBy?: string
   page?: string
   query?: string
-  selectedCategory?: string
-  brand?: string
+  selectedCategory?: string | string[]
+  brand?: string | string[]
   minPrice?: string
   maxPrice?: string
   priceRange?: string
@@ -54,7 +55,11 @@ export default async function CategoryTemplate({
 
   const pageNumber = parseStorePage(page)
   const sort = parseStoreSearchSort(sortBy)
-  const activeCategory = selectedCategory || category.id
+  const selectedCategories = parseStoreMultiSelectParam(selectedCategory)
+  const selectedBrands = parseStoreMultiSelectParam(brand)
+  const activeCategories = selectedCategories.length
+    ? selectedCategories
+    : [category.id]
   const selectedFilters = parseStoreFilters(filters)
   const selectedMinPrice = parseStorePriceBound(minPrice)
   const selectedMaxPrice = parseStorePriceBound(maxPrice)
@@ -75,8 +80,8 @@ export default async function CategoryTemplate({
     page: pageNumber,
     limit: PRODUCT_LIMIT,
     sort,
-    category: activeCategory,
-    brand,
+    category: activeCategories,
+    brand: selectedBrands,
     minPrice: selectedMinPrice,
     maxPrice: selectedMaxPrice,
     filters: selectedFilters,
@@ -98,8 +103,8 @@ export default async function CategoryTemplate({
       listStoreBrands().catch(() => []),
       listStoreSearchFacets({
         q: query,
-        category: activeCategory,
-        brand,
+        category: activeCategories,
+        brand: selectedBrands,
       }).catch(() => []),
       productSearchPromise,
     ])
@@ -176,8 +181,8 @@ export default async function CategoryTemplate({
               categories={categories.filter((item) => !item.parent_category)}
               brands={brands}
               facets={facets}
-              selectedCategory={activeCategory}
-              selectedBrand={brand}
+              selectedCategory={activeCategories}
+              selectedBrand={selectedBrands}
               selectedMinPrice={selectedMinPrice}
               selectedMaxPrice={selectedMaxPrice}
               priceRangeMax={priceRangeMax}
@@ -191,8 +196,8 @@ export default async function CategoryTemplate({
               categories={categories.filter((item) => !item.parent_category)}
               brands={brands}
               facets={facets}
-              selectedCategory={activeCategory}
-              selectedBrand={brand}
+              selectedCategory={activeCategories}
+              selectedBrand={selectedBrands}
               selectedMinPrice={selectedMinPrice}
               selectedMaxPrice={selectedMaxPrice}
               priceRangeMax={priceRangeMax}
@@ -215,8 +220,8 @@ export default async function CategoryTemplate({
                 sortBy={sort}
                 page={pageNumber}
                 query={query}
-                category={activeCategory}
-                brand={brand}
+                category={activeCategories}
+                brand={selectedBrands}
                 minPrice={selectedMinPrice}
                 maxPrice={selectedMaxPrice}
                 filters={selectedFilters}

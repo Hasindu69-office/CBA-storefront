@@ -76,8 +76,8 @@ export async function searchStoreProducts({
   page?: number
   limit?: number
   sort?: StoreSearchSort
-  category?: string
-  brand?: string
+  category?: string | string[]
+  brand?: string | string[]
   filters?: StoreSearchFilters
   minPrice?: number
   maxPrice?: number
@@ -95,8 +95,8 @@ export async function searchStoreProducts({
         limit: safeLimit,
         offset: (safePage - 1) * safeLimit,
         sort: SORT_VALUES.has(sort) ? sort : "relevance",
-        category: cleanToken(category),
-        brand: cleanToken(brand),
+        category: serializeTokenList(category),
+        brand: serializeTokenList(brand),
         min_price: normalizePriceBound(minPrice),
         max_price: normalizePriceBound(maxPrice),
         filters: serializeFilters(filters),
@@ -130,8 +130,8 @@ export async function listStoreSearchFacets({
   brand,
 }: {
   q?: string
-  category?: string
-  brand?: string
+  category?: string | string[]
+  brand?: string | string[]
 }) {
   const payload = await sdk.client.fetch<StoreSearchFacetsResponse>(
     "/store/cba/v1/search/facets",
@@ -139,8 +139,8 @@ export async function listStoreSearchFacets({
       cache: "no-store",
       query: cleanQuery({
         q: cleanSearchQuery(q),
-        category: cleanToken(category),
-        brand: cleanToken(brand),
+        category: serializeTokenList(category),
+        brand: serializeTokenList(brand),
       }),
     }
   )
@@ -193,6 +193,23 @@ export function parseStoreSearchSort(value?: string): StoreSearchSort {
 export function parseStorePage(value?: string) {
   const parsed = Number(value ?? 1)
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 1
+}
+
+export function parseStoreMultiSelectParam(value?: string | string[]) {
+  if (!value) {
+    return []
+  }
+  const values = Array.isArray(value)
+    ? value.flatMap((item) => item.split(","))
+    : value.split(",")
+
+  return Array.from(
+    new Set(
+      values
+        .map((item) => cleanToken(item))
+        .filter((item): item is string => Boolean(item))
+    )
+  ).slice(0, 20)
 }
 
 export function parseStoreFilters(value?: string): StoreSearchFilters {
@@ -253,6 +270,11 @@ function cleanSearchQuery(value?: string) {
 function cleanToken(value?: string) {
   const text = value?.trim()
   return text && text.length <= 255 ? text : undefined
+}
+
+function serializeTokenList(value?: string | string[]) {
+  const values = parseStoreMultiSelectParam(value)
+  return values.length ? values.join(",") : undefined
 }
 
 function normalizeFilterToken(value: string) {

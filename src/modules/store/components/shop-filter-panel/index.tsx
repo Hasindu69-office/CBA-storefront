@@ -16,8 +16,8 @@ type ShopFilterPanelProps = {
   categories: HttpTypes.StoreProductCategory[]
   brands: StorefrontBrand[]
   facets: StoreSearchFacet[]
-  selectedCategory?: string
-  selectedBrand?: string
+  selectedCategory?: string | string[]
+  selectedBrand?: string | string[]
   selectedMinPrice?: number
   selectedMaxPrice?: number
   priceRangeMax: number
@@ -35,6 +35,7 @@ const sortOptions: Array<{ value: StoreSearchSort; label: string }> = [
 
 const FILTER_OPTION_LIST_CLASS =
   "flex max-h-[250px] flex-col gap-4 overflow-y-auto pr-1"
+const MAX_SELECTED_FILTER_VALUES = 20
 
 export default function ShopFilterPanel({
   categories,
@@ -52,6 +53,14 @@ export default function ShopFilterPanel({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const selectedCategories = useMemo(
+    () => parseSelectedTokenParam(selectedCategory),
+    [selectedCategory]
+  )
+  const selectedBrands = useMemo(
+    () => parseSelectedTokenParam(selectedBrand),
+    [selectedBrand]
+  )
   const [categoryQuery, setCategoryQuery] = useState("")
   const [brandQuery, setBrandQuery] = useState("")
   const [priceMin, setPriceMin] = useState(String(selectedMinPrice ?? 0))
@@ -97,24 +106,36 @@ export default function ShopFilterPanel({
   }
 
   function toggleCategory(categoryId: string) {
-    const isRemoving = selectedCategory === categoryId
+    const nextCategories = toggleSelectedToken(selectedCategories, categoryId)
+    const isRemoving = nextCategories.length < selectedCategories.length
+    if (nextCategories.length > MAX_SELECTED_FILTER_VALUES) {
+      notify.warning(`You can select up to ${MAX_SELECTED_FILTER_VALUES} categories.`)
+      return
+    }
+
     pushParams((params) => {
-      if (isRemoving) {
-        params.delete("category")
+      if (nextCategories.length) {
+        params.set("category", nextCategories.join(","))
       } else {
-        params.set("category", categoryId)
+        params.delete("category")
       }
     })
     notifyFilterChange(isRemoving ? "removed" : "applied")
   }
 
   function toggleBrand(brandId: string) {
-    const isRemoving = selectedBrand === brandId
+    const nextBrands = toggleSelectedToken(selectedBrands, brandId)
+    const isRemoving = nextBrands.length < selectedBrands.length
+    if (nextBrands.length > MAX_SELECTED_FILTER_VALUES) {
+      notify.warning(`You can select up to ${MAX_SELECTED_FILTER_VALUES} brands.`)
+      return
+    }
+
     pushParams((params) => {
-      if (isRemoving) {
-        params.delete("brand")
+      if (nextBrands.length) {
+        params.set("brand", nextBrands.join(","))
       } else {
-        params.set("brand", brandId)
+        params.delete("brand")
       }
     })
     notifyFilterChange(isRemoving ? "removed" : "applied")
@@ -125,6 +146,12 @@ export default function ShopFilterPanel({
       JSON.stringify(selectedFilters)
     )
     const values = toggleFilterValue(key, nextFilters[key] ?? [], value)
+    if (values.length > (nextFilters[key] ?? []).length && values.length > MAX_SELECTED_FILTER_VALUES) {
+      notify.warning(
+        `You can select up to ${MAX_SELECTED_FILTER_VALUES} options in this section.`
+      )
+      return
+    }
     if (values.length) {
       nextFilters[key] = values
     } else {
@@ -258,7 +285,7 @@ export default function ShopFilterPanel({
             const count = Array.isArray(category.products)
               ? category.products.length
               : undefined
-            const checked = selectedCategory === category.id
+            const checked = selectedCategories.includes(category.id)
             return (
               <label
                 key={category.id}
@@ -299,7 +326,7 @@ export default function ShopFilterPanel({
             />
             <div className={`mt-5 ${FILTER_OPTION_LIST_CLASS}`}>
               {visibleBrands.map((brand) => {
-                const checked = selectedBrand === brand.id
+                const checked = selectedBrands.includes(brand.id)
                 return (
                   <label
                     key={brand.id}
@@ -539,7 +566,14 @@ export function StoreMobileFilterDrawer({
   function removeAppliedFilter(item: AppliedFilterItem) {
     pushParams((params) => {
       if (item.type === "category" || item.type === "brand") {
-        params.delete(item.type)
+        const nextValues = parseSelectedTokenParam(params.get(item.type)).filter(
+          (value) => value !== item.value
+        )
+        if (nextValues.length) {
+          params.set(item.type, nextValues.join(","))
+        } else {
+          params.delete(item.type)
+        }
         return
       }
 
@@ -855,6 +889,7 @@ type AppliedFilterItem =
   | {
       id: string
       type: "category" | "brand" | "price"
+      value?: string
       label: string
     }
   | {
@@ -878,31 +913,31 @@ function buildAppliedFilterItems({
   categories: HttpTypes.StoreProductCategory[]
   brands: StorefrontBrand[]
   facets: StoreSearchFacet[]
-  selectedCategory?: string
-  selectedBrand?: string
+  selectedCategory?: string | string[]
+  selectedBrand?: string | string[]
   selectedMinPrice?: number
   selectedMaxPrice?: number
   selectedFilters: StoreSearchFilters
 }) {
   const items: AppliedFilterItem[] = []
 
-  if (selectedCategory) {
+  for (const categoryId of parseSelectedTokenParam(selectedCategory)) {
     const categoryName =
-      categories.find((category) => category.id === selectedCategory)?.name ??
-      "Category"
+      categories.find((category) => category.id === categoryId)?.name ?? "Category"
     items.push({
-      id: `category:${selectedCategory}`,
+      id: `category:${categoryId}`,
       type: "category",
+      value: categoryId,
       label: categoryName,
     })
   }
 
-  if (selectedBrand) {
-    const brandName =
-      brands.find((brand) => brand.id === selectedBrand)?.name ?? "Brand"
+  for (const brandId of parseSelectedTokenParam(selectedBrand)) {
+    const brandName = brands.find((brand) => brand.id === brandId)?.name ?? "Brand"
     items.push({
-      id: `brand:${selectedBrand}`,
+      id: `brand:${brandId}`,
       type: "brand",
+      value: brandId,
       label: brandName,
     })
   }
@@ -972,6 +1007,35 @@ function parseSelectedFiltersParam(value: string | null): StoreSearchFilters {
   } catch {
     return {}
   }
+}
+
+function parseSelectedTokenParam(value: string | string[] | null | undefined) {
+  if (!value) {
+    return []
+  }
+
+  const rawValues = Array.isArray(value)
+    ? value.flatMap((item) => item.split(","))
+    : value.split(",")
+
+  return Array.from(
+    new Set(
+      rawValues
+        .map((item) => item.trim())
+        .filter((item) => item && item.length <= 255)
+    )
+  ).slice(0, MAX_SELECTED_FILTER_VALUES)
+}
+
+function toggleSelectedToken(values: string[], value: string) {
+  const token = value.trim()
+  if (!token || token.length > 255) {
+    return values
+  }
+  if (values.includes(token)) {
+    return values.filter((item) => item !== token)
+  }
+  return [...values, token]
 }
 
 function formatPriceFilterValue(value: number) {
