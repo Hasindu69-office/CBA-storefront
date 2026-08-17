@@ -255,7 +255,7 @@ export default function SideCart({
                 leaveTo="translate-x-full"
               >
                 <Dialog.Panel
-                  className="flex h-screen w-full max-w-[520px] flex-col overflow-hidden rounded-l-none bg-white shadow-2xl small:rounded-l-lg"
+                  className="flex h-[100dvh] max-h-[100dvh] w-[min(86vw,360px)] flex-col overflow-hidden rounded-l-[8px] bg-white shadow-2xl small:h-screen small:w-full small:max-w-[520px] small:rounded-l-lg"
                   data-testid="side-cart-drawer"
                 >
                   <SideCartDrawer
@@ -355,17 +355,21 @@ function SideCartDrawer({
 
   return (
     <>
-      <div className="shrink-0 px-5 pb-2 pt-5 small:px-6">
+      <div className="shrink-0 px-4 pb-2 pt-4 small:px-6 small:pt-5">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand">
-              <ShoppingCartIcon size={22} strokeWidth={1.8} />
+          <div className="flex min-w-0 items-start gap-2.5 small:gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand small:h-11 small:w-11">
+              <ShoppingCartIcon
+                size={19}
+                strokeWidth={1.8}
+                className="small:h-[22px] small:w-[22px]"
+              />
             </div>
             <div className="min-w-0">
-              <Dialog.Title className="text-[22px] font-bold leading-7 text-[#111827]">
+              <Dialog.Title className="text-[18px] font-bold leading-6 text-[#111827] small:text-[22px] small:leading-7">
                 Your Cart ({itemCount})
               </Dialog.Title>
-              <Dialog.Description className="mt-1 text-[13px] leading-[18px] text-[#596070]">
+              <Dialog.Description className="mt-1 text-[12px] leading-4 text-[#596070] small:text-[13px] small:leading-[18px]">
                 Almost there! Review your items and proceed to checkout.
               </Dialog.Description>
             </div>
@@ -395,7 +399,7 @@ function SideCartDrawer({
 
       {hasItems && cart ? (
         <>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-2 small:px-6">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2 small:px-6">
             <div className="flex flex-col gap-2.5">
               {sortedItems.map((item) => (
                 <SideCartItem
@@ -410,7 +414,7 @@ function SideCartDrawer({
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-gray-100 bg-white px-5 pb-5 pt-3 shadow-[0_-8px_20px_rgba(17,24,39,0.04)] small:px-6">
+          <div className="shrink-0 border-t border-gray-100 bg-white px-4 pb-4 pt-3 shadow-[0_-8px_20px_rgba(17,24,39,0.04)] small:px-6 small:pb-5">
             <FreeShippingStrip cart={cart} shippingOptions={shippingOptions} />
             <SideCartCouponForm
               promotions={cart.promotions ?? []}
@@ -428,10 +432,10 @@ function SideCartDrawer({
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand/10 text-brand">
             <Spinner />
           </div>
-          <p className="mt-5 text-[18px] font-bold text-[#111827]">
+          <p className="mt-5 text-[16px] font-bold text-[#111827] small:text-[18px]">
             Updating your cart
           </p>
-          <p className="mt-2 max-w-[280px] text-[13px] leading-5 text-[#6b7280]">
+          <p className="mt-2 max-w-[280px] text-[12px] leading-5 text-[#6b7280] small:text-[13px]">
             Your item is being added. The cart will update in a moment.
           </p>
         </div>
@@ -440,16 +444,16 @@ function SideCartDrawer({
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand/10 text-brand">
             <ShoppingCartIcon size={28} strokeWidth={1.8} />
           </div>
-          <p className="mt-5 text-[18px] font-bold text-[#111827]">
+          <p className="mt-5 text-[16px] font-bold text-[#111827] small:text-[18px]">
             Your shopping cart is empty.
           </p>
-          <p className="mt-2 max-w-[280px] text-[13px] leading-5 text-[#6b7280]">
+          <p className="mt-2 max-w-[280px] text-[12px] leading-5 text-[#6b7280] small:text-[13px]">
             Add products to your cart and review them here before checkout.
           </p>
           <LocalizedClientLink
             href="/store"
             onClick={onClose}
-            className="mt-7 inline-flex h-12 items-center justify-center rounded-md bg-brand px-6 text-[15px] font-semibold text-white transition hover:bg-brand-hover"
+            className="mt-7 inline-flex h-11 items-center justify-center rounded-md bg-brand px-5 text-[13px] font-semibold text-white transition hover:bg-brand-hover small:h-12 small:px-6 small:text-[15px]"
           >
             Explore products
           </LocalizedClientLink>
@@ -562,12 +566,12 @@ function SideCartItem({
   return (
     <article
       className={[
-        "rounded-md border border-gray-100 bg-white p-3 shadow-[0_3px_12px_rgba(17,24,39,0.07)] transition-opacity",
+        "rounded-md border border-gray-100 bg-white p-2.5 shadow-[0_3px_12px_rgba(17,24,39,0.07)] transition-opacity small:p-3",
         isPending ? "pointer-events-none opacity-60" : "",
       ].join(" ")}
       aria-busy={isPending}
     >
-      <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-3">
+      <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-2.5 small:grid-cols-[72px_minmax(0,1fr)] small:gap-3">
         <LocalizedClientLink
           href={`/products/${item.product_handle}`}
           className="block self-center"
@@ -576,7 +580,7 @@ function SideCartItem({
             thumbnail={item.thumbnail}
             images={item.variant?.product?.images}
             size="square"
-            className="!w-[72px] !rounded-md !bg-transparent !p-0 !shadow-none [&_img]:!object-contain"
+            className="!w-[64px] !rounded-md !bg-transparent !p-0 !shadow-none small:!w-[72px] [&_img]:!object-contain"
           />
         </LocalizedClientLink>
 
@@ -585,24 +589,24 @@ function SideCartItem({
             <div className="min-w-0">
               <LocalizedClientLink
                 href={`/products/${item.product_handle}`}
-                className="block text-[13px] font-bold leading-[18px] text-[#111827] transition hover:text-brand"
+                className="block text-[12px] font-bold leading-4 text-[#111827] transition hover:text-brand small:text-[13px] small:leading-[18px]"
                 data-testid="side-cart-product-link"
               >
                 {item.product_title}
               </LocalizedClientLink>
               {subtitle && (
-                <p className="mt-0.5 text-[12px] leading-4 text-[#596070]">
+                <p className="mt-0.5 text-[11px] leading-4 text-[#596070] small:text-[12px]">
                   {subtitle}
                 </p>
               )}
             </div>
-            <p className="shrink-0 whitespace-nowrap text-right text-[13px] font-bold text-brand">
+            <p className="shrink-0 whitespace-nowrap text-right text-[12px] font-bold text-brand small:text-[13px]">
               {money(item.total, currencyCode)}
             </p>
           </div>
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#009c68]">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#009c68] small:text-[12px]">
               <CheckCircleSolid className="h-4 w-4" />
               In Stock
             </span>
@@ -613,19 +617,19 @@ function SideCartItem({
                   type="button"
                   onClick={() => changeQuantity(draftQuantity - 1)}
                   disabled={disabled || isPending || draftQuantity <= MIN_QUANTITY}
-                  className="flex w-8 items-center justify-center text-[#4b5563] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300"
+                  className="flex w-7 items-center justify-center text-[#4b5563] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300 small:w-8"
                   aria-label={`Decrease quantity of ${item.product_title}`}
                 >
                   <Minus className="h-4 w-4" />
                 </button>
-                <span className="flex w-8 items-center justify-center border-x border-gray-200 text-[13px] font-medium text-[#111827]">
+                <span className="flex w-8 items-center justify-center border-x border-gray-200 text-[12px] font-medium text-[#111827] small:text-[13px]">
                   {draftQuantity}
                 </span>
                 <button
                   type="button"
                   onClick={() => changeQuantity(draftQuantity + 1)}
                   disabled={disabled || isPending || draftQuantity >= MAX_QUANTITY}
-                  className="flex w-8 items-center justify-center text-[#4b5563] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300"
+                  className="flex w-7 items-center justify-center text-[#4b5563] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300 small:w-8"
                   aria-label={`Increase quantity of ${item.product_title}`}
                 >
                   <Plus className="h-4 w-4" />
@@ -743,15 +747,17 @@ function SideCartCouponForm({
   return (
     <div className="mb-3">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-[13px] font-bold text-[#111827]">Coupon code</p>
+        <p className="text-[12px] font-bold text-[#111827] small:text-[13px]">
+          Coupon code
+        </p>
         {automaticPromotions && (
           <span className="text-[11px] font-semibold text-emerald-700">
             Store offer applied
           </span>
         )}
       </div>
-      <div className="flex h-11 overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_2px_8px_rgba(17,24,39,0.04)] focus-within:border-brand">
-        <span className="flex w-10 shrink-0 items-center justify-center border-r border-gray-200 text-brand">
+      <div className="flex h-10 overflow-hidden rounded-md border border-gray-200 bg-white shadow-[0_2px_8px_rgba(17,24,39,0.04)] focus-within:border-brand small:h-11">
+        <span className="flex w-9 shrink-0 items-center justify-center border-r border-gray-200 text-brand small:w-10">
           <Tag className="h-5 w-5" />
         </span>
         <label htmlFor="side-cart-coupon" className="sr-only">
@@ -769,7 +775,7 @@ function SideCartCouponForm({
           }}
           maxLength={PROMOTION_CODE_MAX_LENGTH}
           placeholder="Enter coupon code"
-          className="min-w-0 flex-1 px-3 text-[13px] outline-none placeholder:text-[#8b90a0]"
+          className="min-w-0 flex-1 origin-left scale-[0.875] px-3 text-[16px] outline-none placeholder:text-[#8b90a0] small:scale-100 small:text-[13px]"
           disabled={disabled}
           data-testid="side-cart-discount-input"
         />
@@ -777,7 +783,7 @@ function SideCartCouponForm({
           type="button"
           onClick={submit}
           disabled={disabled || isPending}
-          className="m-1 rounded-md bg-brand px-3 text-[13px] font-semibold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
+          className="m-1 rounded-md bg-brand px-3 text-[12px] font-semibold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50 small:text-[13px]"
           data-testid="side-cart-discount-apply"
         >
           {isPending ? "Applying" : "Apply"}
@@ -792,7 +798,7 @@ function SideCartCouponForm({
               type="button"
               onClick={() => onRemove(promotionCode)}
               disabled={disabled || isPending}
-              className="inline-flex min-h-8 items-center gap-2 rounded-md border border-brand/25 bg-[#fff7f1] px-3 py-1.5 text-[12px] font-semibold text-[#333740] hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-8 items-center gap-2 rounded-md border border-brand/25 bg-[#fff7f1] px-3 py-1.5 text-[11px] font-semibold text-[#333740] hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60 small:text-[12px]"
               aria-label={`Remove coupon ${promotionCode}`}
             >
               {promotionCode}
@@ -801,7 +807,7 @@ function SideCartCouponForm({
           ))}
           {automaticPromotions && (
             <span
-              className="inline-flex min-h-8 items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[12px] font-semibold text-emerald-700"
+              className="inline-flex min-h-8 items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 small:text-[12px]"
               title="Automatic offers are applied by the store when your cart is eligible."
             >
               Store discount applied
@@ -851,7 +857,7 @@ function SideCartSummary({
 
   return (
     <div>
-      <div className="flex flex-col gap-1.5 border-b border-gray-100 pb-3 text-[13px] text-[#333740]">
+      <div className="flex flex-col gap-1.5 border-b border-gray-100 pb-3 text-[12px] text-[#333740] small:text-[13px]">
         <div className="flex items-center justify-between gap-4">
           <span>Subtotal ({itemCount} items)</span>
           <span className="font-medium">
@@ -876,7 +882,7 @@ function SideCartSummary({
             </span>
             <span className="text-right">
               {mapped.shippingBeforeDiscountDisplay && (
-                <span className="block text-[12px] font-medium text-[#8b90a0] line-through">
+                <span className="block text-[11px] font-medium text-[#8b90a0] line-through small:text-[12px]">
                   {mapped.shippingBeforeDiscountDisplay}
                 </span>
               )}
@@ -901,13 +907,15 @@ function SideCartSummary({
       </div>
 
       <div className="flex items-start justify-between gap-4 py-3">
-        <span className="text-[17px] font-bold text-[#111827]">Total</span>
+        <span className="text-[16px] font-bold text-[#111827] small:text-[17px]">
+          Total
+        </span>
         <span className="text-right">
-          <span className="block text-[20px] font-bold text-brand">
+          <span className="block text-[18px] font-bold text-brand small:text-[20px]">
             {mapped.total.display}
           </span>
           {mapped.taxNote && (
-            <span className="mt-0.5 block text-[11px] text-[#596070]" aria-live="polite">
+            <span className="mt-0.5 block text-[10px] text-[#596070] small:text-[11px]" aria-live="polite">
               {mapped.taxNote}
             </span>
           )}
@@ -918,7 +926,7 @@ function SideCartSummary({
         <button
           type="button"
           disabled
-          className="inline-flex h-11 w-full cursor-not-allowed items-center justify-center gap-3 rounded-md bg-brand px-5 text-[15px] font-bold text-white opacity-60"
+          className="inline-flex h-10 w-full cursor-not-allowed items-center justify-center gap-2.5 rounded-md bg-brand px-4 text-[13px] font-bold text-white opacity-60 small:h-11 small:gap-3 small:px-5 small:text-[15px]"
           data-testid="side-cart-checkout"
         >
           <LockClosedSolid className="h-5 w-5" />
@@ -929,7 +937,7 @@ function SideCartSummary({
         <LocalizedClientLink
           href={checkoutHref}
           onClick={onClose}
-          className="inline-flex h-11 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[15px] font-bold text-white transition hover:bg-brand-hover"
+          className="inline-flex h-10 w-full items-center justify-center gap-2.5 rounded-md bg-brand px-4 text-[13px] font-bold text-white transition hover:bg-brand-hover small:h-11 small:gap-3 small:px-5 small:text-[15px]"
           data-testid="side-cart-checkout"
         >
           <LockClosedSolid className="h-5 w-5" />
@@ -941,7 +949,7 @@ function SideCartSummary({
       <LocalizedClientLink
         href="/cart"
         onClick={onClose}
-        className="mt-2.5 inline-flex h-10 w-full items-center justify-center gap-3 rounded-md border border-brand bg-white px-5 text-[15px] font-bold text-brand transition hover:bg-brand/5"
+        className="mt-2.5 inline-flex h-10 w-full items-center justify-center gap-2.5 rounded-md border border-brand bg-white px-4 text-[13px] font-bold text-brand transition hover:bg-brand/5 small:gap-3 small:px-5 small:text-[15px]"
         data-testid="side-cart-view-cart"
       >
         <ShoppingCartIcon size={20} strokeWidth={1.8} />

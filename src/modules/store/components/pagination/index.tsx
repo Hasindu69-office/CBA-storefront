@@ -1,114 +1,177 @@
 "use client"
 
 import { clx } from "@medusajs/ui"
+import { ChevronDownIcon } from "@modules/layout/components/cba-icons"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
 export function Pagination({
   page,
   totalPages,
-  'data-testid': dataTestid
+  "data-testid": dataTestid,
 }: {
   page: number
   totalPages: number
-  'data-testid'?: string
+  "data-testid"?: string
 }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const currentPage = Math.min(Math.max(page, 1), totalPages)
+  const canGoPrevious = currentPage > 1
+  const canGoNext = currentPage < totalPages
 
-  // Helper function to generate an array of numbers within a range
   const arrayRange = (start: number, stop: number) =>
     Array.from({ length: stop - start + 1 }, (_, index) => start + index)
 
-  // Function to handle page changes
   const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) {
+      return
+    }
+
     const params = new URLSearchParams(searchParams)
     params.set("page", newPage.toString())
     router.push(`${pathname}?${params.toString()}`)
   }
 
-  // Function to render a page button
-  const renderPageButton = (
-    p: number,
-    label: string | number,
-    isCurrent: boolean
-  ) => (
-    <button
-      key={p}
-      className={clx("txt-xlarge-plus text-ui-fg-muted", {
-        "text-ui-fg-base hover:text-ui-fg-subtle": isCurrent,
-      })}
-      disabled={isCurrent}
-      onClick={() => handlePageChange(p)}
-    >
-      {label}
-    </button>
-  )
+  const renderPageButton = (p: number) => {
+    const isCurrent = p === currentPage
 
-  // Function to render ellipsis
+    return (
+      <button
+        key={p}
+        type="button"
+        className={clx(
+          "flex h-10 min-w-10 items-center justify-center rounded-[8px] border px-3 text-[14px] font-bold transition-colors",
+          {
+            "border-brand bg-brand text-white shadow-[0_8px_18px_rgba(255,92,14,0.22)]":
+              isCurrent,
+            "border-[#e5e7eb] bg-white text-[#596070] hover:border-brand hover:text-brand":
+              !isCurrent,
+          }
+        )}
+        disabled={isCurrent}
+        aria-current={isCurrent ? "page" : undefined}
+        aria-label={isCurrent ? `Current page, page ${p}` : `Go to page ${p}`}
+        onClick={() => handlePageChange(p)}
+      >
+        {p}
+      </button>
+    )
+  }
+
   const renderEllipsis = (key: string) => (
     <span
       key={key}
-      className="txt-xlarge-plus text-ui-fg-muted items-center cursor-default"
+      className="flex h-10 min-w-8 items-center justify-center text-[14px] font-bold text-[#9ca3af]"
+      aria-hidden="true"
     >
       ...
     </span>
   )
 
-  // Function to render page buttons based on the current page and total pages
   const renderPageButtons = () => {
-    const buttons = []
-
     if (totalPages <= 7) {
-      // Show all pages
-      buttons.push(
-        ...arrayRange(1, totalPages).map((p) =>
-          renderPageButton(p, p, p === page)
-        )
-      )
-    } else {
-      // Handle different cases for displaying pages and ellipses
-      if (page <= 4) {
-        // Show 1, 2, 3, 4, 5, ..., lastpage
-        buttons.push(
-          ...arrayRange(1, 5).map((p) => renderPageButton(p, p, p === page))
-        )
-        buttons.push(renderEllipsis("ellipsis1"))
-        buttons.push(
-          renderPageButton(totalPages, totalPages, totalPages === page)
-        )
-      } else if (page >= totalPages - 3) {
-        // Show 1, ..., lastpage - 4, lastpage - 3, lastpage - 2, lastpage - 1, lastpage
-        buttons.push(renderPageButton(1, 1, 1 === page))
-        buttons.push(renderEllipsis("ellipsis2"))
-        buttons.push(
-          ...arrayRange(totalPages - 4, totalPages).map((p) =>
-            renderPageButton(p, p, p === page)
-          )
-        )
-      } else {
-        // Show 1, ..., page - 1, page, page + 1, ..., lastpage
-        buttons.push(renderPageButton(1, 1, 1 === page))
-        buttons.push(renderEllipsis("ellipsis3"))
-        buttons.push(
-          ...arrayRange(page - 1, page + 1).map((p) =>
-            renderPageButton(p, p, p === page)
-          )
-        )
-        buttons.push(renderEllipsis("ellipsis4"))
-        buttons.push(
-          renderPageButton(totalPages, totalPages, totalPages === page)
-        )
-      }
+      return arrayRange(1, totalPages).map((p) => renderPageButton(p))
     }
 
-    return buttons
+    if (currentPage <= 4) {
+      return [
+        ...arrayRange(1, 5).map((p) => renderPageButton(p)),
+        renderEllipsis("ellipsis-start"),
+        renderPageButton(totalPages),
+      ]
+    }
+
+    if (currentPage >= totalPages - 3) {
+      return [
+        renderPageButton(1),
+        renderEllipsis("ellipsis-end"),
+        ...arrayRange(totalPages - 4, totalPages).map((p) =>
+          renderPageButton(p)
+        ),
+      ]
+    }
+
+    return [
+      renderPageButton(1),
+      renderEllipsis("ellipsis-before-current"),
+      ...arrayRange(currentPage - 1, currentPage + 1).map((p) =>
+        renderPageButton(p)
+      ),
+      renderEllipsis("ellipsis-after-current"),
+      renderPageButton(totalPages),
+    ]
   }
 
-  // Render the component
+  const renderDirectionButton = (
+    direction: "previous" | "next",
+    disabled: boolean
+  ) => {
+    const isPrevious = direction === "previous"
+    const targetPage = isPrevious ? currentPage - 1 : currentPage + 1
+    const label = isPrevious ? "Previous" : "Next"
+
+    return (
+      <button
+        type="button"
+        className={clx(
+          "flex h-10 items-center justify-center gap-1.5 rounded-[8px] border px-2 text-[12px] font-bold transition-colors xsmall:gap-2 xsmall:px-4 xsmall:text-[13px] small:h-11 small:px-5 small:text-[14px]",
+          {
+            "cursor-not-allowed border-[#ececf1] bg-[#f7f7f8] text-[#a1a1aa]":
+              disabled,
+            "border-[#d9dde3] bg-white text-[#111827] hover:border-brand hover:text-brand":
+              !disabled,
+          }
+        )}
+        disabled={disabled}
+        aria-label={`${label} page`}
+        onClick={() => handlePageChange(targetPage)}
+      >
+        {isPrevious && (
+          <ChevronDownIcon
+            size={15}
+            strokeWidth={2.2}
+            className="rotate-90"
+            aria-hidden="true"
+          />
+        )}
+        <span>{label}</span>
+        {!isPrevious && (
+          <ChevronDownIcon
+            size={15}
+            strokeWidth={2.2}
+            className="-rotate-90"
+            aria-hidden="true"
+          />
+        )}
+      </button>
+    )
+  }
+
   return (
-    <div className="flex justify-center w-full mt-12">
-      <div className="flex gap-3 items-end" data-testid={dataTestid}>{renderPageButtons()}</div>
-    </div>
+    <nav
+      className="mb-[calc(92px+env(safe-area-inset-bottom))] mt-10 flex w-full justify-center small:mb-0 small:mt-12"
+      aria-label="Product pagination"
+      data-testid={dataTestid}
+    >
+      <div className="flex w-full max-w-[420px] items-center justify-between gap-2 rounded-[8px] border border-[#ececf1] bg-white p-2 shadow-[0_8px_24px_rgba(17,24,39,0.06)] small:hidden">
+        {renderDirectionButton("previous", !canGoPrevious)}
+        <span
+          className="min-w-0 px-1 text-center text-[12px] font-bold text-[#111827] xsmall:px-2 xsmall:text-[13px]"
+          aria-live="polite"
+        >
+          Page {currentPage} of {totalPages}
+        </span>
+        {renderDirectionButton("next", !canGoNext)}
+      </div>
+
+      <div className="hidden items-center gap-2 rounded-[8px] border border-[#ececf1] bg-white p-2 shadow-[0_8px_24px_rgba(17,24,39,0.06)] small:flex">
+        {renderDirectionButton("previous", !canGoPrevious)}
+        <div className="flex items-center gap-1.5 px-1">
+          {renderPageButtons()}
+        </div>
+        {renderDirectionButton("next", !canGoNext)}
+      </div>
+    </nav>
   )
 }
