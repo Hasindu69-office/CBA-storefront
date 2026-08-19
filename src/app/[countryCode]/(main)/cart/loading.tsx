@@ -1,5 +1,5 @@
-import SkeletonCartPage from "@modules/skeletons/templates/skeleton-cart-page"
+import EcommerceLoader from "@modules/common/components/ecommerce-loader"
 
 export default function Loading() {
-  return <SkeletonCartPage />
+  return <EcommerceLoader label="Loading cart" />
 }

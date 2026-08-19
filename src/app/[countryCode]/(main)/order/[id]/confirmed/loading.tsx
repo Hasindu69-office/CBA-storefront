@@ -1,5 +1,5 @@
-import SkeletonOrderConfirmed from "@modules/skeletons/templates/skeleton-order-confirmed"
+import EcommerceLoader from "@modules/common/components/ecommerce-loader"
 
 export default function Loading() {
-  return <SkeletonOrderConfirmed />
+  return <EcommerceLoader label="Loading order confirmation" />
 }
