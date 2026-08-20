@@ -16,6 +16,8 @@ import { listCollections } from "@lib/data/collections"
 import { listFeaturedProductCards } from "@lib/data/featured-products"
 import { listHomepageContent } from "@lib/data/homepage"
 import { getRegion } from "@lib/data/regions"
+import { retrieveWishlistedProductIds } from "@lib/data/wishlist"
+import { WishlistProductProvider } from "@modules/wishlist/components/wishlist-product-button"
 
 export const metadata: Metadata = {
   title: "CBA Ebiz",
@@ -36,6 +38,7 @@ export default async function Home(props: {
     categorySliderItems,
     homepageContent,
     featuredProducts,
+    wishlistedProductIds,
   ] =
     await Promise.all([
       getRegion(countryCode),
@@ -45,6 +48,10 @@ export default async function Home(props: {
       listCategorySliderItems().catch(() => []),
       listHomepageContent().catch(() => ({ page: null, sections: [] })),
       listFeaturedProductCards().catch(() => []),
+      retrieveWishlistedProductIds({
+        country_code: countryCode,
+        currency_code: "lkr",
+      }),
     ])
 
   const { collections } = collectionResult
@@ -56,12 +63,14 @@ export default async function Home(props: {
   return (
     <>
       <Hero sections={homepageContent.sections} />
-      <TabbedSaleProductsSection sections={homepageContent.sections} />
-      <CategorySlider categories={categorySliderItems} />
-      <HomePromoBanner sections={homepageContent.sections} />
-      <FeaturedProductSlider products={featuredProducts} />
-      <BestSellingProductsSection sections={homepageContent.sections} />
-      <TopSellingProductsSection sections={homepageContent.sections} />
+      <WishlistProductProvider initialProductIds={wishlistedProductIds}>
+        <TabbedSaleProductsSection sections={homepageContent.sections} />
+        <CategorySlider categories={categorySliderItems} />
+        <HomePromoBanner sections={homepageContent.sections} />
+        <FeaturedProductSlider products={featuredProducts} />
+        <BestSellingProductsSection sections={homepageContent.sections} />
+        <TopSellingProductsSection sections={homepageContent.sections} />
+      </WishlistProductProvider>
       <InformationColumnsSection sections={homepageContent.sections} />
       <BrandAutoSlider sections={homepageContent.sections} />
       <HomepagePromoTileGrid sections={homepageContent.sections} />

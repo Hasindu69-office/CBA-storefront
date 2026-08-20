@@ -6,16 +6,15 @@ import { useParams } from "next/navigation"
 
 import { addToCart } from "@lib/data/cart"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
-import { addFeaturedProductToWishlist } from "@lib/data/wishlist"
 import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import { openSideCart } from "@lib/util/side-cart-event"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import PlaceholderImage from "@modules/common/icons/placeholder-image"
 import {
-  HeartIcon,
   ShoppingCartIcon,
 } from "@modules/layout/components/cba-icons"
+import { WishlistProductButton } from "@modules/wishlist/components/wishlist-product-button"
 
 type BestSellingProductCardProps = {
   product: FeaturedProductCard
@@ -30,7 +29,6 @@ const BestSellingProductCard = ({
 }: BestSellingProductCardProps) => {
   const countryCode = useParams().countryCode as string
   const [isAddingToCart, setIsAddingToCart] = useState(false)
-  const [isAddingToWishlist, setIsAddingToWishlist] = useState(false)
 
   const isPurchasable =
     !!product.default_variant?.id &&
@@ -81,38 +79,6 @@ const BestSellingProductCard = ({
     } finally {
       setIsAddingToCart(false)
     }
-  }
-
-  const handleAddToWishlist = async (event: MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault()
-    event.stopPropagation()
-
-    if (!product.default_variant?.id) {
-      notify.error("Please select a valid product.")
-      return
-    }
-
-    const toastId = `best-selling-wishlist:${product.id}`
-    notify.loading("Adding item to wishlist...", { id: toastId })
-    setIsAddingToWishlist(true)
-
-    const result = await addFeaturedProductToWishlist({
-      productId: product.product_id ?? product.id,
-      variantId: product.default_variant.id,
-    })
-
-    if (result.success) {
-      if (result.status === "already_present") {
-        notify.info(result.message, { id: toastId })
-      } else {
-        notify.success(result.message, { id: toastId })
-      }
-    } else {
-      notify.error(result.message, "Could not add this item to wishlist.", {
-        id: toastId,
-      })
-    }
-    setIsAddingToWishlist(false)
   }
 
   return (
@@ -167,20 +133,20 @@ const BestSellingProductCard = ({
           </div>
         )}
 
-        <button
-          type="button"
-          aria-label={`Add ${product.title} to wishlist`}
-          title="Add to wishlist"
-          onClick={handleAddToWishlist}
-          disabled={isAddingToWishlist || !product.default_variant?.id}
+        <WishlistProductButton
+          productId={product.product_id ?? product.id}
+          variantId={product.default_variant?.id}
+          productTitle={product.title}
+          toastId={`best-selling-wishlist:${product.id}`}
+          variant="best-selling"
+          iconSize={isFlat ? 15 : 16}
+          strokeWidth={1.7}
           className={`absolute flex items-center justify-center rounded-full bg-white text-[#ff3b30] shadow-[0_10px_22px_rgba(0,0,0,0.16)] transition-colors hover:bg-[#fff3f0] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
             isFlat
               ? "right-2 top-2 h-7 w-7 medium:h-7 medium:w-7"
               : "right-2.5 top-2.5 h-8 w-8 medium:h-7 medium:w-7"
           }`}
-        >
-          <HeartIcon size={isFlat ? 15 : 16} strokeWidth={1.7} />
-        </button>
+        />
       </div>
 
       {benefitItems.length ? (
