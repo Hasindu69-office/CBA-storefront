@@ -244,7 +244,7 @@ export default async function Nav({
         </div>
 
         <div className="bg-white py-3 small:py-6">
-          <div className="content-container flex flex-col justify-between gap-3 small:flex-row small:items-center small:gap-5 medium:gap-12">
+          <div className="content-container flex flex-col justify-between gap-3 small:flex-row small:items-center small:gap-5 medium:gap-10">
             <div className="flex w-full items-center justify-between gap-2 small:hidden">
               <MobileHeaderMenu
                 primaryLinks={navLinks}
@@ -314,11 +314,11 @@ export default async function Nav({
               />
             </HeaderLink>
 
-            <div className="w-full small:flex-1 small:max-w-[600px]">
+            <div className="w-full small:flex-1 small:max-w-[700px] large:max-w-[780px]">
               <CbaSearchForm />
             </div>
 
-            <div className="hidden items-center justify-between gap-5 text-sm small:flex small:justify-end medium:gap-8">
+            <div className="hidden items-center justify-between gap-5 text-sm small:flex small:justify-end medium:gap-7">
               <SideCart
                 cart={cart}
                 shippingOptions={shippingOptions}
