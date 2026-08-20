@@ -13,6 +13,7 @@ import MobileBottomNav from "@modules/layout/components/mobile-bottom-nav"
 import MobileHeaderMenu from "@modules/layout/components/mobile-header-menu"
 import ScrollToTopButton from "@modules/layout/components/scroll-to-top-button"
 import SideCart from "@modules/layout/components/side-cart"
+import WishlistHeaderLink from "@modules/layout/components/wishlist-header-link"
 import ReactCountryFlag from "react-country-flag"
 import {
   ChevronDownIcon,
@@ -248,27 +249,11 @@ export default async function Nav() {
                   <span className="leading-none">Account</span>
                 </LocalizedClientLink>
 
-                <LocalizedClientLink
-                  href="/wishlist"
-                  className="flex min-w-[38px] flex-col items-center gap-0.5 text-black transition-opacity hover:opacity-80 xsmall:min-w-[42px]"
-                  aria-label={`Wishlist with ${wishlistCount} ${
-                    wishlistCount === 1 ? "item" : "items"
-                  }`}
-                >
-                  <span className="relative block">
-                    <HeartIcon
-                      size={23}
-                      strokeWidth={1.55}
-                      className="text-black"
-                    />
-                    {wishlistCount > 0 && (
-                      <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white">
-                        {wishlistCount}
-                      </span>
-                    )}
-                  </span>
-                  <span className="leading-none">Wishlist</span>
-                </LocalizedClientLink>
+                <WishlistHeaderLink
+                  initialCount={wishlistCount}
+                  label={cmsLayout.header.commerce.wishlist_label}
+                  variant="mobile"
+                />
 
                 <SideCart cart={cart} shippingOptions={shippingOptions} />
               </div>
@@ -308,20 +293,11 @@ export default async function Nav() {
                 </div>
               </LocalizedClientLink>
 
-              <LocalizedClientLink
-                href="/wishlist"
-                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-              >
-                <HeartIcon size={26} strokeWidth={1.5} className="text-black" />
-                <div className="hidden medium:block leading-tight">
-                  <p className="font-semibold text-black text-[15px]">
-                    {cmsLayout.header.commerce.wishlist_label}
-                  </p>
-                  <p className="text-gray-400 text-[12px] mt-0.5">
-                    {wishlistCount} {wishlistCount === 1 ? "item" : "items"}
-                  </p>
-                </div>
-              </LocalizedClientLink>
+              <WishlistHeaderLink
+                initialCount={wishlistCount}
+                label={cmsLayout.header.commerce.wishlist_label}
+                variant="desktop"
+              />
 
               <SideCart
                 cart={cart}

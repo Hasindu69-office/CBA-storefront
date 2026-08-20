@@ -233,12 +233,12 @@ export const FeaturedProductCardItem = ({
     setIsAddingToCart(true)
 
     try {
-      await addToCart({
+      const cart = await addToCart({
         variantId: product.default_variant.id,
         quantity: 1,
         countryCode,
       })
-      openSideCart({ pendingMessage: "Updating cart.", refresh: true })
+      openSideCart({ cart, refresh: true })
       notify.success("Item added to cart.", { id: toastId })
     } catch (error) {
       openSideCart({ pendingMessage: null, refresh: false })

@@ -1,6 +1,11 @@
 "use client"
 
-import { openSideCart } from "@lib/util/side-cart-event"
+import {
+  SIDE_CART_OPEN_EVENT,
+  SIDE_CART_UPDATE_EVENT,
+  openSideCart,
+  type SideCartOpenOptions,
+} from "@lib/util/side-cart-event"
 import { stripCountryCodeFromPath } from "@lib/util/routes"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
@@ -14,6 +19,7 @@ import MobileHeaderMenu, {
   MobileHeaderLink,
 } from "@modules/layout/components/mobile-header-menu"
 import { usePathname } from "next/navigation"
+import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 
 type MobileBottomNavProps = {
@@ -78,9 +84,33 @@ export default function MobileBottomNav({
   logo,
 }: MobileBottomNavProps) {
   const pathname = stripCountryCodeFromPath(usePathname())
-  const itemCount = getItemCount(cart)
+  const [displayCart, setDisplayCart] = useState<HttpTypes.StoreCart | null>(
+    cart ?? null
+  )
+  const itemCount = getItemCount(displayCart)
   const categoriesActive = pathname.startsWith("/categories")
   const cartActive = isActivePath(pathname, "/cart") || pathname.startsWith("/checkout")
+
+  useEffect(() => {
+    setDisplayCart(cart ?? null)
+  }, [cart])
+
+  useEffect(() => {
+    const updateCart = (event: Event) => {
+      const detail = (event as CustomEvent<SideCartOpenOptions>).detail ?? {}
+      if ("cart" in detail) {
+        setDisplayCart(detail.cart ?? null)
+      }
+    }
+
+    window.addEventListener(SIDE_CART_OPEN_EVENT, updateCart)
+    window.addEventListener(SIDE_CART_UPDATE_EVENT, updateCart)
+
+    return () => {
+      window.removeEventListener(SIDE_CART_OPEN_EVENT, updateCart)
+      window.removeEventListener(SIDE_CART_UPDATE_EVENT, updateCart)
+    }
+  }, [])
 
   return (
     <nav
