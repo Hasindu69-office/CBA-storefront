@@ -2,12 +2,20 @@ import "server-only"
 import crypto from "crypto"
 import { cookies as nextCookies } from "next/headers"
 
+const AUTH_COOKIE_NAME = "_medusa_jwt"
+const AUTH_COOKIE_OPTIONS = {
+  path: "/",
+  httpOnly: true,
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+}
+
 export const getAuthHeaders = async (): Promise<
   { authorization: string } | {}
 > => {
   try {
     const cookies = await nextCookies()
-    const token = cookies.get("_medusa_jwt")?.value
+    const token = cookies.get(AUTH_COOKIE_NAME)?.value
 
     if (!token) {
       return {}
@@ -52,18 +60,21 @@ export const getCacheOptions = async (
 
 export const setAuthToken = async (token: string) => {
   const cookies = await nextCookies()
-  cookies.set("_medusa_jwt", token, {
+  cookies.set(AUTH_COOKIE_NAME, token, {
+    ...AUTH_COOKIE_OPTIONS,
     maxAge: 60 * 60 * 24 * 7,
-    httpOnly: true,
-    sameSite: "strict",
-    secure: process.env.NODE_ENV === "production",
   })
 }
 
 export const removeAuthToken = async () => {
   const cookies = await nextCookies()
-  cookies.set("_medusa_jwt", "", {
-    maxAge: -1,
+  cookies.set(AUTH_COOKIE_NAME, "", {
+    ...AUTH_COOKIE_OPTIONS,
+    maxAge: 0,
+  })
+  cookies.delete({
+    name: AUTH_COOKIE_NAME,
+    ...AUTH_COOKIE_OPTIONS,
   })
 }
 
