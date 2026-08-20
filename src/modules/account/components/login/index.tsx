@@ -7,6 +7,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { notify } from "@lib/notifications"
+import Image from "next/image"
 import type React from "react"
 import { useActionState, useEffect, useState } from "react"
 
@@ -250,10 +251,24 @@ function FieldIcon({ icon }: { icon: string }) {
 
 function ProviderIcon({ provider }: { provider: AuthProviderId }) {
   if (provider === "google") {
-    return <span className="text-[22px] font-bold text-[#4285f4]">G</span>
+    return (
+      <Image
+        src="/images/icons/google-icon.png"
+        alt="Google"
+        width={24}
+        height={24}
+      />
+    )
   }
   if (provider === "facebook") {
-    return <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1877f2] text-[18px] font-bold text-white">f</span>
+    return (
+      <Image
+        src="/images/icons/facebook-icon.png"
+        alt="Facebook"
+        width={24}
+        height={24}
+      />
+    )
   }
   return <span className="text-[24px] leading-none text-black"></span>
 }
