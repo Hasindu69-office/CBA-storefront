@@ -256,7 +256,7 @@ export const FeaturedProductCardItem = ({
       className={[
         "group flex min-w-0 snap-start flex-col overflow-hidden rounded-[8px] border border-[#e5e7eb] bg-white transition-colors hover:border-black medium:h-[468px]",
         mobileCompact
-          ? "h-[342px] small:h-[356px]"
+          ? "h-[342px] min-[400px]:h-[382px] xsmall:h-[392px] small:h-[404px]"
           : "h-[436px] xsmall:h-[454px] sm:h-[468px] md:h-[488px] small:h-[512px]",
       ].join(" ")}
     >
@@ -455,8 +455,7 @@ export const FeaturedProductCardItem = ({
 
         <div
           className={[
-            "border-t border-[#e5e7eb] pt-2.5 medium:mt-auto",
-            mobileCompact ? "mt-3" : "mt-auto",
+            "mt-auto border-t border-[#e5e7eb] pt-2.5",
           ].join(" ")}
         >
           <ProductCardPrice product={product} mobileCompact={mobileCompact} />
@@ -567,8 +566,10 @@ const ProductCardPrice = ({
   return (
     <div
       className={[
-        "min-h-[26px] min-w-0 overflow-hidden medium:flex medium:items-baseline medium:gap-2",
-        mobileCompact ? "flex flex-col gap-0.5" : "flex items-baseline gap-2",
+        "min-w-0 overflow-hidden medium:flex medium:items-baseline medium:gap-2",
+        mobileCompact
+          ? "flex min-h-[40px] flex-col gap-0.5"
+          : "flex min-h-[26px] items-baseline gap-2",
       ].join(" ")}
     >
       <span className="min-w-0 flex-shrink text-[15px] font-bold leading-6 text-black medium:text-[14px] large:text-[15px]">
