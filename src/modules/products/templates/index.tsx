@@ -6,7 +6,9 @@ import {
   listUpSellCompanionCards,
 } from "@lib/data/product-relationship-cards"
 import { listPdpBannerContent } from "@lib/data/pdp-banners"
+import { retrieveWishlistedProductIds } from "@lib/data/wishlist"
 import CbaProductDetail from "@modules/products/templates/cba-product-detail"
+import { WishlistProductProvider } from "@modules/wishlist/components/wishlist-product-button"
 import { notFound } from "next/navigation"
 import { HttpTypes } from "@medusajs/types"
 
@@ -28,10 +30,14 @@ export default async function ProductTemplate({
     return notFound()
   }
 
-  const [detail, reviews, pdpBanners] = await Promise.all([
+  const [detail, reviews, pdpBanners, wishlistedProductIds] = await Promise.all([
     getProductDetail(product.id, selectedVariantId),
     getProductReviews(product.id, { limit: 5 }),
     listPdpBannerContent(),
+    retrieveWishlistedProductIds({
+      country_code: countryCode,
+      currency_code: "lkr",
+    }),
   ])
 
   const [crossSellProducts, accessoryProducts, upSellProducts, relatedProducts] =
@@ -47,17 +53,19 @@ export default async function ProductTemplate({
     ])
 
   return (
-    <CbaProductDetail
-      product={product}
-      countryCode={countryCode}
-      images={images}
-      detail={detail}
-      reviews={reviews}
-      crossSellProducts={crossSellProducts}
-      accessoryProducts={accessoryProducts}
-      upSellProducts={upSellProducts}
-      relatedProducts={relatedProducts}
-      pdpBanners={pdpBanners}
-    />
+    <WishlistProductProvider initialProductIds={wishlistedProductIds}>
+      <CbaProductDetail
+        product={product}
+        countryCode={countryCode}
+        images={images}
+        detail={detail}
+        reviews={reviews}
+        crossSellProducts={crossSellProducts}
+        accessoryProducts={accessoryProducts}
+        upSellProducts={upSellProducts}
+        relatedProducts={relatedProducts}
+        pdpBanners={pdpBanners}
+      />
+    </WishlistProductProvider>
   )
 }

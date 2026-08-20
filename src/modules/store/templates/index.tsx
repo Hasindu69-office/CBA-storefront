@@ -3,6 +3,7 @@ import { Suspense } from "react"
 import { listStoreBrands } from "@lib/data/brands"
 import { listCategories } from "@lib/data/categories"
 import { listShopPageContent } from "@lib/data/shop-banner"
+import { retrieveWishlistedProductIds } from "@lib/data/wishlist"
 import {
   listStoreSearchFacets,
   parseStoreMultiSelectParam,
@@ -20,6 +21,7 @@ import ShopFilterPanel, {
   ShopSortSelect,
   StoreMobileFilterDrawer,
 } from "@modules/store/components/shop-filter-panel"
+import { WishlistProductProvider } from "@modules/wishlist/components/wishlist-product-button"
 
 import PaginatedProducts from "./paginated-products"
 
@@ -77,7 +79,14 @@ const StoreTemplate = async ({
           : "Products could not be loaded.",
     }))
 
-  const [shopContent, categories, brands, facets, productSearch] = await Promise.all([
+  const [
+    shopContent,
+    categories,
+    brands,
+    facets,
+    productSearch,
+    wishlistedProductIds,
+  ] = await Promise.all([
     listShopPageContent(),
     listCategories().catch(() => []),
     listStoreBrands().catch(() => []),
@@ -87,6 +96,10 @@ const StoreTemplate = async ({
       brand: selectedBrands,
     }).catch(() => []),
     productSearchPromise,
+    retrieveWishlistedProductIds({
+      country_code: countryCode,
+      currency_code: "lkr",
+    }),
   ])
 
   const searchResult = productSearch.data as StoreSearchResult | null
@@ -177,19 +190,21 @@ const StoreTemplate = async ({
             </div>
 
             <Suspense fallback={<SkeletonProductGrid />}>
-              <PaginatedProducts
-                sortBy={sort}
-                page={pageNumber}
-                query={query}
-                category={selectedCategories}
-                brand={selectedBrands}
-                minPrice={selectedMinPrice}
-                maxPrice={selectedMaxPrice}
-                filters={selectedFilters}
-                searchResult={searchResult ?? undefined}
-                searchError={productSearch.error ?? undefined}
-                countryCode={countryCode}
-              />
+              <WishlistProductProvider initialProductIds={wishlistedProductIds}>
+                <PaginatedProducts
+                  sortBy={sort}
+                  page={pageNumber}
+                  query={query}
+                  category={selectedCategories}
+                  brand={selectedBrands}
+                  minPrice={selectedMinPrice}
+                  maxPrice={selectedMaxPrice}
+                  filters={selectedFilters}
+                  searchResult={searchResult ?? undefined}
+                  searchError={productSearch.error ?? undefined}
+                  countryCode={countryCode}
+                />
+              </WishlistProductProvider>
             </Suspense>
           </section>
         </div>

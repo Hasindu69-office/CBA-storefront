@@ -90,6 +90,10 @@ type WishlistActionResult =
   | { success: true; status?: "added" | "already_present"; message: string }
   | { success: false; status?: "error"; message: string }
 
+type WishlistToggleResult =
+  | { success: true; status: "removed" | "not_present"; message: string }
+  | { success: false; status: "error"; message: string }
+
 type BulkWishlistActionResult = {
   success: boolean
   message: string
@@ -226,6 +230,23 @@ export async function retrieveWishlistCount() {
   }
 }
 
+export async function retrieveWishlistedProductIds(
+  query: Record<string, string | undefined> = {}
+) {
+  const result = await retrieveWishlist(query)
+  if (!result.success || !result.wishlist?.items.length) {
+    return []
+  }
+
+  return Array.from(
+    new Set(
+      result.wishlist.items
+        .map((item) => item.product_id)
+        .filter(isSafeMedusaId)
+    )
+  )
+}
+
 export async function retrieveSharedWishlist(
   token: string,
   query: Record<string, string | undefined> = {}
@@ -274,6 +295,86 @@ export async function removeWishlistItem(itemId: string): Promise<WishlistAction
     return { success: true, message: "Removed from wishlist." }
   } catch (error) {
     return { success: false, message: wishlistMessage(error) }
+  }
+}
+
+export async function removeProductFromWishlist({
+  productId,
+  variantId,
+}: {
+  productId: string
+  variantId?: string | null
+}): Promise<WishlistToggleResult> {
+  if (!isSafeMedusaId(productId) || (variantId && !isSafeMedusaId(variantId))) {
+    return {
+      success: false,
+      status: "error",
+      message: "Product selection is invalid.",
+    }
+  }
+
+  try {
+    const authHeaders = await getAuthHeaders()
+    const isCustomer = "authorization" in authHeaders
+
+    if (isCustomer) {
+      const list = await medusaFetch<WishlistListResponse>("/store/cba/v1/wishlists", {
+        headers: authHeaders,
+      })
+      const wishlist =
+        list.wishlists?.find((item) => item.is_default) ??
+        list.wishlists?.[0] ??
+        null
+      const item = findWishlistItemByProduct(wishlist, productId, variantId)
+
+      if (!wishlist?.id || !item?.id) {
+        return {
+          success: true,
+          status: "not_present",
+          message: "Product is not in your wishlist.",
+        }
+      }
+
+      await medusaFetch(
+        `/store/cba/v1/wishlists/${wishlist.id}/items/${item.id}`,
+        { method: "DELETE", headers: authHeaders }
+      )
+    } else {
+      const cookieStore = await nextCookies()
+      if (!cookieStore.get(WISHLIST_COOKIE_NAME)?.value) {
+        return {
+          success: true,
+          status: "not_present",
+          message: "Product is not in your wishlist.",
+        }
+      }
+
+      const result = await medusaFetch<WishlistResponse>(
+        "/store/cba/v1/engagement/wishlist"
+      )
+      const item = findWishlistItemByProduct(
+        result.wishlist ?? null,
+        productId,
+        variantId
+      )
+
+      if (!item?.id) {
+        return {
+          success: true,
+          status: "not_present",
+          message: "Product is not in your wishlist.",
+        }
+      }
+
+      await medusaFetch(`/store/cba/v1/engagement/wishlist/items/${item.id}`, {
+        method: "DELETE",
+      })
+    }
+
+    revalidatePath("/wishlist")
+    return { success: true, status: "removed", message: "Removed from wishlist." }
+  } catch (error) {
+    return { success: false, status: "error", message: wishlistMessage(error) }
   }
 }
 
@@ -565,6 +666,21 @@ function publishableKeyHeader(): Record<string, string> {
 
 function isSafeMedusaId(value: string) {
   return SAFE_ID_PATTERN.test(value)
+}
+
+function findWishlistItemByProduct(
+  wishlist: Wishlist | null,
+  productId: string,
+  variantId?: string | null
+) {
+  const items = wishlist?.items.filter((item) => item.product_id === productId) ?? []
+  if (!items.length) {
+    return null
+  }
+  if (variantId) {
+    return items.find((item) => item.variant_id === variantId) ?? items[0]
+  }
+  return items[0]
 }
 
 function queryString(query: Record<string, string | undefined>) {

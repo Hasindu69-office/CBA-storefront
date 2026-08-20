@@ -8,7 +8,6 @@ import type {
   ProductDetailResponse,
   ProductReviewsResponse,
 } from "@lib/data/product-detail"
-import { addProductToWishlist } from "@lib/data/wishlist"
 import { notify } from "@lib/notifications"
 import { getProductPrice } from "@lib/util/get-product-price"
 import { convertToLocale } from "@lib/util/money"
@@ -19,9 +18,12 @@ import ProductCompanionZone from "@modules/products/components/product-companion
 import PdpSidebarBanners from "@modules/products/components/pdp-sidebar-banners"
 import RelatedProductsSection from "@modules/products/components/related-products-section"
 import {
-  HeartIcon,
   ShoppingCartIcon,
 } from "@modules/layout/components/cba-icons"
+import {
+  useWishlistProduct,
+  WishlistProductButton,
+} from "@modules/wishlist/components/wishlist-product-button"
 import { isEqual } from "lodash"
 import Image from "next/image"
 import {
@@ -92,7 +94,6 @@ export default function CbaProductDetail({
   )
   const [quantity, setQuantity] = useState(1)
   const [activeTab, setActiveTab] = useState("description")
-  const [isWishlisted, setIsWishlisted] = useState(false)
   const [actionState, setActionState] = useState<ActionState>({
     type: null,
     message: "",
@@ -104,6 +105,7 @@ export default function CbaProductDetail({
     message: "",
   })
   const [isPending, startTransition] = useTransition()
+  const { isWishlisted } = useWishlistProduct(product.id)
 
   const selectedVariant = useMemo(() => {
     if (!product.variants?.length) return undefined
@@ -204,41 +206,6 @@ export default function CbaProductDetail({
         setActionState({
           type: "error",
           message: error instanceof Error ? error.message : "Could not add to cart.",
-        })
-      }
-    })
-  }
-
-  function submitWishlist() {
-    if (!selectedVariant?.id || !isValidVariant) {
-      notify.error("Select a valid product option.")
-      setActionState({ type: "error", message: "Select a valid product option." })
-      return
-    }
-
-    startTransition(async () => {
-      const toastId = `pdp-wishlist:${product.id}`
-      notify.loading("Adding item to wishlist...", { id: toastId })
-      const result = await addProductToWishlist({
-        productId: product.id,
-        variantId: selectedVariant.id,
-      })
-      if (result.success) {
-        setIsWishlisted(true)
-      }
-      setActionState({
-        type: result.success ? "success" : "error",
-        message: result.message,
-      })
-      if (result.success) {
-        if (result.status === "already_present") {
-          notify.info(result.message, { id: toastId })
-        } else {
-          notify.success(result.message, { id: toastId })
-        }
-      } else {
-        notify.error(result.message, "Could not add this item to wishlist.", {
-          id: toastId,
         })
       }
     })
@@ -465,19 +432,24 @@ export default function CbaProductDetail({
               </div>
             )}
             <div className="mt-5 flex items-center justify-between text-xs text-gray-600">
-              <button
-                type="button"
-                onClick={submitWishlist}
-                className="flex items-center gap-2 hover:text-brand"
-                disabled={isPending}
+              <WishlistProductButton
+                productId={product.id}
+                variantId={selectedVariant?.id}
+                productTitle={product.title}
+                toastId={`pdp-wishlist:${product.id}`}
+                variant="pdp"
+                disabled={isPending || !isValidVariant}
+                iconClassName="text-green-600"
+                className="flex items-center gap-2 hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                onResult={(result) =>
+                  setActionState({
+                    type: result.success ? "success" : "error",
+                    message: result.message,
+                  })
+                }
               >
-                <HeartIcon
-                  size={15}
-                  fill={isWishlisted ? "currentColor" : "none"}
-                  className="text-green-600"
-                />
                 {isWishlisted ? "Wishlist added" : "Wishlist"}
-              </button>
+              </WishlistProductButton>
               <span className="text-gray-300">|</span>
               <LocalizedClientLink
                 href="/compare"

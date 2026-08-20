@@ -108,8 +108,8 @@ export default async function Nav() {
   const navCategories = topLevelCategories(categories)
   const navCategoryLinks = categoryLinks(navCategories)
   const fallbackPrimaryLinks = navCategoryLinks.length
-    ? navCategoryLinks
-    : fallbackNavLinks
+    ? [{ label: "Brands", href: "/brands" }, ...navCategoryLinks]
+    : [{ label: "Brands", href: "/brands" }, ...fallbackNavLinks]
   const navLinks = navigationItemsToLinks(
     cmsLayout.headerMenuItems,
     categories,
