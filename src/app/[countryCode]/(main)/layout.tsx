@@ -27,7 +27,7 @@ export default async function PageLayout(props: { children: React.ReactNode }) {
   return (
     <>
       <div className="cba-site-chrome">
-        <Nav />
+        <Nav customer={customer} />
       </div>
       {customer && cart && (
         <div className="cba-site-chrome">

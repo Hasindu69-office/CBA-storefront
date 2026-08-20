@@ -1,7 +1,11 @@
 "use client"
 
 import { Dialog, Transition } from "@headlessui/react"
-import { applyPromotions, deleteLineItem, updateLineItem } from "@lib/data/cart"
+import {
+  applyPromotionsSafe,
+  deleteLineItem,
+  updateLineItem,
+} from "@lib/data/cart"
 import { notify } from "@lib/notifications"
 import {
   hasAutomaticPromotions,
@@ -19,6 +23,8 @@ import {
 } from "@lib/util/promotions"
 import {
   SIDE_CART_OPEN_EVENT,
+  SIDE_CART_UPDATE_EVENT,
+  notifyCartUpdated,
   type SideCartOpenOptions,
 } from "@lib/util/side-cart-event"
 import {
@@ -99,6 +105,23 @@ function productSubtitle(item: HttpTypes.StoreCartLineItem) {
   return category || item.product_subtitle || item.variant?.product?.subtitle
 }
 
+function lineItemUnitAmount(item: HttpTypes.StoreCartLineItem) {
+  const quantity = item.quantity > 0 ? item.quantity : 1
+  let amount = item.unit_price
+
+  if (amount === undefined || amount === null) {
+    if (item.subtotal !== undefined && item.subtotal !== null) {
+      amount = item.subtotal / quantity
+    } else if (item.total !== undefined && item.total !== null) {
+      amount = item.total / quantity
+    } else {
+      amount = 0
+    }
+  }
+
+  return Number.isFinite(amount) ? amount : 0
+}
+
 function computeFreeShippingTarget(
   cart: HttpTypes.StoreCart,
   shippingOptions: StoreCartShippingOption[]
@@ -155,11 +178,18 @@ export default function SideCart({
 }: SideCartProps) {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
+  const [displayCart, setDisplayCart] = useState<HttpTypes.StoreCart | null>(
+    cart ?? null
+  )
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
   const pathname = usePathname()
-  const itemCount = getItemCount(cart)
-  const cartSignature = `${cart?.id ?? "none"}:${itemCount}:${cart?.total ?? 0}`
+  const itemCount = getItemCount(displayCart)
+  const cartSignature = `${displayCart?.id ?? "none"}:${itemCount}:${displayCart?.total ?? 0}`
   const previousCartSignature = useRef(cartSignature)
+
+  useEffect(() => {
+    setDisplayCart(cart ?? null)
+  }, [cart])
 
   useEffect(() => {
     if (!listenForOpenEvents) {
@@ -171,6 +201,11 @@ export default function SideCart({
 
       if ("pendingMessage" in detail) {
         setPendingMessage(detail.pendingMessage ?? null)
+      }
+
+      if ("cart" in detail) {
+        setDisplayCart(detail.cart ?? null)
+        setPendingMessage(null)
       }
 
       if (detail.refresh ?? true) {
@@ -186,6 +221,23 @@ export default function SideCart({
       window.removeEventListener(SIDE_CART_OPEN_EVENT, openCart)
     }
   }, [listenForOpenEvents, router])
+
+  useEffect(() => {
+    const updateCart = (event: Event) => {
+      const detail = (event as CustomEvent<Pick<SideCartOpenOptions, "cart">>)
+        .detail ?? {}
+      if ("cart" in detail) {
+        setDisplayCart(detail.cart ?? null)
+        setPendingMessage(null)
+      }
+    }
+
+    window.addEventListener(SIDE_CART_UPDATE_EVENT, updateCart)
+
+    return () => {
+      window.removeEventListener(SIDE_CART_UPDATE_EVENT, updateCart)
+    }
+  }, [])
 
   useEffect(() => {
     if (previousCartSignature.current !== cartSignature) {
@@ -259,10 +311,11 @@ export default function SideCart({
                   data-testid="side-cart-drawer"
                 >
                   <SideCartDrawer
-                    cart={cart}
+                    cart={displayCart}
                     shippingOptions={shippingOptions}
                     itemCount={itemCount}
                     pendingMessage={pendingMessage}
+                    onCartUpdated={setDisplayCart}
                     onClose={() => setIsOpen(false)}
                   />
                 </Dialog.Panel>
@@ -280,12 +333,14 @@ function SideCartDrawer({
   shippingOptions,
   itemCount,
   pendingMessage,
+  onCartUpdated,
   onClose,
 }: {
   cart?: HttpTypes.StoreCart | null
   shippingOptions: StoreCartShippingOption[]
   itemCount: number
   pendingMessage: string | null
+  onCartUpdated: (cart: HttpTypes.StoreCart | null) => void
   onClose: () => void
 }) {
   const router = useRouter()
@@ -323,7 +378,16 @@ function SideCartDrawer({
       const toastId = `side-cart-coupon:${normalizedCode}`
       notify.loading("Applying coupon...", { id: toastId })
       try {
-        await applyPromotions(manualCodesWithNewCoupon(cart?.promotions, normalizedCode))
+        const applyResult = await applyPromotionsSafe(
+          manualCodesWithNewCoupon(cart?.promotions, normalizedCode)
+        )
+        if (!applyResult.success) {
+          setCouponError(applyResult.error)
+          notify.error(applyResult.error, "Could not apply coupon.", { id: toastId })
+          return
+        }
+        onCartUpdated(applyResult.cart)
+        notifyCartUpdated(applyResult.cart)
         router.refresh()
         notify.success("Coupon applied.", { id: toastId })
       } catch (error) {
@@ -341,7 +405,16 @@ function SideCartDrawer({
       const toastId = `side-cart-coupon-remove:${code}`
       notify.loading("Removing coupon...", { id: toastId })
       try {
-        await applyPromotions(manualCodesWithoutCoupon(cart?.promotions, code))
+        const removeResult = await applyPromotionsSafe(
+          manualCodesWithoutCoupon(cart?.promotions, code)
+        )
+        if (!removeResult.success) {
+          setCouponError(removeResult.error)
+          notify.error(removeResult.error, "Could not remove coupon.", { id: toastId })
+          return
+        }
+        onCartUpdated(removeResult.cart)
+        notifyCartUpdated(removeResult.cart)
         router.refresh()
         notify.success("Coupon removed.", { id: toastId })
       } catch (error) {
@@ -408,7 +481,13 @@ function SideCartDrawer({
                   currencyCode={cart.currency_code}
                   disabled={isMutating}
                   onMutatingChange={setMutating}
-                  onUpdated={() => router.refresh()}
+                  onUpdated={(updatedCart) => {
+                    if (updatedCart !== undefined) {
+                      onCartUpdated(updatedCart)
+                      notifyCartUpdated(updatedCart)
+                    }
+                    router.refresh()
+                  }}
                 />
               ))}
             </div>
@@ -474,13 +553,14 @@ function SideCartItem({
   currencyCode: string
   disabled: boolean
   onMutatingChange: (active: boolean) => void
-  onUpdated: () => void
+  onUpdated: (cart?: HttpTypes.StoreCart | null) => void
 }) {
   const [draftQuantity, setDraftQuantity] = useState(item.quantity)
   const [isPending, setIsPending] = useState(false)
   const [isRemoved, setIsRemoved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const mutationInFlight = useRef(false)
+  const mutationVersion = useRef(0)
   const subtitle = productSubtitle(item)
 
   useEffect(() => {
@@ -488,7 +568,7 @@ function SideCartItem({
   }, [item.quantity])
 
   const mutate = async (
-    action: () => Promise<void>,
+    action: () => Promise<HttpTypes.StoreCart | null>,
     removeOnSuccess = false,
     successMessage = "Cart updated."
   ) => {
@@ -501,18 +581,23 @@ function SideCartItem({
       id: toastId,
     })
     mutationInFlight.current = true
+    const currentMutation = mutationVersion.current + 1
+    mutationVersion.current = currentMutation
     setError(null)
     setIsPending(true)
     onMutatingChange(true)
 
     try {
-      await action()
+      const updatedCart = await action()
+      if (currentMutation !== mutationVersion.current) {
+        return
+      }
       if (removeOnSuccess) {
         setIsRemoved(true)
         mutationInFlight.current = false
         onMutatingChange(false)
       }
-      onUpdated()
+      onUpdated(updatedCart)
       notify.success(successMessage, { id: toastId })
     } catch (err) {
       notify.error(err, "Could not update item.", { id: toastId })
@@ -606,10 +691,18 @@ function SideCartItem({
           </div>
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#009c68] small:text-[12px]">
-              <CheckCircleSolid className="h-4 w-4" />
-              In Stock
-            </span>
+            <div className="min-w-0">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#009c68] small:text-[12px]">
+                <CheckCircleSolid className="h-4 w-4" />
+                In Stock
+              </span>
+              <p className="mt-1 text-[11px] leading-4 text-[#6b7280] small:text-[12px]">
+                Unit price:{" "}
+                <span className="font-semibold text-[#333740]">
+                  {money(lineItemUnitAmount(item), currencyCode)}
+                </span>
+              </p>
+            </div>
 
             <div className="flex items-center gap-2">
               <div className="inline-grid h-8 grid-cols-3 overflow-hidden rounded-md border border-gray-200 bg-white">

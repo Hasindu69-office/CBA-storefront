@@ -11,6 +11,7 @@ import {
 import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import { openSideCart } from "@lib/util/side-cart-event"
+import { notifyWishlistCountUpdated } from "@lib/util/wishlist-count-event"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { HeartIcon, ShoppingCartIcon } from "@modules/layout/components/cba-icons"
 import Image from "next/image"
@@ -82,6 +83,9 @@ export default function WishlistTemplate({
     }
     startTransition(async () => {
       const result = await removeWishlistItems(ids)
+      if (result.wishlistCount !== undefined) {
+        notifyWishlistCountUpdated(result.wishlistCount)
+      }
       setStatus(result.success ? "success" : "error", result.message)
       setSelectedIds([])
       router.refresh()
@@ -96,6 +100,9 @@ export default function WishlistTemplate({
     }
     startTransition(async () => {
       const result = await clearWishlist()
+      if (result.wishlistCount !== undefined) {
+        notifyWishlistCountUpdated(result.wishlistCount)
+      }
       setStatus(result.success ? "success" : "error", result.message)
       setSelectedIds([])
       router.refresh()
@@ -123,7 +130,11 @@ export default function WishlistTemplate({
       setStatus(result.success ? "success" : "error", result.message)
       notify.dismiss("wishlist-add-to-cart")
       if (result.success) {
-        openSideCart({ pendingMessage: "Updating cart.", refresh: true })
+        openSideCart(
+          result.cart
+            ? { cart: result.cart, refresh: true }
+            : { pendingMessage: "Updating cart.", refresh: true }
+        )
       } else {
         openSideCart({ pendingMessage: null, refresh: false })
       }

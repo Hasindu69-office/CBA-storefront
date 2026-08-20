@@ -3,7 +3,7 @@
 import { HttpTypes } from "@medusajs/types"
 import Trash from "@modules/common/icons/trash"
 import { useState, useTransition } from "react"
-import { applyPromotions } from "@lib/data/cart"
+import { applyPromotionsSafe } from "@lib/data/cart"
 import { notify } from "@lib/notifications"
 import { useRouter } from "next/navigation"
 import {
@@ -22,7 +22,7 @@ type CartCouponFormVariant = "cart" | "checkout"
 
 type CartCouponFormProps = {
   promotions: HttpTypes.StorePromotion[]
-  onApply: (code: string) => Promise<void>
+  onApply: (code: string) => Promise<string | null>
   disabled?: boolean
   variant?: CartCouponFormVariant
   className?: string
@@ -88,7 +88,12 @@ export default function CartCouponForm({
       const toastId = `${variant}-coupon:${normalizedCode}`
       notify.loading("Applying coupon...", { id: toastId })
       try {
-        await onApply(normalizedCode)
+        const applyError = await onApply(normalizedCode)
+        if (applyError) {
+          setError(applyError)
+          notify.error(applyError, "Could not apply coupon.", { id: toastId })
+          return
+        }
         setCode("")
         notify.success("Coupon applied.", { id: toastId })
       } catch (err) {
@@ -108,7 +113,14 @@ export default function CartCouponForm({
       const toastId = `${variant}-coupon-remove:${removedCode}`
       notify.loading("Removing coupon...", { id: toastId })
       try {
-        await applyPromotions(manualCodesWithoutCoupon(promotions, removedCode))
+        const result = await applyPromotionsSafe(
+          manualCodesWithoutCoupon(promotions, removedCode)
+        )
+        if (!result.success) {
+          setError(result.error)
+          notify.error(result.error, "Could not remove coupon.", { id: toastId })
+          return
+        }
         router.refresh()
         notify.success("Coupon removed.", { id: toastId })
       } catch (err) {

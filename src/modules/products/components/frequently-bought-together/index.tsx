@@ -5,6 +5,7 @@ import type { FeaturedProductCard } from "@lib/data/featured-products"
 import { addProductsToWishlist } from "@lib/data/wishlist"
 import { notify } from "@lib/notifications"
 import { openSideCart } from "@lib/util/side-cart-event"
+import { notifyWishlistCountUpdated } from "@lib/util/wishlist-count-event"
 import BundleOfferPanel from "@modules/products/components/bundle-offer/bundle-offer-panel"
 import {
   buildSelectedItems,
@@ -104,7 +105,7 @@ export default function FrequentlyBoughtTogether({
       const toastId = "bundle-add-to-cart"
       notify.loading("Adding bundle to cart...", { id: toastId })
       try {
-        await addBundleToCart({
+        const cart = await addBundleToCart({
           items: selectedItems,
           countryCode,
         })
@@ -112,7 +113,7 @@ export default function FrequentlyBoughtTogether({
           type: "success",
           message: "Bundle added to cart.",
         })
-        openSideCart({ pendingMessage: "Updating cart.", refresh: true })
+        openSideCart({ cart, refresh: true })
         notify.success("Bundle added to cart.", { id: toastId })
       } catch (error) {
         openSideCart({ pendingMessage: null, refresh: false })
@@ -150,6 +151,9 @@ export default function FrequentlyBoughtTogether({
           message: result.message,
         })
       if (result.success) {
+        if (result.wishlistCount !== undefined) {
+          notifyWishlistCountUpdated(result.wishlistCount)
+        }
         if (result.addedCount === 0 && result.alreadyPresentCount > 0) {
           notify.info(result.message, { id: toastId })
         } else {

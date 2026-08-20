@@ -190,13 +190,13 @@ export default function CbaProductDetail({
       const toastId = `pdp-add-to-cart:${selectedVariant.id}`
       notify.loading("Adding item to cart...", { id: toastId })
       try {
-        await addToCart({
+        const cart = await addToCart({
           variantId: selectedVariant.id,
           quantity,
           countryCode,
         })
         setActionState({ type: "success", message: "Added to cart." })
-        openSideCart({ pendingMessage: "Updating cart.", refresh: true })
+        openSideCart({ cart, refresh: true })
         notify.success("Item added to cart.", { id: toastId })
       } catch (error) {
         openSideCart({ pendingMessage: null, refresh: false })

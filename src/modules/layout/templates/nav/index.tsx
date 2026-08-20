@@ -13,6 +13,7 @@ import MobileBottomNav from "@modules/layout/components/mobile-bottom-nav"
 import MobileHeaderMenu from "@modules/layout/components/mobile-header-menu"
 import ScrollToTopButton from "@modules/layout/components/scroll-to-top-button"
 import SideCart from "@modules/layout/components/side-cart"
+import WishlistHeaderLink from "@modules/layout/components/wishlist-header-link"
 import ReactCountryFlag from "react-country-flag"
 import {
   ChevronDownIcon,
@@ -89,7 +90,28 @@ function HeaderLink({
   )
 }
 
-export default async function Nav() {
+function customerDisplayName(customer?: HttpTypes.StoreCustomer | null) {
+  const firstName = customer?.first_name?.trim()
+  const lastName = customer?.last_name?.trim()
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim()
+  const emailName = customer?.email?.split("@")[0]?.trim()
+
+  return fullName || firstName || emailName || "Customer"
+}
+
+function customerFirstDisplayName(customer?: HttpTypes.StoreCustomer | null) {
+  const firstName = customer?.first_name?.trim()
+  const fullName = customerDisplayName(customer)
+  const firstFromFullName = fullName.split(/\s+/)[0]?.trim()
+
+  return firstName || firstFromFullName || "Customer"
+}
+
+export default async function Nav({
+  customer = null,
+}: {
+  customer?: HttpTypes.StoreCustomer | null
+}) {
   const [categories, cart, wishlistCount, cmsLayout] = await Promise.all([
     listCategories().catch(() => []),
     retrieveCart().catch(() => null),
@@ -125,6 +147,14 @@ export default async function Nav() {
     altText: cmsLayout.header.logo.alt_text,
   }
   const helpPhoneHref = phoneNumberToTelHref(cmsLayout.header.help.phone)
+  const accountLabel = customer
+    ? `Hi, ${customerDisplayName(customer)}`
+    : cmsLayout.header.commerce.account_label
+  const accountHint = customer ? "My Account" : cmsLayout.header.commerce.account_hint
+  const mobileAccountLabel = customer
+    ? customerFirstDisplayName(customer)
+    : cmsLayout.header.commerce.account_label
+  const signedInAccountName = customerFirstDisplayName(customer)
 
   return (
     <div className="relative z-50 bg-white shadow-sm">
@@ -214,7 +244,7 @@ export default async function Nav() {
         </div>
 
         <div className="bg-white py-3 small:py-6">
-          <div className="content-container flex flex-col justify-between gap-3 small:flex-row small:items-center small:gap-5 medium:gap-12">
+          <div className="content-container flex flex-col justify-between gap-3 small:flex-row small:items-center small:gap-5 medium:gap-10">
             <div className="flex w-full items-center justify-between gap-2 small:hidden">
               <MobileHeaderMenu
                 primaryLinks={navLinks}
@@ -236,41 +266,37 @@ export default async function Nav() {
               </HeaderLink>
 
               <div className="flex shrink-0 items-center justify-end gap-3 text-[11px] xsmall:gap-4 xsmall:text-[12px]">
+                <SideCart cart={cart} shippingOptions={shippingOptions} />
+
+                <WishlistHeaderLink
+                  initialCount={wishlistCount}
+                  label={cmsLayout.header.commerce.wishlist_label}
+                  variant="mobile"
+                />
+
                 <LocalizedClientLink
                   href="/account"
                   className="flex min-w-[38px] flex-col items-center gap-0.5 text-black transition-opacity hover:opacity-80 xsmall:min-w-[42px]"
                 >
-                  <UserIcon
-                    size={23}
-                    strokeWidth={1.55}
-                    className="text-black"
-                  />
-                  <span className="leading-none">Account</span>
-                </LocalizedClientLink>
-
-                <LocalizedClientLink
-                  href="/wishlist"
-                  className="flex min-w-[38px] flex-col items-center gap-0.5 text-black transition-opacity hover:opacity-80 xsmall:min-w-[42px]"
-                  aria-label={`Wishlist with ${wishlistCount} ${
-                    wishlistCount === 1 ? "item" : "items"
-                  }`}
-                >
-                  <span className="relative block">
-                    <HeartIcon
+                  {customer ? (
+                    <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-brand text-white ring-2 ring-orange-100">
+                      <UserIcon
+                        size={16}
+                        strokeWidth={1.8}
+                        className="text-white"
+                      />
+                    </span>
+                  ) : (
+                    <UserIcon
                       size={23}
                       strokeWidth={1.55}
                       className="text-black"
                     />
-                    {wishlistCount > 0 && (
-                      <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white">
-                        {wishlistCount}
-                      </span>
-                    )}
+                  )}
+                  <span className="max-w-[58px] truncate leading-none">
+                    {mobileAccountLabel}
                   </span>
-                  <span className="leading-none">Wishlist</span>
                 </LocalizedClientLink>
-
-                <SideCart cart={cart} shippingOptions={shippingOptions} />
               </div>
             </div>
 
@@ -288,47 +314,60 @@ export default async function Nav() {
               />
             </HeaderLink>
 
-            <div className="w-full small:flex-1 small:max-w-[600px]">
+            <div className="w-full small:flex-1 small:max-w-[700px] large:max-w-[780px]">
               <CbaSearchForm />
             </div>
 
-            <div className="hidden items-center justify-between gap-5 text-sm small:flex small:justify-end medium:gap-8">
-              <LocalizedClientLink
-                href="/account"
-                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-              >
-                <UserIcon size={26} strokeWidth={1.5} className="text-black" />
-                <div className="hidden medium:block leading-tight">
-                  <p className="font-semibold text-black text-[15px]">
-                    {cmsLayout.header.commerce.account_label}
-                  </p>
-                  <p className="text-gray-400 text-[12px] mt-0.5">
-                    {cmsLayout.header.commerce.account_hint}
-                  </p>
-                </div>
-              </LocalizedClientLink>
-
-              <LocalizedClientLink
-                href="/wishlist"
-                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-              >
-                <HeartIcon size={26} strokeWidth={1.5} className="text-black" />
-                <div className="hidden medium:block leading-tight">
-                  <p className="font-semibold text-black text-[15px]">
-                    {cmsLayout.header.commerce.wishlist_label}
-                  </p>
-                  <p className="text-gray-400 text-[12px] mt-0.5">
-                    {wishlistCount} {wishlistCount === 1 ? "item" : "items"}
-                  </p>
-                </div>
-              </LocalizedClientLink>
-
+            <div className="hidden items-center justify-between gap-5 text-sm small:flex small:justify-end medium:gap-7">
               <SideCart
                 cart={cart}
                 shippingOptions={shippingOptions}
                 wishlistCount={wishlistCount}
                 listenForOpenEvents
               />
+
+              <WishlistHeaderLink
+                initialCount={wishlistCount}
+                label={cmsLayout.header.commerce.wishlist_label}
+                variant="desktop"
+              />
+
+              <LocalizedClientLink
+                href="/account"
+                className="flex min-w-0 items-center gap-2.5 hover:opacity-80 transition-opacity"
+              >
+                {customer ? (
+                  <>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand text-white ring-2 ring-orange-100">
+                      <UserIcon
+                        size={22}
+                        strokeWidth={1.8}
+                        className="text-white"
+                      />
+                    </span>
+                    <span className="hidden min-w-0 max-w-[148px] leading-tight medium:block">
+                      <span className="block text-[12px] font-medium text-gray-500">
+                        Hi!
+                      </span>
+                      <span className="block truncate text-[15px] font-semibold text-black">
+                        {signedInAccountName}
+                      </span>
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <UserIcon size={26} strokeWidth={1.5} className="text-black" />
+                    <div className="hidden medium:block leading-tight">
+                      <p className="font-semibold text-black text-[15px]">
+                        {accountLabel}
+                      </p>
+                      <p className="text-gray-400 text-[12px] mt-0.5">
+                        {accountHint}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </LocalizedClientLink>
             </div>
           </div>
         </div>

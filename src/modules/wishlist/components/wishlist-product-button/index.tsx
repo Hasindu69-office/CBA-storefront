@@ -5,6 +5,7 @@ import {
   removeProductFromWishlist,
 } from "@lib/data/wishlist"
 import { notify } from "@lib/notifications"
+import { notifyWishlistCountUpdated } from "@lib/util/wishlist-count-event"
 import { HeartIcon } from "@modules/layout/components/cba-icons"
 import {
   createContext,
@@ -162,6 +163,7 @@ export function WishlistProductButton({
 
         if (result.success) {
           removeWishlistedProduct()
+          notifyWishlistCountUpdated(result.wishlistCount)
           onResult?.({ success: true, message: result.message })
           if (result.status === "not_present") {
             notify.info(result.message, { id: toastId })
@@ -184,6 +186,7 @@ export function WishlistProductButton({
 
       if (result.success) {
         addWishlistedProduct()
+        notifyWishlistCountUpdated(result.wishlistCount)
         onResult?.({ success: true, message: result.message })
         if (result.status === "already_present") {
           notify.info(result.message, { id: toastId })
