@@ -109,7 +109,7 @@ const AccountNav = ({
           </h2>
         </div>
         <nav
-          className="-mx-4 border-y border-gray-100 bg-white px-4 py-3 shadow-sm"
+          className="border-y border-gray-100 bg-white px-4 py-3 shadow-sm"
           aria-label="Account sections"
         >
           <div className="flex gap-2 overflow-x-auto whitespace-nowrap pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
