@@ -6,9 +6,16 @@ import "styles/globals.css"
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
   icons: {
-    icon: "/images/faviconCBA_preview.png",
-    shortcut: "/images/faviconCBA_preview.png",
-    apple: "/images/faviconCBA_preview.png",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
+  openGraph: {
+    images: [{ url: "/favicon.ico" }],
+  },
+  twitter: {
+    card: "summary",
+    images: ["/favicon.ico"],
   },
 }
 

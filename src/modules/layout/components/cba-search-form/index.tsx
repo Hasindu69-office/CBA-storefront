@@ -275,7 +275,7 @@ export default function CbaSearchForm() {
           }
         }}
         onKeyDown={handleKeyDown}
-        className="h-[46px] w-full rounded-l-[8px] border-[1.5px] border-r-0 border-[#DDE1E4] px-4 py-2.5 text-sm focus:border-brand focus:outline-none"
+        className="h-[46px] w-full rounded-l-[8px] border-[1.5px] border-r-0 border-[#DDE1E4] px-4 py-2.5 text-[16px] focus:border-brand focus:outline-none small:text-sm"
         autoComplete="off"
         role="combobox"
         aria-autocomplete="list"

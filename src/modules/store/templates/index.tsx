@@ -5,6 +5,7 @@ import { listCategories } from "@lib/data/categories"
 import { listShopPageContent } from "@lib/data/shop-banner"
 import {
   listStoreSearchFacets,
+  parseStoreMultiSelectParam,
   parseStoreFilters,
   parseStorePage,
   parseStorePriceBound,
@@ -39,8 +40,8 @@ const StoreTemplate = async ({
   sortBy?: string
   page?: string
   query?: string
-  category?: string
-  brand?: string
+  category?: string | string[]
+  brand?: string | string[]
   minPrice?: string
   maxPrice?: string
   priceRange?: string
@@ -49,6 +50,8 @@ const StoreTemplate = async ({
 }) => {
   const pageNumber = parseStorePage(page)
   const sort = parseStoreSearchSort(sortBy)
+  const selectedCategories = parseStoreMultiSelectParam(category)
+  const selectedBrands = parseStoreMultiSelectParam(brand)
   const selectedFilters = parseStoreFilters(filters)
   const selectedMinPrice = parseStorePriceBound(minPrice)
   const selectedMaxPrice = parseStorePriceBound(maxPrice)
@@ -58,8 +61,8 @@ const StoreTemplate = async ({
     page: pageNumber,
     limit: PRODUCT_LIMIT,
     sort,
-    category,
-    brand,
+    category: selectedCategories,
+    brand: selectedBrands,
     minPrice: selectedMinPrice,
     maxPrice: selectedMaxPrice,
     filters: selectedFilters,
@@ -78,7 +81,11 @@ const StoreTemplate = async ({
     listShopPageContent(),
     listCategories().catch(() => []),
     listStoreBrands().catch(() => []),
-    listStoreSearchFacets({ q: query, category, brand }).catch(() => []),
+    listStoreSearchFacets({
+      q: query,
+      category: selectedCategories,
+      brand: selectedBrands,
+    }).catch(() => []),
     productSearchPromise,
   ])
 
@@ -135,8 +142,8 @@ const StoreTemplate = async ({
               categories={categories.filter((item) => !item.parent_category)}
               brands={brands}
               facets={facets}
-              selectedCategory={category}
-              selectedBrand={brand}
+              selectedCategory={selectedCategories}
+              selectedBrand={selectedBrands}
               selectedMinPrice={selectedMinPrice}
               selectedMaxPrice={selectedMaxPrice}
               priceRangeMax={priceRangeMax}
@@ -150,8 +157,8 @@ const StoreTemplate = async ({
               categories={categories.filter((item) => !item.parent_category)}
               brands={brands}
               facets={facets}
-              selectedCategory={category}
-              selectedBrand={brand}
+              selectedCategory={selectedCategories}
+              selectedBrand={selectedBrands}
               selectedMinPrice={selectedMinPrice}
               selectedMaxPrice={selectedMaxPrice}
               priceRangeMax={priceRangeMax}
@@ -174,8 +181,8 @@ const StoreTemplate = async ({
                 sortBy={sort}
                 page={pageNumber}
                 query={query}
-                category={category}
-                brand={brand}
+                category={selectedCategories}
+                brand={selectedBrands}
                 minPrice={selectedMinPrice}
                 maxPrice={selectedMaxPrice}
                 filters={selectedFilters}

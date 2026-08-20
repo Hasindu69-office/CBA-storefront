@@ -2,7 +2,6 @@
 
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import {
-  ChevronDownIcon,
   LayoutGridIcon,
   MenuIcon,
   XIcon,
@@ -231,10 +230,9 @@ function MobileMenuLinkPanel({
             <LocalizedClientLink
               href={link.href}
               onClick={onNavigate}
-              className="flex min-h-12 items-center justify-between gap-4 py-3 text-[15px] font-semibold text-[#111827] transition hover:text-brand"
+              className="flex min-h-12 items-center py-3 text-[15px] font-semibold text-[#111827] transition hover:text-brand"
             >
               <span>{link.label}</span>
-              <ChevronDownIcon size={16} className="-rotate-90 text-[#9ca3af]" />
             </LocalizedClientLink>
           </li>
         ))}

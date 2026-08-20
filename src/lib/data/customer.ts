@@ -3,13 +3,12 @@
 import { sdk } from "@lib/config"
 import medusaError from "@lib/util/medusa-error"
 import { HttpTypes } from "@medusajs/types"
-import { revalidateTag } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { headers as nextHeaders } from "next/headers"
 import { redirect } from "next/navigation"
 import { localizedPath } from "@lib/util/routes"
 import {
   getAuthHeaders,
-  getCacheOptions,
   getCacheTag,
   getCartId,
   removeAuthToken,
@@ -28,14 +27,8 @@ export const retrieveCustomer =
   async (): Promise<HttpTypes.StoreCustomer | null> => {
     const authHeaders = await getAuthHeaders()
 
-    if (!authHeaders) return null
-
-    const headers = {
-      ...authHeaders,
-    }
-
-    const next = {
-      ...(await getCacheOptions("customers")),
+    if (!("authorization" in authHeaders) || !authHeaders.authorization) {
+      return null
     }
 
     return await sdk.client
@@ -44,9 +37,8 @@ export const retrieveCustomer =
         query: {
           fields: "*orders",
         },
-        headers,
-        next,
-        cache: "force-cache",
+        headers: authHeaders,
+        cache: "no-store",
       })
       .then(({ customer }) => customer)
       .catch(() => null)
@@ -203,7 +195,7 @@ export async function startOAuthLogin(_currentState: unknown, formData: FormData
     return "This sign-on provider is not supported."
   }
 
-  const callbackUrl = `${await storefrontOrigin()}/${countryCode}/account/oauth/callback?provider=${provider}`
+  const callbackUrl = `${await storefrontOrigin()}/oauth/${provider}/callback`
   let location = ""
 
   try {
@@ -278,6 +270,8 @@ export async function completeOAuthLogin({
 
     const customerCacheTag = await getCacheTag("customers")
     revalidateTag(customerCacheTag)
+    revalidatePath("/account")
+    revalidatePath("/")
     await transferCart()
     redirect(localizedPath(`/${countryCode}/account`))
   } catch (error) {
@@ -386,8 +380,10 @@ function safeServerError(error: unknown) {
 }
 
 async function storefrontOrigin() {
-  if (process.env.NEXT_PUBLIC_STOREFRONT_URL) {
-    return process.env.NEXT_PUBLIC_STOREFRONT_URL.replace(/\/+$/, "")
+  const configured =
+    process.env.NEXT_PUBLIC_STOREFRONT_URL || process.env.NEXT_PUBLIC_BASE_URL
+  if (configured) {
+    return configured.replace(/\/+$/, "")
   }
   const headers = await nextHeaders()
   const host = headers.get("x-forwarded-host") ?? headers.get("host") ?? "localhost:8000"

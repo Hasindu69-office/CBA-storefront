@@ -12,8 +12,8 @@ type Props = {
     sortBy?: string
     page?: string
     query?: string
-    category?: string
-    brand?: string
+    category?: string | string[]
+    brand?: string | string[]
     min_price?: string
     max_price?: string
     price_range?: string

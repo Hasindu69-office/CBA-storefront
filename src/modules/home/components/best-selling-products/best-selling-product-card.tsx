@@ -252,18 +252,16 @@ const BestSellingProductCard = ({
           </h3>
         </LocalizedClientLink>
 
-        <div className={`mt-1 min-h-[20px] items-center justify-between gap-2 ${
-          isFlat ? "hidden medium:flex" : "flex"
-        }`}>
-          <ProductRating rating={product.rating} />
+        <div className="mt-1 flex min-h-[18px] items-center justify-between gap-1.5 overflow-hidden medium:min-h-[20px] medium:gap-2">
+          <ProductRating rating={product.rating} compact={isFlat} />
           <span
-            className={`line-clamp-1 flex-shrink-0 text-[10px] leading-4 ${
+            className={`line-clamp-1 min-w-0 flex-shrink text-[8px] leading-3 xsmall:text-[9px] medium:flex-shrink-0 medium:text-[10px] medium:leading-4 ${
               product.inventory.in_stock || product.inventory.allow_backorder
                 ? "text-[#69be3b]"
                 : "text-[#a1a1aa]"
             }`}
           >
-            <span className="mr-1 inline-block h-2 w-2 rounded-full bg-current" />
+            <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current align-middle medium:h-2 medium:w-2" />
             {inventoryLabel(product.inventory.status)}
           </span>
         </div>
@@ -294,20 +292,39 @@ const BestSellingProductCard = ({
 
 const ProductRating = ({
   rating,
+  compact = false,
 }: {
   rating: FeaturedProductCard["rating"]
+  compact?: boolean
 }) => {
   if (!rating || rating.count < 1) {
     return (
-      <span className="text-[10px] font-medium leading-4 text-[#8a8a8f]">
+      <span
+        className={`min-w-0 flex-shrink-0 font-medium text-[#8a8a8f] ${
+          compact
+            ? "text-[8px] leading-3 xsmall:text-[9px] medium:text-[10px] medium:leading-4"
+            : "text-[10px] leading-4"
+        }`}
+      >
         No reviews
       </span>
     )
   }
 
   return (
-    <span className="flex min-w-0 items-center gap-1 text-[10px] leading-4">
-      <span className="text-[15px] leading-none text-brand" aria-hidden="true">
+    <span
+      className={`flex min-w-0 flex-shrink-0 items-center gap-1 ${
+        compact
+          ? "text-[8px] leading-3 xsmall:text-[9px] medium:text-[10px] medium:leading-4"
+          : "text-[10px] leading-4"
+      }`}
+    >
+      <span
+        className={`leading-none text-brand ${
+          compact ? "text-[12px] medium:text-[15px]" : "text-[15px]"
+        }`}
+        aria-hidden="true"
+      >
         ☆☆☆☆☆
       </span>
       <span className="font-bold text-black">{rating.average.toFixed(1)}</span>
