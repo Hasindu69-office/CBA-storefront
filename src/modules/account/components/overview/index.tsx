@@ -86,20 +86,20 @@ const Overview = ({ dashboard, recommendedProducts }: OverviewProps) => {
 
   return (
     <div
-      className="w-full bg-[#f7f8fa] px-4 py-5 small:px-7 small:py-7"
+      className="w-full"
       data-testid="overview-page-wrapper"
     >
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-2 small:flex-row small:items-start small:justify-between">
           <div>
-            <h1 className="text-2xl-semi text-gray-950">
+            <h1 className="text-[26px] font-bold leading-tight text-gray-950">
               Welcome back, {firstName}
             </h1>
             <p className="mt-1 text-small-regular text-gray-600">
               Here is what is happening with your account today.
             </p>
           </div>
-          <time className="text-small-regular text-gray-500">
+          <time className="text-small-regular text-gray-500 small:pt-2">
             {new Intl.DateTimeFormat("en-US", {
               weekday: "long",
               day: "2-digit",
@@ -116,12 +116,12 @@ const Overview = ({ dashboard, recommendedProducts }: OverviewProps) => {
         </div>
 
         <div className="grid grid-cols-1 gap-5 medium:grid-cols-[minmax(0,1fr)_360px]">
-          <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
+          <section className="rounded-lg border border-gray-200 bg-white shadow-[0_1px_10px_rgba(15,23,42,0.03)]">
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
               <h2 className="text-large-semi text-gray-950">Recent Orders</h2>
               <LocalizedClientLink
                 href="/account/orders"
-                className="inline-flex items-center gap-1 text-small-semi text-[#ff5c0e]"
+                className="inline-flex items-center gap-1 text-small-semi text-[#ff5c0e] transition-colors hover:text-[#e6530c]"
               >
                 View All Orders <ArrowRightMini />
               </LocalizedClientLink>
@@ -143,7 +143,7 @@ const Overview = ({ dashboard, recommendedProducts }: OverviewProps) => {
           </section>
 
           <aside className="flex flex-col gap-5">
-            <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-[0_1px_10px_rgba(15,23,42,0.03)]">
               <h2 className="text-large-semi text-gray-950">Account Summary</h2>
               <dl className="mt-5 flex flex-col gap-4">
                 <SummaryRow
@@ -169,13 +169,13 @@ const Overview = ({ dashboard, recommendedProducts }: OverviewProps) => {
               </dl>
               <LocalizedClientLink
                 href="/account/profile"
-                className="mt-6 inline-flex items-center gap-1 text-small-semi text-[#ff5c0e]"
+                className="mt-6 inline-flex items-center gap-1 text-small-semi text-[#ff5c0e] transition-colors hover:text-[#e6530c]"
               >
                 Edit Profile <ArrowRightMini />
               </LocalizedClientLink>
             </section>
 
-            <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-[0_1px_10px_rgba(15,23,42,0.03)]">
               <h2 className="text-large-semi text-gray-950">Quick Actions</h2>
               <div className="mt-5 grid grid-cols-1 gap-3 small:grid-cols-2 medium:grid-cols-1">
                 <QuickAction href="/" icon={ShoppingBag} label="Browse Products" />
@@ -189,12 +189,12 @@ const Overview = ({ dashboard, recommendedProducts }: OverviewProps) => {
           </aside>
         </div>
 
-        <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-[0_1px_10px_rgba(15,23,42,0.03)]">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-large-semi text-gray-950">Recommended for You</h2>
             <LocalizedClientLink
               href="/store"
-              className="inline-flex items-center gap-1 text-small-semi text-[#ff5c0e]"
+              className="inline-flex items-center gap-1 text-small-semi text-[#ff5c0e] transition-colors hover:text-[#e6530c]"
             >
               View All <ArrowRightMini />
             </LocalizedClientLink>
@@ -205,7 +205,7 @@ const Overview = ({ dashboard, recommendedProducts }: OverviewProps) => {
                 <LocalizedClientLink
                   key={product.id}
                   href={`/products/${product.handle}`}
-                  className="group rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-black"
+                  className="group rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-[#ff5c0e]/60 hover:shadow-[0_6px_20px_rgba(15,23,42,0.06)]"
                 >
                   <Thumbnail
                     thumbnail={product.thumbnail?.url}
@@ -299,10 +299,13 @@ const DashboardMetricCard = ({
 
 const RecentOrderRow = ({ order }: { order: CbaAccountDashboardOrder }) => {
   const status = order.fulfillment_status.label || order.order_status.label
+  const orderTotal = formatOrderTotal(order.total, order.currency_code)
+  const orderNumber = order.custom_display_id || order.display_id
+
   return (
     <LocalizedClientLink
       href={`/account/orders/details/${order.id}`}
-      className="grid grid-cols-[64px_minmax(0,1fr)] gap-4 border-b border-gray-100 px-5 py-4 last:border-b-0 small:grid-cols-[64px_minmax(0,1fr)_140px_120px_24px] small:items-center"
+      className="grid grid-cols-[56px_minmax(0,1fr)] gap-4 border-b border-gray-100 px-5 py-3.5 transition-colors last:border-b-0 hover:bg-gray-50/60 small:grid-cols-[56px_minmax(0,1fr)_128px_104px_104px_20px] small:items-center"
       data-testid="order-wrapper"
       data-value={order.id}
     >
@@ -310,13 +313,13 @@ const RecentOrderRow = ({ order }: { order: CbaAccountDashboardOrder }) => {
         thumbnail={order.thumbnail}
         images={[]}
         size="square"
-        className="h-16 w-16 rounded-md p-2 shadow-none"
+        className="h-14 w-14 rounded-md p-2 shadow-none"
       />
       <div className="min-w-0">
-        <p className="text-small-semi text-gray-950">
-          Order #{order.custom_display_id || order.display_id}
+        <p className="text-[13px] font-semibold leading-5 text-gray-950">
+          {orderNumber ? `Order #${orderNumber}` : "Order details"}
         </p>
-        <p className="mt-1 line-clamp-1 text-small-regular text-gray-600">
+        <p className="mt-1 line-clamp-1 text-[13px] leading-5 text-gray-600">
           {order.primary_item_title || "Order items"}
           {order.additional_item_count > 0
             ? ` + ${order.additional_item_count} more`
@@ -324,30 +327,24 @@ const RecentOrderRow = ({ order }: { order: CbaAccountDashboardOrder }) => {
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3 small:hidden">
           <StatusPill status={status} />
-          <span className="text-small-regular text-gray-500">
+          <span className="text-[12px] leading-5 text-gray-500">
             {formatDate(order.created_at)}
           </span>
-          <span className="text-small-semi text-gray-950">
-            {convertToLocale({
-              amount: order.total,
-              currency_code: order.currency_code,
-            })}
+          <span className="text-[12px] font-semibold leading-5 text-gray-950">
+            {orderTotal}
           </span>
         </div>
       </div>
-      <div className="hidden small:block">
+      <div className="hidden small:block small:justify-self-start">
         <StatusPill status={status} />
       </div>
-      <span className="hidden text-small-regular text-gray-500 small:block">
+      <span className="hidden text-[12px] leading-5 text-gray-500 small:block">
         {formatDate(order.created_at)}
       </span>
-      <span className="hidden text-small-semi text-gray-950 small:block">
-        {convertToLocale({
-          amount: order.total,
-          currency_code: order.currency_code,
-        })}
+      <span className="hidden text-right text-[12px] font-semibold leading-5 text-gray-950 small:block">
+        {orderTotal}
       </span>
-      <ChevronRight className="hidden text-gray-400 small:block" />
+      <ChevronRight className="hidden h-4 w-4 text-gray-400 small:block small:justify-self-end" />
     </LocalizedClientLink>
   )
 }
@@ -361,7 +358,7 @@ const StatusPill = ({ status }: { status: string }) => {
     : "bg-blue-50 text-blue-700"
 
   return (
-    <span className={`inline-flex rounded-md px-2 py-1 text-xsmall-semi ${className}`}>
+    <span className={`inline-flex rounded-md px-2 py-1 text-[12px] font-medium leading-5 ${className}`}>
       {status}
     </span>
   )
@@ -530,7 +527,11 @@ function formatSpend(spend: Array<{ currency_code: string; total: number }>) {
     .join(" / ")
 }
 
-function formatDate(value: string) {
+function formatDate(value?: string | null) {
+  if (!value) {
+    return "Not available"
+  }
+
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
     return "Not available"
@@ -540,6 +541,15 @@ function formatDate(value: string) {
     month: "short",
     year: "numeric",
   }).format(date)
+}
+
+function formatOrderTotal(total: number, currencyCode?: string | null) {
+  return convertToLocale({
+    amount: total,
+    currency_code: currencyCode || "lkr",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
 
 export default Overview
