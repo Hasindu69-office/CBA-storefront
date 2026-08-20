@@ -1,6 +1,6 @@
 "use client"
 
-import { applyPromotions, updateLineItem } from "@lib/data/cart"
+import { applyPromotionsSafe, updateLineItem } from "@lib/data/cart"
 import { manualCodesWithNewCoupon } from "@lib/util/coupon-promotions"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
@@ -79,8 +79,14 @@ export default function CartItemsPanel({ cart }: CartItemsPanelProps) {
   }
 
   const applyCoupon = async (code: string) => {
-    await applyPromotions(manualCodesWithNewCoupon(cart.promotions, code))
+    const result = await applyPromotionsSafe(
+      manualCodesWithNewCoupon(cart.promotions, code)
+    )
+    if (!result.success) {
+      return result.error
+    }
     router.refresh()
+    return null
   }
 
   return (

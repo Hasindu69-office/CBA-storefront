@@ -514,6 +514,25 @@ export async function applyPromotions(codes: string[]) {
     })
 }
 
+export type PromotionActionResult =
+  | { success: true; error: null }
+  | { success: false; error: string }
+
+export async function applyPromotionsSafe(
+  codes: string[]
+): Promise<PromotionActionResult> {
+  try {
+    await applyPromotions(codes)
+    return { success: true, error: null }
+  } catch (error) {
+    const safeError = safePromotionError(error)
+    return {
+      success: false,
+      error: safeError.message || "This promotion could not be applied to your cart.",
+    }
+  }
+}
+
 export async function applyGiftCard(code: string) {
   //   const cartId = getCartId()
   //   if (!cartId) return "No cartId cookie found"

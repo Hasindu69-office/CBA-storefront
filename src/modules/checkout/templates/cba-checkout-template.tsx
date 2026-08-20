@@ -2,7 +2,7 @@
 
 import {
   initiatePaymentSession,
-  applyPromotions,
+  applyPromotionsSafe,
   calculateCartTaxes,
   placeOrder,
   saveCheckoutDetails,
@@ -700,8 +700,14 @@ function CheckoutOrderSummary({
   )
 
   const applyCheckoutCoupon = async (code: string) => {
-    await applyPromotions(manualCodesWithNewCoupon(cart.promotions, code))
+    const result = await applyPromotionsSafe(
+      manualCodesWithNewCoupon(cart.promotions, code)
+    )
+    if (!result.success) {
+      return result.error
+    }
     router.refresh()
+    return null
   }
 
   const refreshTotals = async () => {

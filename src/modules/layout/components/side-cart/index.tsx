@@ -1,7 +1,11 @@
 "use client"
 
 import { Dialog, Transition } from "@headlessui/react"
-import { applyPromotions, deleteLineItem, updateLineItem } from "@lib/data/cart"
+import {
+  applyPromotionsSafe,
+  deleteLineItem,
+  updateLineItem,
+} from "@lib/data/cart"
 import { notify } from "@lib/notifications"
 import {
   hasAutomaticPromotions,
@@ -323,7 +327,14 @@ function SideCartDrawer({
       const toastId = `side-cart-coupon:${normalizedCode}`
       notify.loading("Applying coupon...", { id: toastId })
       try {
-        await applyPromotions(manualCodesWithNewCoupon(cart?.promotions, normalizedCode))
+        const applyResult = await applyPromotionsSafe(
+          manualCodesWithNewCoupon(cart?.promotions, normalizedCode)
+        )
+        if (!applyResult.success) {
+          setCouponError(applyResult.error)
+          notify.error(applyResult.error, "Could not apply coupon.", { id: toastId })
+          return
+        }
         router.refresh()
         notify.success("Coupon applied.", { id: toastId })
       } catch (error) {
@@ -341,7 +352,14 @@ function SideCartDrawer({
       const toastId = `side-cart-coupon-remove:${code}`
       notify.loading("Removing coupon...", { id: toastId })
       try {
-        await applyPromotions(manualCodesWithoutCoupon(cart?.promotions, code))
+        const removeResult = await applyPromotionsSafe(
+          manualCodesWithoutCoupon(cart?.promotions, code)
+        )
+        if (!removeResult.success) {
+          setCouponError(removeResult.error)
+          notify.error(removeResult.error, "Could not remove coupon.", { id: toastId })
+          return
+        }
         router.refresh()
         notify.success("Coupon removed.", { id: toastId })
       } catch (error) {
