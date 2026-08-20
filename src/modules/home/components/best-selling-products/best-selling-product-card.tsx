@@ -10,6 +10,7 @@ import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import { openSideCart } from "@lib/util/side-cart-event"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import ProductCardRating from "@modules/common/components/product-card-rating"
 import PlaceholderImage from "@modules/common/icons/placeholder-image"
 import {
   ShoppingCartIcon,
@@ -219,7 +220,7 @@ const BestSellingProductCard = ({
         </LocalizedClientLink>
 
         <div className="mt-1 flex min-h-[18px] items-center justify-between gap-1.5 overflow-hidden medium:min-h-[20px] medium:gap-2">
-          <ProductRating rating={product.rating} compact={isFlat} />
+          <ProductCardRating rating={product.rating} compact={isFlat} />
           <span
             className={`line-clamp-1 min-w-0 flex-shrink text-[8px] leading-3 xsmall:text-[9px] medium:flex-shrink-0 medium:text-[10px] medium:leading-4 ${
               product.inventory.in_stock || product.inventory.allow_backorder
@@ -253,49 +254,6 @@ const BestSellingProductCard = ({
         </div>
       </div>
     </article>
-  )
-}
-
-const ProductRating = ({
-  rating,
-  compact = false,
-}: {
-  rating: FeaturedProductCard["rating"]
-  compact?: boolean
-}) => {
-  if (!rating || rating.count < 1) {
-    return (
-      <span
-        className={`min-w-0 flex-shrink-0 font-medium text-[#8a8a8f] ${
-          compact
-            ? "text-[8px] leading-3 xsmall:text-[9px] medium:text-[10px] medium:leading-4"
-            : "text-[10px] leading-4"
-        }`}
-      >
-        No reviews
-      </span>
-    )
-  }
-
-  return (
-    <span
-      className={`flex min-w-0 flex-shrink-0 items-center gap-1 ${
-        compact
-          ? "text-[8px] leading-3 xsmall:text-[9px] medium:text-[10px] medium:leading-4"
-          : "text-[10px] leading-4"
-      }`}
-    >
-      <span
-        className={`leading-none text-brand ${
-          compact ? "text-[12px] medium:text-[15px]" : "text-[15px]"
-        }`}
-        aria-hidden="true"
-      >
-        ☆☆☆☆☆
-      </span>
-      <span className="font-bold text-black">{rating.average.toFixed(1)}</span>
-      <span className="text-[#8a8a8f]">({rating.count})</span>
-    </span>
   )
 }
 
