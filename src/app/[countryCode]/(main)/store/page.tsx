@@ -18,6 +18,7 @@ type Params = {
     max_price?: string
     price_range?: string
     filters?: string
+    on_sale?: string
   }>
   params: Promise<{
     countryCode: string
@@ -37,6 +38,7 @@ export default async function StorePage(props: Params) {
     max_price,
     price_range,
     filters,
+    on_sale,
   } = searchParams
 
   return (
@@ -50,6 +52,7 @@ export default async function StorePage(props: Params) {
       maxPrice={max_price}
       priceRange={price_range}
       filters={filters}
+      onSale={on_sale}
       countryCode={params.countryCode}
     />
   )

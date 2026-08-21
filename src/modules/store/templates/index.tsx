@@ -37,6 +37,7 @@ const StoreTemplate = async ({
   maxPrice,
   priceRange,
   filters,
+  onSale,
   countryCode,
 }: {
   sortBy?: string
@@ -48,6 +49,7 @@ const StoreTemplate = async ({
   maxPrice?: string
   priceRange?: string
   filters?: string
+  onSale?: string
   countryCode: string
 }) => {
   const pageNumber = parseStorePage(page)
@@ -68,6 +70,7 @@ const StoreTemplate = async ({
     minPrice: selectedMinPrice,
     maxPrice: selectedMaxPrice,
     filters: selectedFilters,
+    onSale: parseStoreBooleanParam(onSale),
     countryCode,
   })
     .then((data) => ({ data, error: null }))
@@ -200,6 +203,7 @@ const StoreTemplate = async ({
                   minPrice={selectedMinPrice}
                   maxPrice={selectedMaxPrice}
                   filters={selectedFilters}
+                  onSale={parseStoreBooleanParam(onSale)}
                   searchResult={searchResult ?? undefined}
                   searchError={productSearch.error ?? undefined}
                   countryCode={countryCode}
@@ -214,6 +218,10 @@ const StoreTemplate = async ({
 }
 
 export default StoreTemplate
+
+function parseStoreBooleanParam(value?: string) {
+  return ["1", "true", "yes"].includes(value?.trim().toLowerCase() ?? "")
+}
 
 function roundPriceRangeMax(value?: number | null) {
   if (!value || value <= 0) {
