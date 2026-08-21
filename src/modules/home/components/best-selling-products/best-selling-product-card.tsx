@@ -148,6 +148,13 @@ const BestSellingProductCard = ({
               : "right-2.5 top-2.5 h-8 w-8 medium:h-7 medium:w-7"
           }`}
         />
+
+        {product.price.discount_percentage !== null && (
+          <DiscountPercentageBadge
+            percentage={product.price.discount_percentage}
+            compact={isFlat}
+          />
+        )}
       </div>
 
       {benefitItems.length ? (
@@ -288,6 +295,43 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
         </span>
       )}
     </span>
+  )
+}
+
+function DiscountPercentageBadge({
+  percentage,
+  compact,
+}: {
+  percentage: number
+  compact: boolean
+}) {
+  return (
+    <div
+      className={`absolute z-10 flex flex-col items-center justify-center rounded-full bg-[#ff2d55] text-center text-white shadow-[0_10px_24px_rgba(255,45,85,0.28)] ${
+        compact
+          ? "right-2 top-[46px] h-[38px] w-[38px] xsmall:right-2.5 xsmall:top-[48px] xsmall:h-[42px] xsmall:w-[42px] medium:right-3 medium:top-[50px]"
+          : "right-3 top-[56px] h-[48px] w-[48px] medium:right-3 medium:top-[50px] medium:h-[44px] medium:w-[44px] large:right-4 large:top-[56px] large:h-[48px] large:w-[48px]"
+      }`}
+    >
+      <span
+        className={`font-bold ${
+          compact
+            ? "text-[12px] leading-[13px] xsmall:text-[13px] xsmall:leading-[14px]"
+            : "text-[14px] leading-[15px]"
+        }`}
+      >
+        {percentage}%
+      </span>
+      <span
+        className={`font-bold uppercase ${
+          compact
+            ? "text-[7px] leading-[9px] xsmall:text-[8px] xsmall:leading-[10px]"
+            : "text-[8px] leading-[10px]"
+        }`}
+      >
+        Off
+      </span>
+    </div>
   )
 }
 
