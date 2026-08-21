@@ -34,6 +34,7 @@ export default async function PaginatedProducts({
   minPrice,
   maxPrice,
   filters,
+  onSale,
   searchResult,
   searchError,
   countryCode,
@@ -49,6 +50,7 @@ export default async function PaginatedProducts({
   minPrice?: number
   maxPrice?: number
   filters?: StoreSearchFilters
+  onSale?: boolean
   searchResult?: StoreSearchResult
   searchError?: string
   countryCode: string
@@ -82,6 +84,7 @@ export default async function PaginatedProducts({
         minPrice,
         maxPrice,
         filters: filters ?? {},
+        onSale,
         countryCode,
       }))
     const totalPages = Math.ceil(count / STORE_PRODUCT_LIMIT)
