@@ -9,6 +9,10 @@ import {
 const BACKEND_URL = process.env.MEDUSA_BACKEND_URL
 const PUBLISHABLE_API_KEY = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
 const DEFAULT_REGION = DEFAULT_COUNTRY_CODE
+const CACHE_COOKIE_NAME = process.env.CACHE_COOKIE_NAME || "_cba_cache_id"
+const LEGACY_CACHE_COOKIE_NAMES = ["_medusa_cache_id"].filter(
+  (name) => name !== CACHE_COOKIE_NAME
+)
 
 const regionMapCache = {
   regionMap: new Map<string, HttpTypes.StoreRegion>(),
@@ -117,7 +121,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  let cacheIdCookie = request.cookies.get("_medusa_cache_id")
+  let cacheIdCookie =
+    request.cookies.get(CACHE_COOKIE_NAME) ??
+    firstRequestCookie(request, LEGACY_CACHE_COOKIE_NAMES)
 
   let cacheId = cacheIdCookie?.value || crypto.randomUUID()
 
@@ -146,7 +152,7 @@ export async function middleware(request: NextRequest) {
     )
     const response = NextResponse.redirect(canonicalUrl, 308)
     if (!cacheIdCookie) {
-      response.cookies.set("_medusa_cache_id", cacheId, {
+      response.cookies.set(CACHE_COOKIE_NAME, cacheId, {
         maxAge: 60 * 60 * 24,
       })
     }
@@ -161,7 +167,7 @@ export async function middleware(request: NextRequest) {
 
   const response = NextResponse.rewrite(rewriteUrl)
   if (!cacheIdCookie) {
-    response.cookies.set("_medusa_cache_id", cacheId, {
+    response.cookies.set(CACHE_COOKIE_NAME, cacheId, {
       maxAge: 60 * 60 * 24,
     })
   }
@@ -173,4 +179,14 @@ export const config = {
   matcher: [
     "/((?!api|_next/static|_next/image|favicon.ico|images|assets|png|svg|jpg|jpeg|gif|webp).*)",
   ],
+}
+
+function firstRequestCookie(request: NextRequest, names: string[]) {
+  for (const name of names) {
+    const cookie = request.cookies.get(name)
+    if (cookie) {
+      return cookie
+    }
+  }
+  return undefined
 }

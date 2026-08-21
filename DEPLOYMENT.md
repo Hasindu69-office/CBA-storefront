@@ -35,6 +35,9 @@ NEXT_PUBLIC_MEDUSA_PAYMENTS_PUBLISHABLE_KEY=replace-with-medusa-payments-key
 NEXT_PUBLIC_MEDUSA_PAYMENTS_ACCOUNT_ID=replace-with-medusa-payments-account-id
 MEDUSA_CLOUD_S3_HOSTNAME=replace-with-s3-hostname
 MEDUSA_CLOUD_S3_PATHNAME=replace-with-s3-pathname
+AUTH_COOKIE_NAME=_CBA_Ebiz
+CART_COOKIE_NAME=_cba_cart_id
+CACHE_COOKIE_NAME=_cba_cache_id
 ```
 
 Use the public Coolify/backend URL for `MEDUSA_BACKEND_URL`, not `localhost`, because middleware and server-side rendering run inside the container. If you override `MEDUSA_FILE_BACKEND_URL`, use the public URL that serves uploaded Medusa files.
