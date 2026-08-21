@@ -13,7 +13,7 @@
     "start": "next start -p 8000",
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
-    "test:unit": "npx --yes tsx --test src/lib/util/__tests__/cart-totals.unit.spec.ts src/lib/util/__tests__/checkout-validation-focus.unit.spec.ts src/lib/util/__tests__/order-tracking.unit.spec.ts",
+    "test:unit": "npx --yes tsx --test src/lib/util/__tests__/cart-totals.unit.spec.ts src/lib/util/__tests__/checkout-validation-focus.unit.spec.ts src/lib/util/__tests__/cms-pages.unit.spec.ts src/lib/util/__tests__/order-tracking.unit.spec.ts",
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
