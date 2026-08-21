@@ -21,6 +21,7 @@ import {
   PROMOTION_CODE_MAX_LENGTH,
   validatePromotionCode,
 } from "@lib/util/promotions"
+import { formatDisplayCount } from "@lib/util/format-display-count"
 import {
   SIDE_CART_OPEN_EVENT,
   SIDE_CART_UPDATE_EVENT,
@@ -184,6 +185,7 @@ export default function SideCart({
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
   const pathname = usePathname()
   const itemCount = getItemCount(displayCart)
+  const displayItemCount = formatDisplayCount(itemCount)
   const cartSignature = `${displayCart?.id ?? "none"}:${itemCount}:${displayCart?.total ?? 0}`
   const previousCartSignature = useRef(cartSignature)
 
@@ -267,8 +269,11 @@ export default function SideCart({
             strokeWidth={1.5}
             className="h-[23px] w-[23px] text-black small:h-[26px] small:w-[26px]"
           />
-          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white small:h-5 small:min-w-5 small:text-[11px]">
-            {itemCount}
+          <span
+            aria-hidden="true"
+            className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white small:h-5 small:min-w-5 small:text-[11px]"
+          >
+            {displayItemCount}
           </span>
         </span>
         <div className="leading-tight">
@@ -276,7 +281,7 @@ export default function SideCart({
             Cart
           </p>
           <p className="mt-0.5 hidden text-[12px] text-gray-400 medium:block">
-            {itemCount} {itemCount === 1 ? "item" : "items"}
+            {displayItemCount} {itemCount === 1 ? "item" : "items"}
           </p>
         </div>
       </button>
