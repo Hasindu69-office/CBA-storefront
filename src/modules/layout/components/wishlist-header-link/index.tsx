@@ -4,6 +4,7 @@ import {
   WISHLIST_COUNT_UPDATE_EVENT,
   type WishlistCountUpdateOptions,
 } from "@lib/util/wishlist-count-event"
+import { formatDisplayCount } from "@lib/util/format-display-count"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { HeartIcon } from "@modules/layout/components/cba-icons"
 import { useEffect, useState } from "react"
@@ -20,6 +21,7 @@ export default function WishlistHeaderLink({
   variant,
 }: WishlistHeaderLinkProps) {
   const [count, setCount] = useState(initialCount)
+  const displayCount = formatDisplayCount(count)
 
   useEffect(() => {
     setCount(initialCount)
@@ -51,8 +53,11 @@ export default function WishlistHeaderLink({
         <span className="relative block">
           <HeartIcon size={23} strokeWidth={1.55} className="text-black" />
           {count > 0 && (
-            <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white">
-              {count}
+            <span
+              aria-hidden="true"
+              className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white"
+            >
+              {displayCount}
             </span>
           )}
         </span>
@@ -71,7 +76,7 @@ export default function WishlistHeaderLink({
       <div className="hidden medium:block leading-tight">
         <p className="font-semibold text-black text-[15px]">{label}</p>
         <p className="text-gray-400 text-[12px] mt-0.5">
-          {count} {count === 1 ? "item" : "items"}
+          {displayCount} {count === 1 ? "item" : "items"}
         </p>
       </div>
     </LocalizedClientLink>
