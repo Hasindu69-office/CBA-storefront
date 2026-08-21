@@ -4,6 +4,7 @@ import { transferCart } from "@lib/data/customer"
 import { ExclamationCircleSolid } from "@medusajs/icons"
 import { StoreCart, StoreCustomer } from "@medusajs/types"
 import { Button } from "@medusajs/ui"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 function CartMismatchBanner(props: {
@@ -11,20 +12,38 @@ function CartMismatchBanner(props: {
   cart: StoreCart
 }) {
   const { customer, cart } = props
+  const router = useRouter()
   const [isPending, setIsPending] = useState(false)
   const [actionText, setActionText] = useState("Run transfer again")
+  const [message, setMessage] = useState(
+    "Something went wrong when we tried to transfer your cart"
+  )
 
   if (!customer || !!cart.customer_id) {
     return
   }
 
   const handleSubmit = async () => {
+    if (isPending || !cart?.id || cart.customer_id) {
+      return
+    }
+
     try {
       setIsPending(true)
       setActionText("Transferring..")
 
-      await transferCart()
+      const result = await transferCart()
+      setMessage(result.message ?? message)
+
+      if (result.success && result.needsRefresh) {
+        router.refresh()
+        return
+      }
+
+      setActionText("Run transfer again")
+      setIsPending(false)
     } catch {
+      setMessage("Something went wrong when we tried to transfer your cart")
       setActionText("Run transfer again")
       setIsPending(false)
     }
@@ -35,7 +54,7 @@ function CartMismatchBanner(props: {
       <div className="flex flex-col small:flex-row small:gap-2 gap-1 items-center">
         <span className="flex items-center gap-1">
           <ExclamationCircleSolid className="inline" />
-          Something went wrong when we tried to transfer your cart
+          {message}
         </span>
 
         <span>·</span>

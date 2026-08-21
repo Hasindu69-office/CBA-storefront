@@ -52,6 +52,7 @@ const Hero = ({ sections }: HeroProps) => {
   )
   const slides = useMemo(() => normalizeSlides(heroSection), [heroSection])
   const [activeIndex, setActiveIndex] = useState(0)
+  const [isPaused, setIsPaused] = useState(false)
 
   const autoplay = heroSection?.config?.autoplay !== false && slides.length > 1
   const intervalMs = normalizeInterval(heroSection?.config?.interval_ms)
@@ -61,7 +62,7 @@ const Hero = ({ sections }: HeroProps) => {
   }, [slides.length])
 
   useEffect(() => {
-    if (!autoplay) {
+    if (!autoplay || isPaused) {
       return
     }
 
@@ -75,7 +76,7 @@ const Hero = ({ sections }: HeroProps) => {
     }, intervalMs)
 
     return () => window.clearInterval(timer)
-  }, [autoplay, intervalMs, slides.length])
+  }, [autoplay, intervalMs, isPaused, slides.length])
 
   return (
     <section className="w-full overflow-hidden bg-white pt-2 sm:pt-3">
@@ -84,6 +85,10 @@ const Hero = ({ sections }: HeroProps) => {
           className="relative isolate aspect-[16/9] min-h-[210px] overflow-hidden text-white xsmall:min-h-[230px] sm:aspect-[1839/710] sm:min-h-[300px] small:min-h-0"
           aria-roledescription="carousel"
           aria-label="Homepage featured banners"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+          onFocus={() => setIsPaused(true)}
+          onBlur={() => setIsPaused(false)}
         >
           <div
             className="absolute inset-0 z-10 overflow-hidden bg-black [--hero-mask-image:url(/images/homepagebanner-01.svg)] [--hero-mask-position:center_47.6%] [--hero-mask-size:156%_auto] sm:[--hero-mask-size:132%_auto] small:[--hero-mask-position:center_47.6%] small:[--hero-mask-size:104.5%_auto]"
