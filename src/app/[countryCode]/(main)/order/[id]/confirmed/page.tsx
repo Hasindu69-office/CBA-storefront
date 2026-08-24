@@ -1,5 +1,4 @@
 import { retrieveOrder } from "@lib/data/orders"
-import { establishGuestSessionFromConfirmation } from "@lib/data/order-tracking"
 import OrderCompletedTemplate from "@modules/order/templates/order-completed-template"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
@@ -19,9 +18,6 @@ export default async function OrderConfirmedPage(props: Props) {
   if (!order) {
     return notFound()
   }
-
-  // Ensure guests have a tracking session for receipt download (idempotent).
-  await establishGuestSessionFromConfirmation(order.id)
 
   return <OrderCompletedTemplate order={order} />
 }
