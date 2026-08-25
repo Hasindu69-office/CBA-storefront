@@ -26,6 +26,12 @@ NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=replace-with-publishable-key
 NEXT_PUBLIC_BASE_URL=https://your-storefront-domain
 ```
 
+For the deployed CBA test server, `NEXT_PUBLIC_BASE_URL` should be the public browser URL, for example:
+
+```env
+NEXT_PUBLIC_BASE_URL=https://cbaebiz.77.42.26.240.sslip.io
+```
+
 Optional variables:
 
 ```env
@@ -41,6 +47,12 @@ CACHE_COOKIE_NAME=_cba_cache_id
 ```
 
 Use the public Coolify/backend URL for `MEDUSA_BACKEND_URL`, not `localhost`, because middleware and server-side rendering run inside the container. If you override `MEDUSA_FILE_BACKEND_URL`, use the public URL that serves uploaded Medusa files.
+
+The backend WEBXPAY callback also needs the public storefront origin in `STOREFRONT_URL`. Do not set it to the container bind address. For this server it should match the storefront public origin:
+
+```env
+STOREFRONT_URL=https://cbaebiz.77.42.26.240.sslip.io
+```
 
 In Coolify, make sure these same values are available as build variables/build arguments as well as runtime environment variables. The Dockerfile accepts matching `ARG` names and also exposes them to the standalone Next.js runtime.
 

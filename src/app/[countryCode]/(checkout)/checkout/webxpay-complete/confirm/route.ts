@@ -32,19 +32,52 @@ export async function GET(req: NextRequest, { params }: Props) {
   await removeCartId()
 
   return NextResponse.redirect(
-    new URL(localizedPath(`/${countryCode}/order/${orderId}/confirmed`), req.url),
+    storefrontUrl(req, localizedPath(`/${countryCode}/order/${orderId}/confirmed`)),
     303
   )
 }
 
 function redirectToPaymentResult(req: NextRequest, countryCode: string, code: string) {
   return NextResponse.redirect(
-    new URL(
-      localizedPath(`/${countryCode}/checkout/payment-result?status=failed&code=${code}`),
-      req.url
+    storefrontUrl(
+      req,
+      localizedPath(`/${countryCode}/checkout/payment-result?status=failed&code=${code}`)
     ),
     303
   )
+}
+
+function storefrontUrl(req: NextRequest, path: string) {
+  return new URL(path, storefrontOrigin(req))
+}
+
+function storefrontOrigin(req: NextRequest) {
+  const configured =
+    process.env.NEXT_PUBLIC_STOREFRONT_URL || process.env.NEXT_PUBLIC_BASE_URL
+
+  if (configured?.trim()) {
+    return configured.trim().replace(/\/+$/, "")
+  }
+
+  const forwardedHost = req.headers.get("x-forwarded-host")
+  const host = forwardedHost || req.headers.get("host")
+
+  if (host && !isInternalBindHost(host)) {
+    const proto =
+      req.headers.get("x-forwarded-proto") ||
+      (host.startsWith("localhost") || host.startsWith("127.0.0.1")
+        ? "http"
+        : "https")
+
+    return `${proto}://${host}`
+  }
+
+  return "http://localhost:8000"
+}
+
+function isInternalBindHost(host: string) {
+  const hostname = host.split(":")[0]
+  return hostname === "0.0.0.0" || hostname === "::" || hostname === "[::]"
 }
 
 function signOrderId(orderId: string) {
