@@ -9,7 +9,8 @@ import {
   setShippingMethod,
 } from "@lib/data/cart"
 import { calculatePriceForShippingOption } from "@lib/data/fulfillment"
-import { isManual, isStripeLike, isWebxpay, paymentInfoMap } from "@lib/constants"
+import { isKoko, isManual, isStripeLike, isWebxpay, paymentInfoMap } from "@lib/constants"
+import type { KokoCheckoutBranding } from "@lib/data/koko-branding"
 import type { WebxpayCheckoutBranding } from "@lib/data/webxpay-branding"
 import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
@@ -58,6 +59,7 @@ type CbaCheckoutTemplateProps = {
   shippingMethods: HttpTypes.StoreCartShippingOption[]
   paymentMethods: HttpTypes.StorePaymentProvider[]
   webxpayBranding?: WebxpayCheckoutBranding | null
+  kokoBranding?: KokoCheckoutBranding | null
 }
 
 type CbaCheckoutCart = HttpTypes.StoreCart & {
@@ -79,10 +81,14 @@ function lineTotal(item: HttpTypes.StoreCartLineItem, currencyCode: string) {
 
 function paymentTitle(
   providerId: string,
-  webxpayBranding?: WebxpayCheckoutBranding | null
+  webxpayBranding?: WebxpayCheckoutBranding | null,
+  kokoBranding?: KokoCheckoutBranding | null
 ) {
   if (isWebxpay(providerId) && webxpayBranding?.label) {
     return webxpayBranding.label
+  }
+  if (isKoko(providerId) && kokoBranding?.label) {
+    return kokoBranding.label
   }
   const mapped = paymentInfoMap[providerId]?.title
   if (mapped) {
@@ -96,13 +102,23 @@ function paymentTitle(
 
 function paymentIcon(
   providerId: string,
-  webxpayBranding?: WebxpayCheckoutBranding | null
+  webxpayBranding?: WebxpayCheckoutBranding | null,
+  kokoBranding?: KokoCheckoutBranding | null
 ) {
   if (isWebxpay(providerId) && webxpayBranding?.image_url) {
     return (
       <img
         src={webxpayBranding.image_url}
         alt={webxpayBranding.image_alt_text || "WEBXPAY"}
+        className="h-6 w-10 object-contain"
+      />
+    )
+  }
+  if (isKoko(providerId) && kokoBranding?.image_url) {
+    return (
+      <img
+        src={kokoBranding.image_url}
+        alt={kokoBranding.image_alt_text || "Koko"}
         className="h-6 w-10 object-contain"
       />
     )
@@ -136,6 +152,7 @@ export default function CbaCheckoutTemplate({
   shippingMethods,
   paymentMethods,
   webxpayBranding = null,
+  kokoBranding = null,
 }: CbaCheckoutTemplateProps) {
   const activeSession = selectedPaymentSession(cart)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
@@ -214,6 +231,7 @@ export default function CbaCheckoutTemplate({
             isSavingCheckoutDetails={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
             webxpayBranding={webxpayBranding}
+            kokoBranding={kokoBranding}
           />
         </section>
 
@@ -225,6 +243,7 @@ export default function CbaCheckoutTemplate({
             isSavingCheckoutDetails={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
             webxpayBranding={webxpayBranding}
+            kokoBranding={kokoBranding}
           />
         </aside>
       </div>
@@ -551,6 +570,7 @@ function PaymentMethodSelector({
   isSavingCheckoutDetails,
   saveCurrentCheckoutDetails,
   webxpayBranding,
+  kokoBranding,
 }: {
   cart: HttpTypes.StoreCart
   paymentMethods: HttpTypes.StorePaymentProvider[]
@@ -560,6 +580,7 @@ function PaymentMethodSelector({
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
   webxpayBranding?: WebxpayCheckoutBranding | null
+  kokoBranding?: KokoCheckoutBranding | null
 }) {
   const router = useRouter()
   const activeSession = selectedPaymentSession(cart)
@@ -617,18 +638,24 @@ function PaymentMethodSelector({
               >
                 <Radio checked={checked} />
                 <span className="text-[#6f7b8e]">
-                  {paymentIcon(method.id, webxpayBranding)}
+                  {paymentIcon(method.id, webxpayBranding, kokoBranding)}
                 </span>
                 <span className="flex-1 text-[13px] font-bold text-[#252a33]">
-                  {paymentTitle(method.id, webxpayBranding)}
+                  {paymentTitle(method.id, webxpayBranding, kokoBranding)}
                   {checked && isWebxpay(method.id) ? (
                     <span className="mt-1 block text-[11px] font-medium text-[#6b7280]">
                       You will be redirected to WEBXPAY to complete payment securely.
                     </span>
                   ) : null}
+                  {checked && isKoko(method.id) ? (
+                    <span className="mt-1 block text-[11px] font-medium text-[#6b7280]">
+                      You will be redirected to Koko to complete payment securely.
+                    </span>
+                  ) : null}
                 </span>
                 <span className="text-[#1f4f8a]">
-                  {isWebxpay(method.id) && webxpayBranding?.image_url
+                  {(isWebxpay(method.id) && webxpayBranding?.image_url) ||
+                  (isKoko(method.id) && kokoBranding?.image_url)
                     ? null
                     : paymentInfoMap[method.id]?.icon}
                 </span>
@@ -676,6 +703,7 @@ function CheckoutOrderSummary({
   isSavingCheckoutDetails,
   saveCurrentCheckoutDetails,
   webxpayBranding,
+  kokoBranding,
 }: {
   cart: CbaCheckoutCart
   selectedPaymentMethod: string
@@ -683,6 +711,7 @@ function CheckoutOrderSummary({
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
   webxpayBranding?: WebxpayCheckoutBranding | null
+  kokoBranding?: KokoCheckoutBranding | null
 }) {
   const router = useRouter()
   const [isRefreshingTotals, setIsRefreshingTotals] = useState(false)
@@ -834,6 +863,7 @@ function CheckoutOrderSummary({
             termsAccepted={termsAccepted}
             setTermsAccepted={setTermsAccepted}
             webxpayBranding={webxpayBranding}
+            kokoBranding={kokoBranding}
           />
         </div>
       </section>
@@ -914,6 +944,7 @@ function PlaceOrderControl({
   termsAccepted,
   setTermsAccepted,
   webxpayBranding,
+  kokoBranding,
 }: {
   cart: HttpTypes.StoreCart
   selectedPaymentMethod: string
@@ -923,6 +954,7 @@ function PlaceOrderControl({
   termsAccepted: boolean
   setTermsAccepted: (accepted: boolean) => void
   webxpayBranding?: WebxpayCheckoutBranding | null
+  kokoBranding?: KokoCheckoutBranding | null
 }) {
   const activeSession = selectedPaymentSession(cart)
   const totals = mapAuthoritativeTotals(cart)
@@ -975,6 +1007,20 @@ function PlaceOrderControl({
           disabled={!baseReady || isSavingCheckoutDetails}
           saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
           label={webxpayBranding?.label || "Pay with WEBXPAY"}
+        />
+      </>
+    )
+  }
+
+  if (isKoko(activeSession?.provider_id)) {
+    return (
+      <>
+        {termsControl}
+        <KokoPlaceOrderButton
+          cart={cart}
+          disabled={!baseReady || isSavingCheckoutDetails}
+          saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+          label={kokoBranding?.label || "Pay with Koko"}
         />
       </>
     )
@@ -1174,6 +1220,57 @@ function WebxPayPlaceOrderButton({
       className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
     >
       {isPending ? "Continuing to WEBXPAY..." : label}
+      <ArrowRight />
+    </button>
+  )
+}
+
+function KokoPlaceOrderButton({
+  cart,
+  disabled,
+  saveCurrentCheckoutDetails,
+  label,
+}: {
+  cart: HttpTypes.StoreCart
+  disabled: boolean
+  saveCurrentCheckoutDetails: () => Promise<string | null>
+  label: string
+}) {
+  const router = useRouter()
+  const [isPending, setIsPending] = useState(false)
+  const submittingRef = useRef(false)
+
+  const submit = async () => {
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setIsPending(true)
+    notify.loading("Continuing to Koko...", { id: "place-order" })
+
+    const checkoutDetailsError = await saveCurrentCheckoutDetails()
+    if (checkoutDetailsError) {
+      notify.dismiss("place-order")
+      setIsPending(false)
+      submittingRef.current = false
+      return
+    }
+
+    const countryCode = getStoreCountryCode(
+      cart.shipping_address?.country_code ?? cart.region?.countries?.[0]?.iso_2
+    )
+    const target = localizedPath(`/${countryCode}/checkout/koko-redirect`)
+    notify.dismiss("place-order")
+    router.push(target)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void submit()}
+      disabled={disabled || isPending}
+      aria-busy={isPending}
+      className="mt-6 inline-flex h-12 w-full items-center justify-center gap-3 rounded-md bg-brand px-5 text-[16px] font-bold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {isPending ? "Continuing to Koko..." : label}
       <ArrowRight />
     </button>
   )

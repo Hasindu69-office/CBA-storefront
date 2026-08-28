@@ -15,6 +15,10 @@ import { listCategorySliderItems } from "@lib/data/category-slider"
 import { listCollections } from "@lib/data/collections"
 import { listFeaturedProductCards } from "@lib/data/featured-products"
 import { listHomepageContent } from "@lib/data/homepage"
+import {
+  retrieveKokoCheckoutBranding,
+  retrieveKokoPaymentAvailability,
+} from "@lib/data/koko-branding"
 import { getRegion } from "@lib/data/regions"
 import { retrieveWishlistedProductIds } from "@lib/data/wishlist"
 import { WishlistProductProvider } from "@modules/wishlist/components/wishlist-product-button"
@@ -60,16 +64,37 @@ export default async function Home(props: {
     return null
   }
 
+  const [kokoBranding, kokoAvailable] = await Promise.all([
+    retrieveKokoCheckoutBranding(),
+    retrieveKokoPaymentAvailability(region.id),
+  ])
+
   return (
     <>
       <Hero sections={homepageContent.sections} />
       <WishlistProductProvider initialProductIds={wishlistedProductIds}>
-        <TabbedSaleProductsSection sections={homepageContent.sections} />
+        <TabbedSaleProductsSection
+          sections={homepageContent.sections}
+          kokoBranding={kokoBranding}
+          kokoAvailable={kokoAvailable}
+        />
         <CategorySlider categories={categorySliderItems} />
         <HomePromoBanner sections={homepageContent.sections} />
-        <FeaturedProductSlider products={featuredProducts} />
-        <BestSellingProductsSection sections={homepageContent.sections} />
-        <TopSellingProductsSection sections={homepageContent.sections} />
+        <FeaturedProductSlider
+          products={featuredProducts}
+          kokoBranding={kokoBranding}
+          kokoAvailable={kokoAvailable}
+        />
+        <BestSellingProductsSection
+          sections={homepageContent.sections}
+          kokoBranding={kokoBranding}
+          kokoAvailable={kokoAvailable}
+        />
+        <TopSellingProductsSection
+          sections={homepageContent.sections}
+          kokoBranding={kokoBranding}
+          kokoAvailable={kokoAvailable}
+        />
       </WishlistProductProvider>
       <InformationColumnsSection sections={homepageContent.sections} />
       <BrandAutoSlider sections={homepageContent.sections} />

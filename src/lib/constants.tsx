@@ -38,6 +38,10 @@ export const paymentInfoMap: Record<
     title: "WEBXPAY Secure Payment",
     icon: <CreditCard />,
   },
+  pp_koko_koko: {
+    title: "Koko Pay",
+    icon: <CreditCard />,
+  },
   // Add more payment providers here
 }
 
@@ -57,6 +61,10 @@ export const isManual = (providerId?: string) => {
 
 export const isWebxpay = (providerId?: string) => {
   return Boolean(providerId?.startsWith("pp_webxpay_"))
+}
+
+export const isKoko = (providerId?: string) => {
+  return Boolean(providerId?.startsWith("pp_koko_"))
 }
 
 // Add currencies that don't need to be divided by 100

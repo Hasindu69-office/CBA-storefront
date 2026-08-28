@@ -6,6 +6,10 @@ import {
   listUpSellCompanionCards,
 } from "@lib/data/product-relationship-cards"
 import { listPdpBannerContent } from "@lib/data/pdp-banners"
+import {
+  retrieveKokoCheckoutBranding,
+  retrieveKokoPaymentAvailability,
+} from "@lib/data/koko-branding"
 import { retrieveWishlistedProductIds } from "@lib/data/wishlist"
 import CbaProductDetail from "@modules/products/templates/cba-product-detail"
 import { WishlistProductProvider } from "@modules/wishlist/components/wishlist-product-button"
@@ -22,6 +26,7 @@ type ProductTemplateProps = {
 
 export default async function ProductTemplate({
   product,
+  region,
   countryCode,
   images,
   selectedVariantId,
@@ -30,7 +35,14 @@ export default async function ProductTemplate({
     return notFound()
   }
 
-  const [detail, reviews, pdpBanners, wishlistedProductIds] = await Promise.all([
+  const [
+    detail,
+    reviews,
+    pdpBanners,
+    wishlistedProductIds,
+    kokoBranding,
+    kokoAvailable,
+  ] = await Promise.all([
     getProductDetail(product.id, selectedVariantId),
     getProductReviews(product.id, { limit: 5 }),
     listPdpBannerContent(),
@@ -38,6 +50,8 @@ export default async function ProductTemplate({
       country_code: countryCode,
       currency_code: "lkr",
     }),
+    retrieveKokoCheckoutBranding(),
+    retrieveKokoPaymentAvailability(region.id),
   ])
 
   const [crossSellProducts, accessoryProducts, upSellProducts, relatedProducts] =
@@ -65,6 +79,8 @@ export default async function ProductTemplate({
         upSellProducts={upSellProducts}
         relatedProducts={relatedProducts}
         pdpBanners={pdpBanners}
+        kokoBranding={kokoBranding}
+        kokoAvailable={kokoAvailable}
       />
     </WishlistProductProvider>
   )

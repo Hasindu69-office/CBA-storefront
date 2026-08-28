@@ -6,6 +6,12 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import Thumbnail from "../thumbnail"
 import PreviewPrice from "./price"
 import type { VariantPrice } from "types/global"
+import { kokoInstallmentCardLabelFromAmount } from "@lib/util/koko-installments"
+import {
+  retrieveKokoCheckoutBranding,
+  retrieveKokoPaymentAvailability,
+} from "@lib/data/koko-branding"
+import KokoCardPaymentLine from "@modules/common/components/koko-card-payment-line"
 
 export default async function ProductPreview({
   product,
@@ -28,6 +34,17 @@ export default async function ProductPreview({
   const { cheapestPrice } = getProductPrice({
     product,
   })
+  const [kokoBranding, kokoAvailable] = await Promise.all([
+    retrieveKokoCheckoutBranding(),
+    retrieveKokoPaymentAvailability(region.id),
+  ])
+  const kokoInstallment =
+    kokoAvailable && isProductPurchasable(product)
+      ? kokoInstallmentCardLabelFromAmount(
+          cheapestPrice?.calculated_price_number,
+          cheapestPrice?.currency_code
+        )
+      : null
 
   return (
     <LocalizedClientLink href={`/products/${product.handle}`} className="group">
@@ -41,16 +58,35 @@ export default async function ProductPreview({
           />
           <DiscountPercentageBadge price={cheapestPrice} compact={!isFeatured} />
         </div>
-        <div className="flex txt-compact-medium mt-4 justify-between">
-          <Text className="text-ui-fg-subtle" data-testid="product-title">
-            {product.title}
-          </Text>
-          <div className="flex items-center gap-x-2">
-            {cheapestPrice && <PreviewPrice price={cheapestPrice} />}
+        <div className="txt-compact-medium mt-4">
+          <div className="flex justify-between gap-3">
+            <Text className="text-ui-fg-subtle" data-testid="product-title">
+              {product.title}
+            </Text>
+            <div className="flex shrink-0 items-center gap-x-2">
+              {cheapestPrice && <PreviewPrice price={cheapestPrice} />}
+            </div>
           </div>
+          {kokoInstallment && (
+            <KokoCardPaymentLine
+              amount={kokoInstallment}
+              branding={kokoBranding}
+              className="mt-2 text-[12px] leading-5"
+            />
+          )}
         </div>
       </div>
     </LocalizedClientLink>
+  )
+}
+
+function isProductPurchasable(product: HttpTypes.StoreProduct) {
+  return Boolean(
+    product.variants?.some((variant) =>
+      !variant.manage_inventory ||
+      variant.allow_backorder ||
+      (variant.inventory_quantity ?? 0) > 0
+    )
   )
 }
 
