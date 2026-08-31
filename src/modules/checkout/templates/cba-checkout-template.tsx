@@ -86,6 +86,15 @@ function money(amount: number | null | undefined, currencyCode: string) {
   })
 }
 
+function installmentMoney(amount: number | null | undefined, currencyCode: string) {
+  return convertToLocale({
+    amount: amount ?? 0,
+    currency_code: currencyCode,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
 function lineTotal(item: HttpTypes.StoreCartLineItem, currencyCode: string) {
   return money(item.total ?? item.subtotal ?? 0, currencyCode)
 }
@@ -882,7 +891,7 @@ function InstallmentPaymentOption({
                 <span className="block truncate text-[13px] font-bold">
                   {plan.tenor_months} Months
                   {plan.monthly_amount !== undefined
-                    ? ` (${money(plan.monthly_amount, currencyCode)})`
+                    ? ` (${installmentMoney(plan.monthly_amount, currencyCode)})`
                     : ""}{" "}
                   {formatInstallmentRate(plan.fee_percentage)}
                 </span>

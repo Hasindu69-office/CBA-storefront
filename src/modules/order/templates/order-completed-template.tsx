@@ -66,6 +66,15 @@ function formatAmount(order: HttpTypes.StoreOrder, amount?: number | null) {
   })
 }
 
+function formatPaymentAmount(order: HttpTypes.StoreOrder, amount?: number | null) {
+  return convertToLocale({
+    amount: amount ?? 0,
+    currency_code: order.currency_code,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
 function formatStatus(value?: string | null) {
   if (!value) {
     return fallbackText
@@ -386,7 +395,7 @@ export default async function OrderCompletedTemplate({
   )
   const installmentPayment = getInstallmentPaymentSummary(order)
   const displayTotal = installmentPayment
-    ? formatAmount(order, installmentPayment.chargeAmount)
+    ? formatPaymentAmount(order, installmentPayment.chargeAmount)
     : mappedTotals.total.display
   const totalLabel = installmentPayment ? "Payment Total" : "Total"
 
@@ -613,7 +622,7 @@ export default async function OrderCompletedTemplate({
                 {installmentPayment?.feeAmount ? (
                   <SummaryRow
                     label={`Installment fee (${installmentPayment.feePercentage}%)`}
-                    value={formatAmount(order, installmentPayment.feeAmount)}
+                    value={formatPaymentAmount(order, installmentPayment.feeAmount)}
                   />
                 ) : null}
               </div>
@@ -632,14 +641,14 @@ export default async function OrderCompletedTemplate({
                 <div className="mt-4 rounded-[8px] border border-[#ffd8d1] bg-[#fff7f5] px-4 py-3 text-[13px] leading-5 text-[#6b4d44]">
                   <p className="font-semibold text-[#1f2933]">
                     {installmentPayment.tenorMonths} x{" "}
-                    {formatAmount(order, installmentPayment.monthlyAmount)} with{" "}
+                    {formatPaymentAmount(order, installmentPayment.monthlyAmount)} with{" "}
                     {installmentPayment.bankName}
                   </p>
                   <p className="mt-1">
                     Base order total is{" "}
-                    {formatAmount(order, installmentPayment.baseAmount)}.
+                    {formatPaymentAmount(order, installmentPayment.baseAmount)}.
                     WebXPay charged{" "}
-                    {formatAmount(order, installmentPayment.chargeAmount)} after
+                    {formatPaymentAmount(order, installmentPayment.chargeAmount)} after
                     the bank installment fee.
                   </p>
                 </div>

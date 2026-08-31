@@ -285,7 +285,14 @@ export async function establishGuestSessionFromConfirmationDetailed(
 
   const existing = await getGuestTrackingSessionToken()
   if (existing) {
-    return { ok: true }
+    const existingMatchesOrder = await guestTrackingSessionMatchesOrder(
+      existing,
+      orderId
+    )
+    if (existingMatchesOrder) {
+      return { ok: true }
+    }
+    await clearGuestTrackingSessionToken()
   }
 
   const confirmationToken = await getOrderConfirmationToken(orderId)
@@ -355,6 +362,23 @@ export async function establishGuestSessionFromConfirmationToken(
         "Guest download session unavailable. Check guest tracking is enabled on the backend."
       ),
     }
+  }
+}
+
+async function guestTrackingSessionMatchesOrder(token: string, orderId: string) {
+  try {
+    const result = await sdk.client.fetch<{
+      tracking?: CbaCustomerOrderTracking
+    }>("/store/cba/v1/order-tracking/session", {
+      method: "GET",
+      headers: {
+        "x-cba-guest-tracking-token": token,
+      },
+      cache: "no-store",
+    })
+    return result.tracking?.order?.id === orderId
+  } catch {
+    return false
   }
 }
 

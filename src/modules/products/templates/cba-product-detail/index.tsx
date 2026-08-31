@@ -183,7 +183,7 @@ export default function CbaProductDetail({
     listInstallmentPlans({ amount: installmentAmount })
       .then((result) => {
         if (alive) {
-          setInstallmentPlans(result.installment_plans.slice(0, 3))
+          setInstallmentPlans(result.installment_plans)
         }
       })
       .catch(() => {
@@ -567,56 +567,194 @@ function PdpInstallmentPreview({
   currencyCode: string
   eligible: boolean
 }) {
+  const slides = useMemo(() => chunkInstallmentPlans(plans, 3), [plans])
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [isPaused, setIsPaused] = useState(false)
+
+  const hasMultipleSlides = slides.length > 1
+
+  useEffect(() => {
+    if (activeIndex > Math.max(0, slides.length - 1)) {
+      setActiveIndex(0)
+    }
+  }, [activeIndex, slides.length])
+
+  useEffect(() => {
+    if (!hasMultipleSlides || isPaused || prefersReducedMotion()) {
+      return
+    }
+
+    const timer = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % slides.length)
+    }, 3500)
+
+    return () => window.clearInterval(timer)
+  }, [hasMultipleSlides, isPaused, slides.length])
+
   if (!eligible || !plans.length) {
     return null
   }
 
+  const goToPreviousSlide = () => {
+    setActiveIndex((current) => (current - 1 + slides.length) % slides.length)
+  }
+
+  const goToNextSlide = () => {
+    setActiveIndex((current) => (current + 1) % slides.length)
+  }
+
   return (
-    <div className="mt-4 rounded-base border border-gray-200 bg-white p-3">
-      <p className="text-xs font-black uppercase text-gray-700">
-        Installment Plans
-      </p>
-      <div className="mt-2 space-y-2">
-        {plans.map((plan) => (
-          <div
-            key={plan.id}
-            className="grid min-h-[34px] grid-cols-[1fr_70px] items-center gap-2 border-b border-gray-100 pb-2 last:border-b-0 last:pb-0"
-          >
-            <div className="min-w-0">
-              <p className="truncate text-xs font-bold text-gray-700">
-                {plan.tenor_months} x{" "}
-                {plan.monthly_amount !== undefined
-                  ? convertToLocale({
-                      amount: plan.monthly_amount,
-                      currency_code: currencyCode,
-                    })
-                  : "Available"}{" "}
-                at {formatInstallmentRate(plan.fee_percentage)}
-              </p>
-              <p className="text-[11px] font-medium text-gray-500">
-                {plan.bank_name}
-              </p>
-            </div>
-            {plan.logo_path ? (
-              <span className="relative h-7 w-[70px] justify-self-end rounded bg-white">
-                <Image
-                  src={plan.logo_path}
-                  alt={plan.bank_name}
-                  fill
-                  sizes="70px"
-                  className="object-contain"
-                />
-              </span>
-            ) : (
-              <span className="justify-self-end text-[11px] font-bold text-gray-500">
-                {plan.bank_code.toUpperCase()}
-              </span>
-            )}
+    <div
+      className="mt-4 rounded-base border border-gray-200 bg-white p-3"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onFocus={() => setIsPaused(true)}
+      onBlur={() => setIsPaused(false)}
+      aria-roledescription="carousel"
+      aria-label="Installment plans"
+    >
+      <div className="flex min-h-8 items-center justify-between gap-2">
+        <p className="text-xs font-black uppercase text-gray-700">
+          Installment Plans
+        </p>
+        {hasMultipleSlides && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={goToPreviousSlide}
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-brand hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+              aria-label="Show previous installment plans"
+            >
+              <CarouselArrow direction="left" />
+            </button>
+            <button
+              type="button"
+              onClick={goToNextSlide}
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-brand hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+              aria-label="Show next installment plans"
+            >
+              <CarouselArrow direction="right" />
+            </button>
           </div>
-        ))}
+        )}
       </div>
+
+      <div className="mt-2 overflow-hidden">
+        <div
+          className="flex transition-transform duration-500 ease-out motion-reduce:transition-none"
+          style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+        >
+          {slides.map((slide, slideIndex) => (
+            <div
+              key={`installment-slide-${slideIndex}`}
+              className="w-full shrink-0 space-y-0"
+              aria-hidden={slideIndex !== activeIndex}
+            >
+              {slide.map((plan) => (
+                <InstallmentPlanPreviewRow
+                  key={plan.id}
+                  plan={plan}
+                  currencyCode={currencyCode}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {hasMultipleSlides && (
+        <p className="sr-only" aria-live="polite">
+          Showing installment plans {activeIndex * 3 + 1} to{" "}
+          {Math.min((activeIndex + 1) * 3, plans.length)} of {plans.length}
+        </p>
+      )}
     </div>
   )
+}
+
+function formatInstallmentMoney(amount: number, currencyCode: string) {
+  return convertToLocale({
+    amount,
+    currency_code: currencyCode,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+function InstallmentPlanPreviewRow({
+  plan,
+  currencyCode,
+}: {
+  plan: StoreInstallmentPlan
+  currencyCode: string
+}) {
+  return (
+    <div className="grid min-h-[44px] grid-cols-[1fr_70px] items-center gap-2 border-b border-gray-100 py-2 last:border-b-0">
+      <div className="min-w-0">
+        <p className="truncate text-xs font-bold text-gray-700">
+          {plan.tenor_months} x{" "}
+          {plan.monthly_amount !== undefined
+            ? formatInstallmentMoney(plan.monthly_amount, currencyCode)
+            : "Available"}{" "}
+          at {formatInstallmentRate(plan.fee_percentage)}
+        </p>
+        <p className="truncate text-[11px] font-medium text-gray-500">
+          {plan.bank_name}
+        </p>
+      </div>
+      {plan.logo_path ? (
+        <span className="relative h-7 w-[70px] justify-self-end rounded bg-white">
+          <Image
+            src={plan.logo_path}
+            alt={plan.bank_name}
+            fill
+            sizes="70px"
+            className="object-contain"
+          />
+        </span>
+      ) : (
+        <span className="justify-self-end truncate text-[11px] font-bold text-gray-500">
+          {plan.bank_code.toUpperCase()}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function CarouselArrow({ direction }: { direction: "left" | "right" }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    >
+      {direction === "left" ? (
+        <path d="m15 18-6-6 6-6" />
+      ) : (
+        <path d="m9 18 6-6-6-6" />
+      )}
+    </svg>
+  )
+}
+
+function chunkInstallmentPlans(plans: StoreInstallmentPlan[], size: number) {
+  const chunks: StoreInstallmentPlan[][] = []
+  for (let index = 0; index < plans.length; index += size) {
+    chunks.push(plans.slice(index, index + size))
+  }
+  return chunks
+}
+
+function prefersReducedMotion() {
+  if (typeof window === "undefined") {
+    return false
+  }
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches
 }
 
 function Breadcrumbs({ product }: { product: HttpTypes.StoreProduct }) {
