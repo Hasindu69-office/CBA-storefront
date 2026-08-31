@@ -2,7 +2,7 @@ import {
   removeCartId,
   setOrderConfirmationAccess,
 } from "@lib/data/cookies"
-import { establishGuestSessionFromConfirmation } from "@lib/data/order-tracking"
+import { establishGuestSessionFromConfirmationToken } from "@lib/data/order-tracking"
 import { localizedPath } from "@lib/util/routes"
 import crypto from "crypto"
 import { NextRequest, NextResponse } from "next/server"
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest, { params }: Props) {
   }
 
   await setOrderConfirmationAccess(orderId)
-  await establishGuestSessionFromConfirmation(orderId)
+  await establishGuestSessionFromConfirmationToken(orderId, token)
   await removeCartId()
 
   return NextResponse.redirect(

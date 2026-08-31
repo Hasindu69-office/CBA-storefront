@@ -5,6 +5,8 @@ import Ideal from "@modules/common/icons/ideal"
 import Bancontact from "@modules/common/icons/bancontact"
 import PayPal from "@modules/common/icons/paypal"
 
+export const CBA_INSTALLMENT_METHOD_ID = "cba_installments"
+
 /* Map of payment provider_id to their title and icon. Add in any payment providers you want to use. */
 export const paymentInfoMap: Record<
   string,
@@ -57,6 +59,10 @@ export const isManual = (providerId?: string) => {
 
 export const isWebxpay = (providerId?: string) => {
   return Boolean(providerId?.startsWith("pp_webxpay_"))
+}
+
+export const isInstallmentMethod = (methodId?: string) => {
+  return methodId === CBA_INSTALLMENT_METHOD_ID
 }
 
 // Add currencies that don't need to be divided by 100

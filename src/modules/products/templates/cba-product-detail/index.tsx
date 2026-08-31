@@ -2,6 +2,10 @@
 
 import { addToCart } from "@lib/data/cart"
 import { requestBackInStock } from "@lib/data/back-in-stock"
+import {
+  listInstallmentPlans,
+  type StoreInstallmentPlan,
+} from "@lib/data/installments"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import type { PdpBannerContent } from "@lib/data/pdp-banners"
 import type {
@@ -27,6 +31,7 @@ import {
 import { isEqual } from "lodash"
 import Image from "next/image"
 import {
+  useEffect,
   useMemo,
   useState,
   useTransition,
@@ -104,6 +109,7 @@ export default function CbaProductDetail({
     type: null,
     message: "",
   })
+  const [installmentPlans, setInstallmentPlans] = useState<StoreInstallmentPlan[]>([])
   const [isPending, startTransition] = useTransition()
   const { isWishlisted } = useWishlistProduct(product.id)
 
@@ -164,6 +170,32 @@ export default function CbaProductDetail({
     detail?.specification_groups
       .flatMap((group) => group.specifications)
       .slice(0, 3) ?? []
+  const installmentAmount = price?.calculated_price_number ?? null
+  const installmentEligible = Boolean(detail?.catalog_profile?.installment_eligible)
+
+  useEffect(() => {
+    let alive = true
+    if (!installmentEligible || !installmentAmount) {
+      setInstallmentPlans([])
+      return
+    }
+
+    listInstallmentPlans({ amount: installmentAmount })
+      .then((result) => {
+        if (alive) {
+          setInstallmentPlans(result.installment_plans.slice(0, 3))
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setInstallmentPlans([])
+        }
+      })
+
+    return () => {
+      alive = false
+    }
+  }, [installmentAmount, installmentEligible])
 
   function setOptionValue(optionId: string, value: string) {
     setOptions((current) => ({ ...current, [optionId]: value }))
@@ -333,11 +365,11 @@ export default function CbaProductDetail({
             <p className="mt-2 text-[30px] font-black leading-tight">
               {price?.calculated_price ?? "Price unavailable"}
             </p>
-            {detail?.catalog_profile?.installment_eligible && (
-              <p className="mt-2 text-xs text-blue-600">
-                Installment plans available.
-              </p>
-            )}
+            <PdpInstallmentPreview
+              plans={installmentPlans}
+              currencyCode={price?.currency_code ?? "lkr"}
+              eligible={installmentEligible}
+            />
             <div className="mt-5 flex items-center gap-2 text-sm">
               <span
                 className={
@@ -523,6 +555,67 @@ export default function CbaProductDetail({
         <RelatedProductsSection products={relatedProducts} />
       </div>
     </main>
+  )
+}
+
+function PdpInstallmentPreview({
+  plans,
+  currencyCode,
+  eligible,
+}: {
+  plans: StoreInstallmentPlan[]
+  currencyCode: string
+  eligible: boolean
+}) {
+  if (!eligible || !plans.length) {
+    return null
+  }
+
+  return (
+    <div className="mt-4 rounded-base border border-gray-200 bg-white p-3">
+      <p className="text-xs font-black uppercase text-gray-700">
+        Installment Plans
+      </p>
+      <div className="mt-2 space-y-2">
+        {plans.map((plan) => (
+          <div
+            key={plan.id}
+            className="grid min-h-[34px] grid-cols-[1fr_70px] items-center gap-2 border-b border-gray-100 pb-2 last:border-b-0 last:pb-0"
+          >
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold text-gray-700">
+                {plan.tenor_months} x{" "}
+                {plan.monthly_amount !== undefined
+                  ? convertToLocale({
+                      amount: plan.monthly_amount,
+                      currency_code: currencyCode,
+                    })
+                  : "Available"}{" "}
+                at {formatInstallmentRate(plan.fee_percentage)}
+              </p>
+              <p className="text-[11px] font-medium text-gray-500">
+                {plan.bank_name}
+              </p>
+            </div>
+            {plan.logo_path ? (
+              <span className="relative h-7 w-[70px] justify-self-end rounded bg-white">
+                <Image
+                  src={plan.logo_path}
+                  alt={plan.bank_name}
+                  fill
+                  sizes="70px"
+                  className="object-contain"
+                />
+              </span>
+            ) : (
+              <span className="justify-self-end text-[11px] font-bold text-gray-500">
+                {plan.bank_code.toUpperCase()}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -971,6 +1064,14 @@ function formatReviewDate(value: string) {
     month: "short",
     day: "numeric",
   }).format(date)
+}
+
+function formatInstallmentRate(value: number) {
+  const rate = Number(value)
+  if (!Number.isFinite(rate)) {
+    return ""
+  }
+  return `${Number.isInteger(rate) ? rate.toFixed(0) : rate.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}%`
 }
 
 function colorValue(value: string) {

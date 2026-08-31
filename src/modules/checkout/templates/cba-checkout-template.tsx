@@ -8,8 +8,21 @@ import {
   saveCheckoutDetails,
   setShippingMethod,
 } from "@lib/data/cart"
+import {
+  clearInstallmentPlan,
+  listInstallmentPlans,
+  selectInstallmentPlan,
+  type StoreInstallmentPlan,
+} from "@lib/data/installments"
 import { calculatePriceForShippingOption } from "@lib/data/fulfillment"
-import { isManual, isStripeLike, isWebxpay, paymentInfoMap } from "@lib/constants"
+import {
+  CBA_INSTALLMENT_METHOD_ID,
+  isInstallmentMethod,
+  isManual,
+  isStripeLike,
+  isWebxpay,
+  paymentInfoMap,
+} from "@lib/constants"
 import type { WebxpayCheckoutBranding } from "@lib/data/webxpay-branding"
 import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
@@ -77,6 +90,14 @@ function lineTotal(item: HttpTypes.StoreCartLineItem, currencyCode: string) {
   return money(item.total ?? item.subtotal ?? 0, currencyCode)
 }
 
+function formatInstallmentRate(value: number) {
+  const rate = Number(value)
+  if (!Number.isFinite(rate)) {
+    return ""
+  }
+  return `${Number.isInteger(rate) ? rate.toFixed(0) : rate.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}%`
+}
+
 function paymentTitle(
   providerId: string,
   webxpayBranding?: WebxpayCheckoutBranding | null
@@ -118,6 +139,22 @@ function selectedPaymentSession(cart: HttpTypes.StoreCart) {
   )
 }
 
+function selectedInstallmentPlanId(cart: CbaCheckoutCart | HttpTypes.StoreCart) {
+  const value = (cart as CbaCheckoutCart).metadata?.cba_installment_plan_id
+  return typeof value === "string" && value.startsWith("cbaip_") ? value : ""
+}
+
+function selectedCheckoutPaymentMethod(
+  cart: CbaCheckoutCart | HttpTypes.StoreCart,
+  paymentMethods: HttpTypes.StorePaymentProvider[]
+) {
+  const activeSession = selectedPaymentSession(cart as HttpTypes.StoreCart)
+  if (isWebxpay(activeSession?.provider_id) && selectedInstallmentPlanId(cart)) {
+    return CBA_INSTALLMENT_METHOD_ID
+  }
+  return activeSession?.provider_id ?? paymentMethods[0]?.id ?? ""
+}
+
 function hasAddress(cart: HttpTypes.StoreCart) {
   return Boolean(
     cart.email &&
@@ -139,7 +176,7 @@ export default function CbaCheckoutTemplate({
 }: CbaCheckoutTemplateProps) {
   const activeSession = selectedPaymentSession(cart)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
-    activeSession?.provider_id ?? paymentMethods[0]?.id ?? ""
+    selectedCheckoutPaymentMethod(cart, paymentMethods)
   )
   const [cardComplete, setCardComplete] = useState(false)
   const addressFormRef = useRef<HTMLFormElement>(null)
@@ -179,9 +216,17 @@ export default function CbaCheckoutTemplate({
 
   useEffect(() => {
     if (activeSession?.provider_id) {
-      setSelectedPaymentMethod(activeSession.provider_id)
+      const nextPaymentMethod = selectedCheckoutPaymentMethod(cart, paymentMethods)
+      const keepPendingInstallmentChoice =
+        selectedPaymentMethod === CBA_INSTALLMENT_METHOD_ID &&
+        isWebxpay(activeSession.provider_id) &&
+        !selectedInstallmentPlanId(cart)
+
+      if (!keepPendingInstallmentChoice && nextPaymentMethod !== selectedPaymentMethod) {
+        setSelectedPaymentMethod(nextPaymentMethod)
+      }
     }
-  }, [activeSession?.provider_id])
+  }, [activeSession?.provider_id, cart, paymentMethods, selectedPaymentMethod])
 
   return (
     <div className="content-container py-10 small:py-12">
@@ -564,6 +609,47 @@ function PaymentMethodSelector({
   const router = useRouter()
   const activeSession = selectedPaymentSession(cart)
   const [isPending, startTransition] = useTransition()
+  const [installmentPlans, setInstallmentPlans] = useState<StoreInstallmentPlan[]>([])
+  const [installmentEligible, setInstallmentEligible] = useState(false)
+  const [installmentLoadError, setInstallmentLoadError] = useState("")
+  const [selectedPlanId, setSelectedPlanId] = useState(
+    selectedInstallmentPlanId(cart)
+  )
+  const webxpayMethod = paymentMethods.find((method) => isWebxpay(method.id))
+  const showInstallments =
+    Boolean(webxpayMethod) && installmentEligible && installmentPlans.length > 0
+
+  useEffect(() => {
+    let alive = true
+    listInstallmentPlans({ amount: cart.total ?? 0, cartId: cart.id })
+      .then((result) => {
+        if (!alive) return
+        setInstallmentPlans(result.installment_plans)
+        setInstallmentEligible(result.cart_eligibility?.eligible ?? false)
+        setInstallmentLoadError(
+          result.cart_eligibility?.eligible === false
+            ? result.cart_eligibility.reason ?? ""
+            : ""
+        )
+      })
+      .catch((error) => {
+        if (!alive) return
+        setInstallmentPlans([])
+        setInstallmentEligible(false)
+        setInstallmentLoadError(
+          error instanceof Error
+            ? error.message
+            : "Installment plans could not be loaded."
+        )
+      })
+    return () => {
+      alive = false
+    }
+  }, [cart.id, cart.total])
+
+  useEffect(() => {
+    setSelectedPlanId(selectedInstallmentPlanId(cart))
+  }, [cart])
 
   const selectPayment = (providerId: string) => {
     const previousPaymentMethod = selectedPaymentMethod
@@ -577,11 +663,62 @@ function PaymentMethodSelector({
           return
         }
 
+        await clearInstallmentPlan(cart.id)
         await initiatePaymentSession(cart, { provider_id: providerId })
         router.refresh()
       } catch (err) {
         setSelectedPaymentMethod(previousPaymentMethod)
         notify.error(err, "Could not set payment method.", {
+          id: "checkout-payment",
+        })
+      }
+    })
+  }
+
+  const selectInstallmentPayment = () => {
+    const previousPaymentMethod = selectedPaymentMethod
+    setSelectedPaymentMethod(CBA_INSTALLMENT_METHOD_ID)
+    setCardComplete(false)
+    startTransition(async () => {
+      try {
+        const checkoutDetailsError = await saveCurrentCheckoutDetails()
+        if (checkoutDetailsError) {
+          setSelectedPaymentMethod(previousPaymentMethod)
+          return
+        }
+
+        if (webxpayMethod && !isWebxpay(activeSession?.provider_id)) {
+          await initiatePaymentSession(cart, { provider_id: webxpayMethod.id })
+        }
+      } catch (err) {
+        setSelectedPaymentMethod(previousPaymentMethod)
+        notify.error(err, "Could not set installment payment.", {
+          id: "checkout-payment",
+        })
+      }
+    })
+  }
+
+  const selectPlan = (planId: string) => {
+    const previousPlanId = selectedPlanId
+    setSelectedPlanId(planId)
+    setSelectedPaymentMethod(CBA_INSTALLMENT_METHOD_ID)
+    startTransition(async () => {
+      try {
+        const checkoutDetailsError = await saveCurrentCheckoutDetails()
+        if (checkoutDetailsError) {
+          setSelectedPlanId(previousPlanId)
+          return
+        }
+
+        if (webxpayMethod && !isWebxpay(activeSession?.provider_id)) {
+          await initiatePaymentSession(cart, { provider_id: webxpayMethod.id })
+        }
+        await selectInstallmentPlan(cart.id, planId)
+        router.refresh()
+      } catch (err) {
+        setSelectedPlanId(previousPlanId)
+        notify.error(err, "Could not select installment plan.", {
           id: "checkout-payment",
         })
       }
@@ -661,10 +798,117 @@ function PaymentMethodSelector({
                   />
                 </div>
               )}
+              {isWebxpay(method.id) && showInstallments && (
+                <InstallmentPaymentOption
+                  checked={isInstallmentMethod(selectedPaymentMethod)}
+                  plans={installmentPlans}
+                  selectedPlanId={selectedPlanId}
+                  currencyCode={cart.currency_code}
+                  disabled={isPending || isSavingCheckoutDetails}
+                  onSelectMethod={selectInstallmentPayment}
+                  onSelectPlan={selectPlan}
+                />
+              )}
             </div>
           )
         })}
+        {!showInstallments && installmentLoadError ? (
+          <div className="border-t border-gray-100 px-4 py-3 text-[12px] font-medium text-[#7b8493]">
+            Installment Plans unavailable for this cart.
+          </div>
+        ) : null}
       </div>
+    </div>
+  )
+}
+
+function InstallmentPaymentOption({
+  checked,
+  plans,
+  selectedPlanId,
+  currencyCode,
+  disabled,
+  onSelectMethod,
+  onSelectPlan,
+}: {
+  checked: boolean
+  plans: StoreInstallmentPlan[]
+  selectedPlanId: string
+  currencyCode: string
+  disabled: boolean
+  onSelectMethod: () => void
+  onSelectPlan: (planId: string) => void
+}) {
+  return (
+    <div className="border-b border-gray-100">
+      <button
+        type="button"
+        role="radio"
+        aria-checked={checked}
+        onClick={onSelectMethod}
+        disabled={disabled}
+        className={`flex min-h-[42px] w-full items-center gap-4 px-4 text-left ${
+          checked ? "bg-brand/5 ring-1 ring-inset ring-brand" : ""
+        } disabled:cursor-not-allowed disabled:opacity-60`}
+      >
+        <Radio checked={checked} />
+        <span className="text-[#6f7b8e]">
+          <CreditCard />
+        </span>
+        <span className="flex-1 text-[13px] font-bold text-[#252a33]">
+          Installment Plans
+          <span className="mt-1 block text-[11px] font-medium text-[#6b7280]">
+            Choose a bank plan and complete payment through WEBXPAY.
+          </span>
+        </span>
+      </button>
+
+      {checked && (
+        <div className="max-h-[360px] overflow-y-auto border-t border-gray-100 bg-white px-4 py-2">
+          {plans.map((plan) => (
+            <button
+              key={plan.id}
+              type="button"
+              role="radio"
+              aria-checked={selectedPlanId === plan.id}
+              onClick={() => onSelectPlan(plan.id)}
+              disabled={disabled}
+              className={`grid min-h-[50px] w-full grid-cols-[22px_minmax(0,1fr)_82px] items-center gap-3 border-b border-gray-100 py-2 text-left last:border-b-0 ${
+                selectedPlanId === plan.id ? "text-brand" : "text-[#4b5260]"
+              } disabled:cursor-not-allowed disabled:opacity-60`}
+            >
+              <Radio checked={selectedPlanId === plan.id} />
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] font-bold">
+                  {plan.tenor_months} Months
+                  {plan.monthly_amount !== undefined
+                    ? ` (${money(plan.monthly_amount, currencyCode)})`
+                    : ""}{" "}
+                  {formatInstallmentRate(plan.fee_percentage)}
+                </span>
+                <span className="block text-[11px] font-medium text-[#8b93a3]">
+                  {plan.bank_name}
+                </span>
+              </span>
+              {plan.logo_path ? (
+                <span className="relative h-8 w-[82px] justify-self-end rounded bg-white">
+                  <Image
+                    src={plan.logo_path}
+                    alt={plan.bank_name}
+                    fill
+                    sizes="82px"
+                    className="object-contain"
+                  />
+                </span>
+              ) : (
+                <span className="justify-self-end text-[11px] font-bold">
+                  {plan.bank_code.toUpperCase()}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -936,6 +1180,9 @@ function PlaceOrderControl({
     Boolean(activeSession) &&
     totalsReady &&
     termsAccepted
+  const installmentPlanRequired = isInstallmentMethod(selectedPaymentMethod)
+  const installmentPlanReady =
+    !installmentPlanRequired || Boolean(selectedInstallmentPlanId(cart))
 
   const termsControl = (
     <label className="mt-5 flex items-start gap-3 rounded-md border border-gray-100 p-3 text-[12px] font-semibold text-[#4b5260]">
@@ -972,9 +1219,13 @@ function PlaceOrderControl({
         {termsControl}
         <WebxPayPlaceOrderButton
           cart={cart}
-          disabled={!baseReady || isSavingCheckoutDetails}
+          disabled={!baseReady || !installmentPlanReady || isSavingCheckoutDetails}
           saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
-          label={webxpayBranding?.label || "Pay with WEBXPAY"}
+          label={
+            installmentPlanRequired
+              ? "Pay with Installment Plans"
+              : webxpayBranding?.label || "Pay with WEBXPAY"
+          }
         />
       </>
     )
