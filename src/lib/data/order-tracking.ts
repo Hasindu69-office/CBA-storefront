@@ -285,7 +285,14 @@ export async function establishGuestSessionFromConfirmationDetailed(
 
   const existing = await getGuestTrackingSessionToken()
   if (existing) {
-    return { ok: true }
+    const existingMatchesOrder = await guestTrackingSessionMatchesOrder(
+      existing,
+      orderId
+    )
+    if (existingMatchesOrder) {
+      return { ok: true }
+    }
+    await clearGuestTrackingSessionToken()
   }
 
   const confirmationToken = await getOrderConfirmationToken(orderId)
@@ -295,6 +302,20 @@ export async function establishGuestSessionFromConfirmationDetailed(
       error:
         "Confirmation access expired. Use Guest order tracking to verify this order, then download again.",
     }
+  }
+
+  return establishGuestSessionFromConfirmationToken(orderId, confirmationToken)
+}
+
+export async function establishGuestSessionFromConfirmationToken(
+  orderId: string,
+  confirmationToken: string
+): Promise<GuestConfirmSessionResult> {
+  if (!/^order_[A-Za-z0-9]+$/.test(orderId)) {
+    return { ok: false, error: "Invalid order id." }
+  }
+  if (!/^[a-f0-9]{64}$/i.test(confirmationToken)) {
+    return { ok: false, error: "Confirmation access is invalid or expired." }
   }
 
   try {
@@ -307,7 +328,7 @@ export async function establishGuestSessionFromConfirmationDetailed(
       method: "POST",
       body: {
         order_id: orderId,
-        confirmation_token: confirmationToken,
+        confirmation_token: confirmationToken.toLowerCase(),
       },
       headers: {
         "Content-Type": "application/json",
@@ -341,6 +362,23 @@ export async function establishGuestSessionFromConfirmationDetailed(
         "Guest download session unavailable. Check guest tracking is enabled on the backend."
       ),
     }
+  }
+}
+
+async function guestTrackingSessionMatchesOrder(token: string, orderId: string) {
+  try {
+    const result = await sdk.client.fetch<{
+      tracking?: CbaCustomerOrderTracking
+    }>("/store/cba/v1/order-tracking/session", {
+      method: "GET",
+      headers: {
+        "x-cba-guest-tracking-token": token,
+      },
+      cache: "no-store",
+    })
+    return result.tracking?.order?.id === orderId
+  } catch {
+    return false
   }
 }
 

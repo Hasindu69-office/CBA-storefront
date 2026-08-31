@@ -299,6 +299,29 @@ export async function downloadOrderDocumentDetailed(
     }
     return { ok: true, download: result.download }
   } catch (error) {
+    const auth = await getAuthHeaders()
+    if ("authorization" in auth) {
+      try {
+        const fallback = await sdk.client.fetch<{
+          success: boolean
+          download: CbaDocumentDownload
+          message?: string
+        }>(
+          `/store/cba/v1/account/documents/${encodeURIComponent(documentId)}/download`,
+          {
+            method: "POST",
+            headers: auth,
+            cache: "no-store",
+          }
+        )
+        if (fallback.download?.url) {
+          return { ok: true, download: fallback.download }
+        }
+      } catch {
+        // Return the original order-scoped error below.
+      }
+    }
+
     return {
       ok: false,
       message: extractApiErrorMessage(
