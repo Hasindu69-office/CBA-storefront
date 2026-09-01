@@ -7,6 +7,7 @@ import {
   type StoreInstallmentPlan,
 } from "@lib/data/installments"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
+import type { KokoCheckoutBranding } from "@lib/data/koko-branding"
 import type { PdpBannerContent } from "@lib/data/pdp-banners"
 import type {
   ProductDetailResponse,
@@ -14,10 +15,12 @@ import type {
 } from "@lib/data/product-detail"
 import { notify } from "@lib/notifications"
 import { getProductPrice } from "@lib/util/get-product-price"
+import { kokoInstallmentCardLabelFromAmount } from "@lib/util/koko-installments"
 import { convertToLocale } from "@lib/util/money"
 import { openSideCart } from "@lib/util/side-cart-event"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import KokoInstallmentLine from "@modules/common/components/koko-installment-line"
 import ProductCompanionZone from "@modules/products/components/product-companion-zone"
 import PdpSidebarBanners from "@modules/products/components/pdp-sidebar-banners"
 import RelatedProductsSection from "@modules/products/components/related-products-section"
@@ -48,6 +51,8 @@ type CbaProductDetailProps = {
   upSellProducts: FeaturedProductCard[]
   relatedProducts: FeaturedProductCard[]
   pdpBanners: PdpBannerContent
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
 }
 
 type ActionState = {
@@ -89,6 +94,8 @@ export default function CbaProductDetail({
   upSellProducts,
   relatedProducts,
   pdpBanners,
+  kokoBranding,
+  kokoAvailable = false,
 }: CbaProductDetailProps) {
   const galleryImages = images.length ? images : product.thumbnail
     ? [{ id: "thumbnail", url: product.thumbnail } as HttpTypes.StoreProductImage]
@@ -144,6 +151,13 @@ export default function CbaProductDetail({
   const price = selectedVariant
     ? selectedPrice.variantPrice
     : selectedPrice.cheapestPrice
+  const kokoInstallment =
+    kokoAvailable && inStock && isValidVariant
+      ? kokoInstallmentCardLabelFromAmount(
+          price?.calculated_price_number,
+          price?.currency_code
+        )
+      : null
   const reviewCount = detail?.review_summary?.total_reviews ?? 0
   const rating = detail?.review_summary?.average_rating ?? null
   const mainProductImage = activeImage || product.thumbnail || galleryImages[0]?.url || null
@@ -321,6 +335,13 @@ export default function CbaProductDetail({
                 {price.calculated_price}
               </p>
             )}
+            {kokoInstallment && (
+              <KokoInstallmentLine
+                installment={kokoInstallment}
+                branding={kokoBranding}
+                className="mt-2"
+              />
+            )}
             <ul className="mt-4 space-y-1.5 text-sm text-gray-700">
               {shortDescription && <li>{shortDescription}</li>}
               {bulletSpecs.map((spec) => (
@@ -365,6 +386,15 @@ export default function CbaProductDetail({
             <p className="mt-2 text-[30px] font-black leading-tight">
               {price?.calculated_price ?? "Price unavailable"}
             </p>
+            {kokoInstallment && (
+              <div className="mt-3 rounded-base border border-[#eadfff] bg-white px-3 py-3">
+                <KokoInstallmentLine
+                  installment={kokoInstallment}
+                  branding={kokoBranding}
+                  className="text-[12px] leading-5"
+                />
+              </div>
+            )}
             <PdpInstallmentPreview
               plans={installmentPlans}
               currencyCode={price?.currency_code ?? "lkr"}
@@ -552,7 +582,11 @@ export default function CbaProductDetail({
           reviews={reviews}
         />
 
-        <RelatedProductsSection products={relatedProducts} />
+        <RelatedProductsSection
+          products={relatedProducts}
+          kokoBranding={kokoBranding}
+          kokoAvailable={kokoAvailable}
+        />
       </div>
     </main>
   )

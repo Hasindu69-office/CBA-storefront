@@ -7,10 +7,13 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 
 import type { FeaturedProductCard } from "@lib/data/featured-products"
+import type { KokoCheckoutBranding } from "@lib/data/koko-branding"
 import { addToCart } from "@lib/data/cart"
 import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
+import { kokoInstallmentCardLabelFromAmount } from "@lib/util/koko-installments"
 import { openSideCart } from "@lib/util/side-cart-event"
+import KokoCardPaymentLine from "@modules/common/components/koko-card-payment-line"
 import PlaceholderImage from "@modules/common/icons/placeholder-image"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import ProductCardRating from "@modules/common/components/product-card-rating"
@@ -29,6 +32,8 @@ type FeaturedProductSliderProps = {
   embedded?: boolean
   mobileCompactCards?: boolean
   sectionClassName?: string
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
 }
 
 const FeaturedProductSlider = ({
@@ -41,6 +46,8 @@ const FeaturedProductSlider = ({
   embedded = false,
   mobileCompactCards = false,
   sectionClassName,
+  kokoBranding,
+  kokoAvailable = false,
 }: FeaturedProductSliderProps) => {
   const scrollerRef = useRef<HTMLDivElement>(null)
 
@@ -141,6 +148,8 @@ const FeaturedProductSlider = ({
             product={product}
             priority={index < 4}
             mobileCompact={mobileCompactCards}
+            kokoBranding={kokoBranding}
+            kokoAvailable={kokoAvailable}
           />
         ))}
       </div>
@@ -196,10 +205,14 @@ export const FeaturedProductCardItem = ({
   product,
   priority,
   mobileCompact = false,
+  kokoBranding,
+  kokoAvailable = false,
 }: {
   product: FeaturedProductCard
   priority: boolean
   mobileCompact?: boolean
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
 }) => {
   const countryCode = useParams().countryCode as string
   const [isAddingToCart, setIsAddingToCart] = useState(false)
@@ -254,17 +267,17 @@ export const FeaturedProductCardItem = ({
     <article
       data-featured-product-card
       className={[
-        "group flex min-w-0 snap-start flex-col overflow-hidden rounded-[8px] border border-[#e5e7eb] bg-white transition-colors hover:border-black medium:h-[468px]",
+        "group flex min-w-0 snap-start flex-col overflow-hidden rounded-[8px] border border-[#e5e7eb] bg-white transition-colors hover:border-black",
         mobileCompact
-          ? "h-[342px] min-[400px]:h-[382px] xsmall:h-[392px] small:h-[404px]"
-          : "h-[436px] xsmall:h-[454px] sm:h-[468px] md:h-[488px] small:h-[512px]",
+          ? "h-[408px] min-[400px]:h-[424px] xsmall:h-[434px] small:h-[456px] medium:h-[472px]"
+          : "h-[458px] xsmall:h-[476px] sm:h-[490px] md:h-[510px] small:h-[500px] medium:h-[510px]",
       ].join(" ")}
     >
       <div
         className={[
           "relative flex-shrink-0 overflow-hidden rounded-t-[8px] bg-white medium:h-[212px] large:h-[224px]",
           mobileCompact
-            ? "h-[142px] small:h-[156px]"
+            ? "h-[150px] small:h-[170px] medium:h-[190px] large:h-[200px]"
             : "h-[188px] xsmall:h-[202px] sm:h-[214px] md:h-[226px] small:h-[250px]",
         ].join(" ")}
       >
@@ -375,7 +388,7 @@ export const FeaturedProductCardItem = ({
       <div
         className={[
           "flex min-h-0 flex-1 flex-col medium:px-3 medium:py-3",
-          mobileCompact ? "px-2.5 py-2.5" : "px-3 py-3 sm:px-3.5 sm:py-3.5 small:px-3 small:py-3",
+          mobileCompact ? "px-2.5 py-2" : "px-3 py-3 sm:px-3.5 sm:py-3.5 small:px-3 small:py-3",
         ].join(" ")}
       >
         <div className="flex min-h-[22px] items-center gap-2">
@@ -408,7 +421,7 @@ export const FeaturedProductCardItem = ({
           href={`/products/${product.handle}`}
           className={[
             "block focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 medium:mt-2",
-            mobileCompact ? "mt-1.5" : "mt-2",
+            mobileCompact ? "mt-1" : "mt-2",
           ].join(" ")}
         >
           <h3
@@ -455,15 +468,21 @@ export const FeaturedProductCardItem = ({
 
         <div
           className={[
-            "mt-auto border-t border-[#e5e7eb] pt-2.5",
+            "border-t border-[#e5e7eb] pt-2",
+            mobileCompact ? "mt-3" : "mt-auto small:mt-4",
           ].join(" ")}
         >
-          <ProductCardPrice product={product} mobileCompact={mobileCompact} />
+          <ProductCardPrice
+            product={product}
+            mobileCompact={mobileCompact}
+            kokoBranding={kokoBranding}
+            kokoAvailable={kokoAvailable}
+          />
           <button
             type="button"
             onClick={handleAddToCart}
             disabled={!isPurchasable || isAddingToCart}
-            className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-black bg-white px-3 text-[11px] font-bold uppercase tracking-normal text-black transition-colors hover:bg-black hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white sm:h-10"
+            className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-black bg-white px-3 text-[11px] font-bold uppercase tracking-normal text-black transition-colors hover:bg-black hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white"
           >
             <ShoppingCartIcon size={16} />
             {isAddingToCart ? "Adding..." : "Add to cart"}
@@ -539,9 +558,13 @@ function normalizeBadgeValue(value: unknown) {
 const ProductCardPrice = ({
   product,
   mobileCompact = false,
+  kokoBranding,
+  kokoAvailable = false,
 }: {
   product: FeaturedProductCard
   mobileCompact?: boolean
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
 }) => {
   if (
     product.price.status !== "available" ||
@@ -562,30 +585,43 @@ const ProductCardPrice = ({
     product.price.has_discount && product.price.original_amount !== null
       ? formatPrice(product.price.original_amount, product.price.currency_code)
       : null
+  const kokoInstallment = kokoAvailable
+    ? kokoInstallmentCardLabelFromAmount(
+        product.price.calculated_amount,
+        product.price.currency_code
+      )
+    : null
 
   return (
     <div
       className={[
-        "min-w-0 overflow-hidden medium:flex medium:items-baseline medium:gap-2",
+        "flex min-w-0 flex-col gap-0.5 overflow-hidden",
         mobileCompact
-          ? "flex min-h-[40px] flex-col gap-0.5"
-          : "flex min-h-[26px] items-baseline gap-2",
+          ? "min-h-[58px]"
+          : "min-h-[58px]",
       ].join(" ")}
     >
-      <span className="min-w-0 flex-shrink text-[15px] font-bold leading-6 text-black medium:text-[14px] large:text-[15px]">
+      <span className="min-w-0 flex-shrink text-[15px] font-bold leading-6 text-black">
         {calculated}
       </span>
       {original && (
         <span
           className={[
-            "min-w-0 text-[#8a8a8f] line-through medium:flex-1 medium:truncate medium:text-[10px] medium:font-medium medium:leading-4",
+            "min-w-0 text-[#8a8a8f] line-through",
             mobileCompact
               ? "block text-[11px] font-semibold leading-3"
-              : "flex-1 truncate text-[10px] font-medium leading-4",
+              : "truncate text-[10px] font-medium leading-4",
           ].join(" ")}
         >
           {original}
         </span>
+      )}
+      {kokoInstallment && (
+        <KokoCardPaymentLine
+          amount={kokoInstallment}
+          branding={kokoBranding}
+          className="mt-0.5"
+        />
       )}
     </div>
   )
