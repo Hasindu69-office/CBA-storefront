@@ -19,10 +19,59 @@ type IconProps = {
 
 const fallbackText = "Not available"
 
+type InstallmentPaymentSummary = {
+  bankName: string
+  tenorMonths: number
+  feePercentage: number
+  baseAmount: number
+  chargeAmount: number
+  feeAmount: number
+  monthlyAmount: number
+}
+
+function numberValue(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) {
+    return Number(value)
+  }
+  if (value && typeof value === "object") {
+    const candidate = value as {
+      value?: unknown
+      numeric?: unknown
+      toNumber?: () => number
+      toString?: () => string
+    }
+    if ("value" in candidate) return numberValue(candidate.value)
+    if ("numeric" in candidate) return numberValue(candidate.numeric)
+    if (typeof candidate.toNumber === "function") {
+      const parsed = candidate.toNumber()
+      if (Number.isFinite(parsed)) return parsed
+    }
+    if (typeof candidate.toString === "function") {
+      const parsed = Number(candidate.toString())
+      if (Number.isFinite(parsed)) return parsed
+    }
+  }
+  return null
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
 function formatAmount(order: HttpTypes.StoreOrder, amount?: number | null) {
   return convertToLocale({
     amount: amount ?? 0,
     currency_code: order.currency_code,
+  })
+}
+
+function formatPaymentAmount(order: HttpTypes.StoreOrder, amount?: number | null) {
+  return convertToLocale({
+    amount: amount ?? 0,
+    currency_code: order.currency_code,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   })
 }
 
@@ -80,7 +129,66 @@ function formatAddress(order: HttpTypes.StoreOrder) {
   return [name, street, cityLine, country].filter(Boolean)
 }
 
+function getInstallmentPaymentSummary(order: HttpTypes.StoreOrder) {
+  const payments =
+    order.payment_collections?.flatMap((collection) => collection.payments ?? []) ??
+    []
+
+  for (const payment of payments) {
+    const data = (payment.data ?? {}) as Record<string, unknown>
+    const plan =
+      data?.selected_installment_plan &&
+      typeof data.selected_installment_plan === "object"
+        ? (data.selected_installment_plan as Record<string, unknown>)
+        : null
+    if (!plan) continue
+
+    const bankName =
+      stringValue(plan.bank_name) ??
+      stringValue(plan.bankName) ??
+      "Selected bank"
+    const tenorMonths = numberValue(plan.tenor_months ?? plan.tenorMonths)
+    const feePercentage = numberValue(
+      plan.fee_percentage ?? plan.feePercentage
+    )
+    const baseAmount = numberValue(data.base_amount ?? plan.base_amount ?? order.total)
+    const chargeAmount = numberValue(
+      data.installment_charge_amount ??
+        plan.installment_charge_amount ??
+        payment.amount
+    )
+
+    if (
+      !tenorMonths ||
+      tenorMonths <= 0 ||
+      feePercentage === null ||
+      baseAmount === null ||
+      chargeAmount === null
+    ) {
+      continue
+    }
+
+    const feeAmount = Math.max(0, chargeAmount - baseAmount)
+    return {
+      bankName,
+      tenorMonths,
+      feePercentage,
+      baseAmount,
+      chargeAmount,
+      feeAmount,
+      monthlyAmount: chargeAmount / tenorMonths,
+    }
+  }
+
+  return null
+}
+
 function getPaymentMethod(order: HttpTypes.StoreOrder) {
+  const installment = getInstallmentPaymentSummary(order)
+  if (installment) {
+    return "Installment Plans"
+  }
+
   const payment = order.payment_collections?.[0]?.payments?.[0]
 
   if (!payment?.provider_id) {
@@ -285,6 +393,11 @@ export default async function OrderCompletedTemplate({
     },
     { itemCount }
   )
+  const installmentPayment = getInstallmentPaymentSummary(order)
+  const displayTotal = installmentPayment
+    ? formatPaymentAmount(order, installmentPayment.chargeAmount)
+    : mappedTotals.total.display
+  const totalLabel = installmentPayment ? "Payment Total" : "Total"
 
   return (
     <main className="bg-white py-10 small:py-14">
@@ -338,9 +451,16 @@ export default async function OrderCompletedTemplate({
                     icon={<CardIcon className="h-6 w-6" />}
                     label="Payment Method"
                   >
-                    <span data-testid="payment-method">
+                    <span className="block" data-testid="payment-method">
                       {getPaymentMethod(order)}
                     </span>
+                    {installmentPayment && (
+                      <span className="mt-1 block text-[13px] font-medium leading-5 text-[#6b7280]">
+                        {installmentPayment.bankName} •{" "}
+                        {installmentPayment.tenorMonths} months •{" "}
+                        {installmentPayment.feePercentage}%
+                      </span>
+                    )}
                   </DetailCard>
                   <DetailCard
                     icon={<TruckIcon className="h-6 w-6" />}
@@ -499,18 +619,40 @@ export default async function OrderCompletedTemplate({
                   />
                     )
                   ))}
+                {installmentPayment?.feeAmount ? (
+                  <SummaryRow
+                    label={`Installment fee (${installmentPayment.feePercentage}%)`}
+                    value={formatPaymentAmount(order, installmentPayment.feeAmount)}
+                  />
+                ) : null}
               </div>
 
               <div className="my-7 h-px bg-[#dfe3e6]" />
 
               <div className="flex items-end justify-between gap-4">
                 <span className="text-[22px] font-bold text-[#151922]">
-                  Total
+                  {totalLabel}
                 </span>
                 <span className="text-right text-[25px] font-bold text-brand">
-                  {mappedTotals.total.display}
+                  {displayTotal}
                 </span>
               </div>
+              {installmentPayment && (
+                <div className="mt-4 rounded-[8px] border border-[#ffd8d1] bg-[#fff7f5] px-4 py-3 text-[13px] leading-5 text-[#6b4d44]">
+                  <p className="font-semibold text-[#1f2933]">
+                    {installmentPayment.tenorMonths} x{" "}
+                    {formatPaymentAmount(order, installmentPayment.monthlyAmount)} with{" "}
+                    {installmentPayment.bankName}
+                  </p>
+                  <p className="mt-1">
+                    Base order total is{" "}
+                    {formatPaymentAmount(order, installmentPayment.baseAmount)}.
+                    WebXPay charged{" "}
+                    {formatPaymentAmount(order, installmentPayment.chargeAmount)} after
+                    the bank installment fee.
+                  </p>
+                </div>
+              )}
               {mappedTotals.taxNote && (
                 <p className="mt-5 text-center text-[13px] text-[#6b7280]">
                   {mappedTotals.taxNote}

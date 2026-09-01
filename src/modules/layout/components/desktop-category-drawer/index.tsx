@@ -3,7 +3,6 @@
 import { Dialog, Transition } from "@headlessui/react"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import {
-  ChevronDownIcon,
   LayoutGridIcon,
   XIcon,
 } from "@modules/layout/components/cba-icons"
@@ -137,10 +136,6 @@ export default function DesktopCategoryDrawer({
                             <span className="min-w-0 break-words">
                               {link.label}
                             </span>
-                            <ChevronDownIcon
-                              size={16}
-                              className="-rotate-90 shrink-0 text-[#9ca3af] transition-colors group-hover:text-brand"
-                            />
                           </LocalizedClientLink>
                         </li>
                       ))}

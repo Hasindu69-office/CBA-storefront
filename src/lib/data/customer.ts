@@ -1,6 +1,6 @@
 "use server"
 
-import { sdk } from "@lib/config"
+import { MEDUSA_BACKEND_URL, sdk } from "@lib/config"
 import medusaError from "@lib/util/medusa-error"
 import { HttpTypes } from "@medusajs/types"
 import { revalidatePath, revalidateTag } from "next/cache"
@@ -14,6 +14,7 @@ import {
   removeAuthToken,
   removeCartId,
   setAuthToken,
+  setCartId,
 } from "./cookies"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -22,6 +23,15 @@ const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
 const POSTAL_CODE_PATTERN = /^[A-Za-z0-9\s-]{3,16}$/
 const OAUTH_PROVIDERS = ["google", "facebook", "apple"] as const
 type OAuthProvider = (typeof OAUTH_PROVIDERS)[number]
+const CART_ID_PATTERN = /^cart_[A-Za-z0-9_-]+$/
+
+export type CartTransferActionResult = {
+  success: boolean
+  status: "completed" | "not_applicable" | "partially_completed" | "failed"
+  cartId?: string
+  message?: string
+  needsRefresh?: boolean
+}
 
 export const retrieveCustomer =
   async (): Promise<HttpTypes.StoreCustomer | null> => {
@@ -132,11 +142,9 @@ export async function login(_currentState: unknown, formData: FormData) {
     return authErrorMessage(error)
   }
 
-  try {
-    await transferCart()
-  } catch (error: any) {
-    return authErrorMessage(error)
-  }
+  await transferCart().catch((error) => {
+    console.error("Customer login succeeded, but cart transfer failed.", safeServerError(error))
+  })
 }
 
 export async function requestPasswordReset(_currentState: unknown, formData: FormData) {
@@ -204,7 +212,9 @@ export async function startOAuthLogin(_currentState: unknown, formData: FormData
     })
     if (typeof result === "string") {
       await setAuthToken(result)
-      await transferCart()
+      await transferCart().catch((error) => {
+        console.error("OAuth login succeeded, but cart transfer failed.", safeServerError(error))
+      })
       redirect(localizedPath(`/${countryCode}/account`))
     }
     if (!("location" in result) || !result.location) {
@@ -272,7 +282,9 @@ export async function completeOAuthLogin({
     revalidateTag(customerCacheTag)
     revalidatePath("/account")
     revalidatePath("/")
-    await transferCart()
+    await transferCart().catch((error) => {
+      console.error("OAuth login succeeded, but cart transfer failed.", safeServerError(error))
+    })
     redirect(localizedPath(`/${countryCode}/account`))
   } catch (error) {
     if (isNextRedirect(error)) {
@@ -299,19 +311,227 @@ export async function signout(countryCode: string) {
   redirect(localizedPath(`/${countryCode}/account`))
 }
 
-export async function transferCart() {
+export async function transferCart(): Promise<CartTransferActionResult> {
   const cartId = await getCartId()
 
   if (!cartId) {
-    return
+    return resolveCustomerCart()
+  }
+
+  if (!CART_ID_PATTERN.test(cartId)) {
+    return {
+      success: false,
+      status: "failed",
+      message: "Cart selection is invalid. Refresh your cart and try again.",
+      needsRefresh: false,
+    }
   }
 
   const headers = await getAuthHeaders()
 
-  await sdk.store.cart.transferCart(cartId, {}, headers)
+  if (!("authorization" in headers) || !headers.authorization) {
+    return {
+      success: false,
+      status: "failed",
+      message: "Please sign in again before transferring your cart.",
+      needsRefresh: false,
+    }
+  }
+
+  const response = await fetch(`${MEDUSA_BACKEND_URL}/store/cba/v1/cart/transfer`, {
+    method: "POST",
+    headers: {
+      ...headers,
+      "content-type": "application/json",
+      ...publishableKeyHeader(),
+    },
+    body: JSON.stringify({
+      cart_id: cartId,
+      idempotency_key: cartTransferIdempotencyKey(cartId),
+    }),
+    cache: "no-store",
+  })
+
+  const payload = await response.json().catch(() => ({})) as {
+    transfer?: {
+      status?: CartTransferActionResult["status"]
+      active_cart_id?: string
+      message?: string
+    }
+    error?: { message?: string }
+  }
+
+  if (!response.ok) {
+    return {
+      success: false,
+      status: "failed",
+      message: cartTransferMessage(payload.error?.message),
+      needsRefresh: false,
+    }
+  }
+
+  const transfer = payload.transfer
+  const activeCartId = transfer?.active_cart_id ?? cartId
+  const status = safeTransferStatus(transfer?.status)
+
+  if (!(await verifyAndStoreCustomerCart(activeCartId, headers))) {
+    return {
+      success: false,
+      status: "failed",
+      message: CART_VERIFY_FAILED_MESSAGE,
+      needsRefresh: false,
+    }
+  }
 
   const cartCacheTag = await getCacheTag("carts")
   revalidateTag(cartCacheTag)
+
+  return {
+    success: status !== "failed",
+    status,
+    cartId: activeCartId,
+    message: cartTransferMessage(transfer?.message, status),
+    needsRefresh: true,
+  }
+}
+
+export async function resolveCustomerCart(): Promise<CartTransferActionResult> {
+  const headers = await getAuthHeaders()
+
+  if (!("authorization" in headers) || !headers.authorization) {
+    return {
+      success: false,
+      status: "failed",
+      message: "Please sign in again before restoring your cart.",
+      needsRefresh: false,
+    }
+  }
+
+  const response = await fetch(`${MEDUSA_BACKEND_URL}/store/cba/v1/cart/active`, {
+    method: "GET",
+    headers: {
+      ...headers,
+      ...publishableKeyHeader(),
+    },
+    cache: "no-store",
+  })
+
+  const payload = await response.json().catch(() => ({})) as {
+    cart?: { id?: string } | null
+    status?: CartTransferActionResult["status"]
+    message?: string
+    error?: { message?: string }
+  }
+
+  if (!response.ok) {
+    return {
+      success: false,
+      status: "failed",
+      message: cartTransferMessage(payload.error?.message),
+      needsRefresh: false,
+    }
+  }
+
+  const activeCartId = payload.cart?.id
+
+  if (!activeCartId) {
+    return {
+      success: true,
+      status: "not_applicable",
+      message: "No account cart was available to restore.",
+      needsRefresh: false,
+    }
+  }
+
+  if (!(await verifyAndStoreCustomerCart(activeCartId, headers))) {
+    return {
+      success: false,
+      status: "failed",
+      message: CART_VERIFY_FAILED_MESSAGE,
+      needsRefresh: false,
+    }
+  }
+
+  const cartCacheTag = await getCacheTag("carts")
+  revalidateTag(cartCacheTag)
+
+  return {
+    success: true,
+    status: "completed",
+    cartId: activeCartId,
+    message: cartTransferMessage(payload.message, "completed"),
+    needsRefresh: true,
+  }
+}
+
+const CART_VERIFY_FAILED_MESSAGE =
+  "We could not verify your account cart. Please refresh and try again."
+
+async function verifyAndStoreCustomerCart(
+  cartId: string,
+  headers: Record<string, string>
+) {
+  if (!CART_ID_PATTERN.test(cartId)) {
+    return false
+  }
+
+  const verifiedCart = await sdk.client
+    .fetch<{ cart: HttpTypes.StoreCart }>(`/store/carts/${cartId}`, {
+      method: "GET",
+      query: { fields: "id,customer_id" },
+      headers,
+      cache: "no-store",
+    })
+    .then(({ cart }) => cart)
+    .catch(() => null)
+
+  if (!verifiedCart?.customer_id) {
+    return false
+  }
+
+  await setCartId(cartId)
+  return true
+}
+
+function cartTransferIdempotencyKey(cartId: string) {
+  return `cart-transfer-${cartId}`.slice(0, 120)
+}
+
+function safeTransferStatus(value: unknown): CartTransferActionResult["status"] {
+  if (
+    value === "completed" ||
+    value === "not_applicable" ||
+    value === "partially_completed" ||
+    value === "failed"
+  ) {
+    return value
+  }
+  return "failed"
+}
+
+function cartTransferMessage(
+  message?: string,
+  status: CartTransferActionResult["status"] = "failed"
+) {
+  const safe = String(message ?? "").trim()
+  if (safe && !/sql|database|stack|node_modules|secret|token|password|redis|file|path|hash/i.test(safe)) {
+    return safe
+  }
+  if (status === "partially_completed") {
+    return "Some guest cart items could not be transferred. Please review your cart."
+  }
+  if (status === "completed") {
+    return "Your cart was transferred."
+  }
+  if (status === "not_applicable") {
+    return "There is no guest cart to transfer."
+  }
+  return "Something went wrong when we tried to transfer your cart."
+}
+
+function publishableKeyHeader(): Record<string, string> {
+  const key = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
+  return key ? { "x-publishable-api-key": key } : {}
 }
 
 function validateLogin(email: string, password: string) {

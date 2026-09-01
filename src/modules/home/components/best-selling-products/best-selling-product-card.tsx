@@ -6,16 +6,16 @@ import { useParams } from "next/navigation"
 
 import { addToCart } from "@lib/data/cart"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
-import { addFeaturedProductToWishlist } from "@lib/data/wishlist"
 import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import { openSideCart } from "@lib/util/side-cart-event"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import ProductCardRating from "@modules/common/components/product-card-rating"
 import PlaceholderImage from "@modules/common/icons/placeholder-image"
 import {
-  HeartIcon,
   ShoppingCartIcon,
 } from "@modules/layout/components/cba-icons"
+import { WishlistProductButton } from "@modules/wishlist/components/wishlist-product-button"
 
 type BestSellingProductCardProps = {
   product: FeaturedProductCard
@@ -30,7 +30,6 @@ const BestSellingProductCard = ({
 }: BestSellingProductCardProps) => {
   const countryCode = useParams().countryCode as string
   const [isAddingToCart, setIsAddingToCart] = useState(false)
-  const [isAddingToWishlist, setIsAddingToWishlist] = useState(false)
 
   const isPurchasable =
     !!product.default_variant?.id &&
@@ -66,12 +65,12 @@ const BestSellingProductCard = ({
     setIsAddingToCart(true)
 
     try {
-      await addToCart({
+      const cart = await addToCart({
         variantId: product.default_variant.id,
         quantity: 1,
         countryCode,
       })
-      openSideCart({ pendingMessage: "Updating cart.", refresh: true })
+      openSideCart({ cart, refresh: true })
       notify.success("Item added to cart.", { id: toastId })
     } catch (error) {
       openSideCart({ pendingMessage: null, refresh: false })
@@ -81,38 +80,6 @@ const BestSellingProductCard = ({
     } finally {
       setIsAddingToCart(false)
     }
-  }
-
-  const handleAddToWishlist = async (event: MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault()
-    event.stopPropagation()
-
-    if (!product.default_variant?.id) {
-      notify.error("Please select a valid product.")
-      return
-    }
-
-    const toastId = `best-selling-wishlist:${product.id}`
-    notify.loading("Adding item to wishlist...", { id: toastId })
-    setIsAddingToWishlist(true)
-
-    const result = await addFeaturedProductToWishlist({
-      productId: product.product_id ?? product.id,
-      variantId: product.default_variant.id,
-    })
-
-    if (result.success) {
-      if (result.status === "already_present") {
-        notify.info(result.message, { id: toastId })
-      } else {
-        notify.success(result.message, { id: toastId })
-      }
-    } else {
-      notify.error(result.message, "Could not add this item to wishlist.", {
-        id: toastId,
-      })
-    }
-    setIsAddingToWishlist(false)
   }
 
   return (
@@ -167,20 +134,27 @@ const BestSellingProductCard = ({
           </div>
         )}
 
-        <button
-          type="button"
-          aria-label={`Add ${product.title} to wishlist`}
-          title="Add to wishlist"
-          onClick={handleAddToWishlist}
-          disabled={isAddingToWishlist || !product.default_variant?.id}
+        <WishlistProductButton
+          productId={product.product_id ?? product.id}
+          variantId={product.default_variant?.id}
+          productTitle={product.title}
+          toastId={`best-selling-wishlist:${product.id}`}
+          variant="best-selling"
+          iconSize={isFlat ? 15 : 16}
+          strokeWidth={1.7}
           className={`absolute flex items-center justify-center rounded-full bg-white text-[#ff3b30] shadow-[0_10px_22px_rgba(0,0,0,0.16)] transition-colors hover:bg-[#fff3f0] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
             isFlat
               ? "right-2 top-2 h-7 w-7 medium:h-7 medium:w-7"
               : "right-2.5 top-2.5 h-8 w-8 medium:h-7 medium:w-7"
           }`}
-        >
-          <HeartIcon size={isFlat ? 15 : 16} strokeWidth={1.7} />
-        </button>
+        />
+
+        {product.price.discount_percentage !== null && (
+          <DiscountPercentageBadge
+            percentage={product.price.discount_percentage}
+            compact={isFlat}
+          />
+        )}
       </div>
 
       {benefitItems.length ? (
@@ -253,7 +227,7 @@ const BestSellingProductCard = ({
         </LocalizedClientLink>
 
         <div className="mt-1 flex min-h-[18px] items-center justify-between gap-1.5 overflow-hidden medium:min-h-[20px] medium:gap-2">
-          <ProductRating rating={product.rating} compact={isFlat} />
+          <ProductCardRating rating={product.rating} compact={isFlat} />
           <span
             className={`line-clamp-1 min-w-0 flex-shrink text-[8px] leading-3 xsmall:text-[9px] medium:flex-shrink-0 medium:text-[10px] medium:leading-4 ${
               product.inventory.in_stock || product.inventory.allow_backorder
@@ -290,49 +264,6 @@ const BestSellingProductCard = ({
   )
 }
 
-const ProductRating = ({
-  rating,
-  compact = false,
-}: {
-  rating: FeaturedProductCard["rating"]
-  compact?: boolean
-}) => {
-  if (!rating || rating.count < 1) {
-    return (
-      <span
-        className={`min-w-0 flex-shrink-0 font-medium text-[#8a8a8f] ${
-          compact
-            ? "text-[8px] leading-3 xsmall:text-[9px] medium:text-[10px] medium:leading-4"
-            : "text-[10px] leading-4"
-        }`}
-      >
-        No reviews
-      </span>
-    )
-  }
-
-  return (
-    <span
-      className={`flex min-w-0 flex-shrink-0 items-center gap-1 ${
-        compact
-          ? "text-[8px] leading-3 xsmall:text-[9px] medium:text-[10px] medium:leading-4"
-          : "text-[10px] leading-4"
-      }`}
-    >
-      <span
-        className={`leading-none text-brand ${
-          compact ? "text-[12px] medium:text-[15px]" : "text-[15px]"
-        }`}
-        aria-hidden="true"
-      >
-        ☆☆☆☆☆
-      </span>
-      <span className="font-bold text-black">{rating.average.toFixed(1)}</span>
-      <span className="text-[#8a8a8f]">({rating.count})</span>
-    </span>
-  )
-}
-
 const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
   if (
     product.price.status !== "available" ||
@@ -364,6 +295,43 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
         </span>
       )}
     </span>
+  )
+}
+
+function DiscountPercentageBadge({
+  percentage,
+  compact,
+}: {
+  percentage: number
+  compact: boolean
+}) {
+  return (
+    <div
+      className={`absolute z-10 flex flex-col items-center justify-center rounded-full bg-[#ff2d55] text-center text-white shadow-[0_10px_24px_rgba(255,45,85,0.28)] ${
+        compact
+          ? "right-2 top-[46px] h-[38px] w-[38px] xsmall:right-2.5 xsmall:top-[48px] xsmall:h-[42px] xsmall:w-[42px] medium:right-3 medium:top-[50px]"
+          : "right-3 top-[56px] h-[48px] w-[48px] medium:right-3 medium:top-[50px] medium:h-[44px] medium:w-[44px] large:right-4 large:top-[56px] large:h-[48px] large:w-[48px]"
+      }`}
+    >
+      <span
+        className={`font-bold ${
+          compact
+            ? "text-[12px] leading-[13px] xsmall:text-[13px] xsmall:leading-[14px]"
+            : "text-[14px] leading-[15px]"
+        }`}
+      >
+        {percentage}%
+      </span>
+      <span
+        className={`font-bold uppercase ${
+          compact
+            ? "text-[7px] leading-[9px] xsmall:text-[8px] xsmall:leading-[10px]"
+            : "text-[8px] leading-[10px]"
+        }`}
+      >
+        Off
+      </span>
+    </div>
   )
 }
 

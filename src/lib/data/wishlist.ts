@@ -3,6 +3,7 @@
 import { MEDUSA_BACKEND_URL } from "@lib/config"
 import { getAuthHeaders } from "@lib/data/cookies"
 import { addToCart } from "@lib/data/cart"
+import type { HttpTypes } from "@medusajs/types"
 import { cookies as nextCookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
@@ -86,9 +87,33 @@ type WishlistShareResponse = {
   }
 }
 
+type WishlistActionSuccess = {
+  success: true
+  status?: "added" | "already_present"
+  message: string
+}
+
 type WishlistActionResult =
-  | { success: true; status?: "added" | "already_present"; message: string }
+  | {
+      success: true
+      status?: "added" | "already_present"
+      message: string
+      wishlistCount: number
+    }
   | { success: false; status?: "error"; message: string }
+
+type WishlistToggleResult =
+  | {
+      success: true
+      status: "removed" | "not_present"
+      message: string
+      wishlistCount: number
+    }
+  | { success: false; status: "error"; message: string }
+
+type WishlistRemoveItemResult =
+  | { success: true; message: string; wishlistCount: number }
+  | { success: false; message: string }
 
 type BulkWishlistActionResult = {
   success: boolean
@@ -96,6 +121,16 @@ type BulkWishlistActionResult = {
   addedCount: number
   alreadyPresentCount: number
   failedCount: number
+  wishlistCount?: number
+  cart?: HttpTypes.StoreCart | null
+}
+
+type RemoveWishlistItemsResult = {
+  success: boolean
+  message: string
+  removedCount: number
+  failedCount: number
+  wishlistCount?: number
 }
 
 type WishlistReadResult =
@@ -148,7 +183,7 @@ export async function addProductToWishlist({
         }
       )
 
-      return wishlistAddResult(result)
+      return withWishlistCount(wishlistAddResult(result))
     }
 
     await ensureGuestWishlistSession()
@@ -160,7 +195,7 @@ export async function addProductToWishlist({
       }),
     })
 
-    return wishlistAddResult(result)
+    return withWishlistCount(wishlistAddResult(result))
   } catch (error) {
     return {
       success: false,
@@ -226,6 +261,23 @@ export async function retrieveWishlistCount() {
   }
 }
 
+export async function retrieveWishlistedProductIds(
+  query: Record<string, string | undefined> = {}
+) {
+  const result = await retrieveWishlist(query)
+  if (!result.success || !result.wishlist?.items.length) {
+    return []
+  }
+
+  return Array.from(
+    new Set(
+      result.wishlist.items
+        .map((item) => item.product_id)
+        .filter(isSafeMedusaId)
+    )
+  )
+}
+
 export async function retrieveSharedWishlist(
   token: string,
   query: Record<string, string | undefined> = {}
@@ -252,7 +304,7 @@ export async function retrieveSharedWishlist(
   }
 }
 
-export async function removeWishlistItem(itemId: string): Promise<WishlistActionResult> {
+export async function removeWishlistItem(itemId: string): Promise<WishlistRemoveItemResult> {
   if (!isSafeMedusaId(itemId)) {
     return { success: false, message: "Wishlist item is invalid." }
   }
@@ -271,16 +323,105 @@ export async function removeWishlistItem(itemId: string): Promise<WishlistAction
       })
     }
     revalidatePath("/wishlist")
-    return { success: true, message: "Removed from wishlist." }
+    return withWishlistCount({ success: true, message: "Removed from wishlist." })
   } catch (error) {
     return { success: false, message: wishlistMessage(error) }
   }
 }
 
-export async function removeWishlistItems(itemIds: string[]) {
+export async function removeProductFromWishlist({
+  productId,
+  variantId,
+}: {
+  productId: string
+  variantId?: string | null
+}): Promise<WishlistToggleResult> {
+  if (!isSafeMedusaId(productId) || (variantId && !isSafeMedusaId(variantId))) {
+    return {
+      success: false,
+      status: "error",
+      message: "Product selection is invalid.",
+    }
+  }
+
+  try {
+    const authHeaders = await getAuthHeaders()
+    const isCustomer = "authorization" in authHeaders
+
+    if (isCustomer) {
+      const list = await medusaFetch<WishlistListResponse>("/store/cba/v1/wishlists", {
+        headers: authHeaders,
+      })
+      const wishlist =
+        list.wishlists?.find((item) => item.is_default) ??
+        list.wishlists?.[0] ??
+        null
+      const item = findWishlistItemByProduct(wishlist, productId, variantId)
+
+      if (!wishlist?.id || !item?.id) {
+        return withWishlistCount({
+          success: true,
+          status: "not_present" as const,
+          message: "Product is not in your wishlist.",
+        })
+      }
+
+      await medusaFetch(
+        `/store/cba/v1/wishlists/${wishlist.id}/items/${item.id}`,
+        { method: "DELETE", headers: authHeaders }
+      )
+    } else {
+      const cookieStore = await nextCookies()
+      if (!cookieStore.get(WISHLIST_COOKIE_NAME)?.value) {
+        return withWishlistCount({
+          success: true,
+          status: "not_present" as const,
+          message: "Product is not in your wishlist.",
+        })
+      }
+
+      const result = await medusaFetch<WishlistResponse>(
+        "/store/cba/v1/engagement/wishlist"
+      )
+      const item = findWishlistItemByProduct(
+        result.wishlist ?? null,
+        productId,
+        variantId
+      )
+
+      if (!item?.id) {
+        return withWishlistCount({
+          success: true,
+          status: "not_present" as const,
+          message: "Product is not in your wishlist.",
+        })
+      }
+
+      await medusaFetch(`/store/cba/v1/engagement/wishlist/items/${item.id}`, {
+        method: "DELETE",
+      })
+    }
+
+    revalidatePath("/wishlist")
+    return withWishlistCount({
+      success: true,
+      status: "removed" as const,
+      message: "Removed from wishlist.",
+    })
+  } catch (error) {
+    return { success: false, status: "error", message: wishlistMessage(error) }
+  }
+}
+
+export async function removeWishlistItems(itemIds: string[]): Promise<RemoveWishlistItemsResult> {
   const safeIds = Array.from(new Set(itemIds.filter(isSafeMedusaId))).slice(0, 100)
   if (!safeIds.length) {
-    return { success: false, message: "Select at least one wishlist item." }
+    return {
+      success: false,
+      message: "Select at least one wishlist item.",
+      removedCount: 0,
+      failedCount: 0,
+    }
   }
   const results = await Promise.allSettled(safeIds.map((id) => removeWishlistItem(id)))
   const removedCount = results.filter(
@@ -295,6 +436,7 @@ export async function removeWishlistItems(itemIds: string[]) {
         : `Removed ${removedCount} of ${safeIds.length} selected items.`,
     removedCount,
     failedCount,
+    wishlistCount: await retrieveWishlistCount(),
   }
 }
 
@@ -306,6 +448,7 @@ export async function clearWishlist() {
       message: result.success ? "Wishlist is already empty." : result.message,
       removedCount: 0,
       failedCount: 0,
+      wishlistCount: result.success ? await retrieveWishlistCount() : undefined,
     }
   }
   return removeWishlistItems(result.wishlist.items.map((item) => item.id))
@@ -353,9 +496,10 @@ export async function addWishlistItemsToCart({
   }
 
   let addedCount = 0
+  let cart: HttpTypes.StoreCart | null = null
   for (const item of selected) {
     try {
-      await addToCart({ variantId: item.variantId, quantity: 1, countryCode })
+      cart = await addToCart({ variantId: item.variantId, quantity: 1, countryCode })
       addedCount += 1
     } catch {
       // Continue so one unavailable line does not block the rest.
@@ -371,6 +515,7 @@ export async function addWishlistItemsToCart({
         : `Added ${addedCount} of ${selected.length} selected items to cart.`,
     addedCount,
     failedCount,
+    cart,
   }
 }
 
@@ -391,6 +536,7 @@ export async function addProductsToWishlist(
       addedCount: 0,
       alreadyPresentCount: 0,
       failedCount: 0,
+      wishlistCount: await retrieveWishlistCount(),
     }
   }
 
@@ -423,6 +569,7 @@ export async function addProductsToWishlist(
       addedCount,
       alreadyPresentCount,
       failedCount,
+      wishlistCount: await retrieveWishlistCount(),
     }
   }
 
@@ -438,6 +585,7 @@ export async function addProductsToWishlist(
       addedCount,
       alreadyPresentCount,
       failedCount,
+      wishlistCount: await retrieveWishlistCount(),
     }
   }
 
@@ -447,6 +595,7 @@ export async function addProductsToWishlist(
     addedCount,
     alreadyPresentCount,
     failedCount,
+    wishlistCount: await retrieveWishlistCount(),
   }
 }
 
@@ -567,6 +716,21 @@ function isSafeMedusaId(value: string) {
   return SAFE_ID_PATTERN.test(value)
 }
 
+function findWishlistItemByProduct(
+  wishlist: Wishlist | null,
+  productId: string,
+  variantId?: string | null
+) {
+  const items = wishlist?.items.filter((item) => item.product_id === productId) ?? []
+  if (!items.length) {
+    return null
+  }
+  if (variantId) {
+    return items.find((item) => item.variant_id === variantId) ?? items[0]
+  }
+  return items[0]
+}
+
 function queryString(query: Record<string, string | undefined>) {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(query)) {
@@ -590,7 +754,7 @@ function shareResult(result: WishlistShareResponse): ShareWishlistResult {
   }
 }
 
-function wishlistAddResult(result: WishlistAddItemResponse): WishlistActionResult {
+function wishlistAddResult(result: WishlistAddItemResponse): WishlistActionSuccess {
   if (result.already_present) {
     return {
       success: true,
@@ -602,6 +766,15 @@ function wishlistAddResult(result: WishlistAddItemResponse): WishlistActionResul
     success: true,
     status: "added",
     message: "Added to wishlist.",
+  }
+}
+
+async function withWishlistCount<T extends { success: true }>(
+  result: T
+): Promise<T & { wishlistCount: number }> {
+  return {
+    ...result,
+    wishlistCount: await retrieveWishlistCount(),
   }
 }
 

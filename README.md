@@ -28,6 +28,9 @@ Optional payment variables:
 NEXT_PUBLIC_STRIPE_KEY=replace-with-stripe-public-key
 NEXT_PUBLIC_MEDUSA_PAYMENTS_PUBLISHABLE_KEY=replace-with-medusa-payments-key
 NEXT_PUBLIC_MEDUSA_PAYMENTS_ACCOUNT_ID=replace-with-medusa-payments-account-id
+AUTH_COOKIE_NAME=_CBA_Ebiz
+CART_COOKIE_NAME=_cba_cart_id
+CACHE_COOKIE_NAME=_cba_cache_id
 ```
 
 Start the storefront:

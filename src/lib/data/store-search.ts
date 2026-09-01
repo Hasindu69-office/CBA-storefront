@@ -70,6 +70,7 @@ export async function searchStoreProducts({
   filters = {},
   minPrice,
   maxPrice,
+  onSale,
   countryCode,
 }: {
   q?: string
@@ -81,6 +82,7 @@ export async function searchStoreProducts({
   filters?: StoreSearchFilters
   minPrice?: number
   maxPrice?: number
+  onSale?: boolean
   countryCode: string
 }) {
   const safeLimit = normalizeLimit(limit)
@@ -99,6 +101,7 @@ export async function searchStoreProducts({
         brand: serializeTokenList(brand),
         min_price: normalizePriceBound(minPrice),
         max_price: normalizePriceBound(maxPrice),
+        on_sale: onSale ? "true" : undefined,
         filters: serializeFilters(filters),
         country_code: countryCode,
         region_id: region?.id,

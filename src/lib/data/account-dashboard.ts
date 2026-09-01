@@ -13,8 +13,8 @@ export type CbaAccountDashboardProfile = {
   has_account: boolean
   default_billing_address_id: string | null
   default_shipping_address_id: string | null
-  created_at: string
-  updated_at: string
+  created_at: string | null
+  updated_at: string | null
   address_count: number
   wishlist_count: number
 }

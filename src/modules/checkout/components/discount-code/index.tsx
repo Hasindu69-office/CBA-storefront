@@ -3,7 +3,7 @@
 import { Badge, Heading, Input, Label, Text } from "@medusajs/ui"
 import React from "react"
 
-import { applyPromotions } from "@lib/data/cart"
+import { applyPromotionsSafe } from "@lib/data/cart"
 import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
 import Trash from "@modules/common/icons/trash"
@@ -13,6 +13,7 @@ import {
   PROMOTION_CODE_MAX_LENGTH,
   validatePromotionCode,
 } from "@lib/util/promotions"
+import { useRouter } from "next/navigation"
 
 type DiscountCodeProps = {
   cart: HttpTypes.StoreCart & {
@@ -21,6 +22,7 @@ type DiscountCodeProps = {
 }
 
 const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
+  const router = useRouter()
   const [isOpen, setIsOpen] = React.useState(false)
   const [errorMessage, setErrorMessage] = React.useState("")
 
@@ -36,9 +38,14 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
       (promotion) => !promotion.is_automatic && promotion.code !== code
     )
 
-    await applyPromotions(
+    const result = await applyPromotionsSafe(
       validPromotions.filter((p) => p.code !== undefined).map((p) => p.code!)
     )
+    if (!result.success) {
+      setErrorMessage(result.error)
+      return
+    }
+    router.refresh()
   }
 
   const addPromotionCode = async (formData: FormData) => {
@@ -60,15 +67,16 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
     const input = document.getElementById("promotion-input") as HTMLInputElement
     codes.push(validation.code)
 
-    try {
-      await applyPromotions(codes)
-    } catch (e: any) {
-      setErrorMessage(e.message)
+    const result = await applyPromotionsSafe(codes)
+    if (!result.success) {
+      setErrorMessage(result.error)
+      return
     }
 
     if (input) {
       input.value = ""
     }
+    router.refresh()
   }
 
   return (

@@ -2,13 +2,16 @@
 
 import { addToCart } from "@lib/data/cart"
 import { requestBackInStock } from "@lib/data/back-in-stock"
+import {
+  listInstallmentPlans,
+  type StoreInstallmentPlan,
+} from "@lib/data/installments"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import type { PdpBannerContent } from "@lib/data/pdp-banners"
 import type {
   ProductDetailResponse,
   ProductReviewsResponse,
 } from "@lib/data/product-detail"
-import { addProductToWishlist } from "@lib/data/wishlist"
 import { notify } from "@lib/notifications"
 import { getProductPrice } from "@lib/util/get-product-price"
 import { convertToLocale } from "@lib/util/money"
@@ -19,12 +22,16 @@ import ProductCompanionZone from "@modules/products/components/product-companion
 import PdpSidebarBanners from "@modules/products/components/pdp-sidebar-banners"
 import RelatedProductsSection from "@modules/products/components/related-products-section"
 import {
-  HeartIcon,
   ShoppingCartIcon,
 } from "@modules/layout/components/cba-icons"
+import {
+  useWishlistProduct,
+  WishlistProductButton,
+} from "@modules/wishlist/components/wishlist-product-button"
 import { isEqual } from "lodash"
 import Image from "next/image"
 import {
+  useEffect,
   useMemo,
   useState,
   useTransition,
@@ -92,7 +99,6 @@ export default function CbaProductDetail({
   )
   const [quantity, setQuantity] = useState(1)
   const [activeTab, setActiveTab] = useState("description")
-  const [isWishlisted, setIsWishlisted] = useState(false)
   const [actionState, setActionState] = useState<ActionState>({
     type: null,
     message: "",
@@ -103,7 +109,9 @@ export default function CbaProductDetail({
     type: null,
     message: "",
   })
+  const [installmentPlans, setInstallmentPlans] = useState<StoreInstallmentPlan[]>([])
   const [isPending, startTransition] = useTransition()
+  const { isWishlisted } = useWishlistProduct(product.id)
 
   const selectedVariant = useMemo(() => {
     if (!product.variants?.length) return undefined
@@ -162,6 +170,32 @@ export default function CbaProductDetail({
     detail?.specification_groups
       .flatMap((group) => group.specifications)
       .slice(0, 3) ?? []
+  const installmentAmount = price?.calculated_price_number ?? null
+  const installmentEligible = Boolean(detail?.catalog_profile?.installment_eligible)
+
+  useEffect(() => {
+    let alive = true
+    if (!installmentEligible || !installmentAmount) {
+      setInstallmentPlans([])
+      return
+    }
+
+    listInstallmentPlans({ amount: installmentAmount })
+      .then((result) => {
+        if (alive) {
+          setInstallmentPlans(result.installment_plans)
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setInstallmentPlans([])
+        }
+      })
+
+    return () => {
+      alive = false
+    }
+  }, [installmentAmount, installmentEligible])
 
   function setOptionValue(optionId: string, value: string) {
     setOptions((current) => ({ ...current, [optionId]: value }))
@@ -188,13 +222,13 @@ export default function CbaProductDetail({
       const toastId = `pdp-add-to-cart:${selectedVariant.id}`
       notify.loading("Adding item to cart...", { id: toastId })
       try {
-        await addToCart({
+        const cart = await addToCart({
           variantId: selectedVariant.id,
           quantity,
           countryCode,
         })
         setActionState({ type: "success", message: "Added to cart." })
-        openSideCart({ pendingMessage: "Updating cart.", refresh: true })
+        openSideCart({ cart, refresh: true })
         notify.success("Item added to cart.", { id: toastId })
       } catch (error) {
         openSideCart({ pendingMessage: null, refresh: false })
@@ -204,41 +238,6 @@ export default function CbaProductDetail({
         setActionState({
           type: "error",
           message: error instanceof Error ? error.message : "Could not add to cart.",
-        })
-      }
-    })
-  }
-
-  function submitWishlist() {
-    if (!selectedVariant?.id || !isValidVariant) {
-      notify.error("Select a valid product option.")
-      setActionState({ type: "error", message: "Select a valid product option." })
-      return
-    }
-
-    startTransition(async () => {
-      const toastId = `pdp-wishlist:${product.id}`
-      notify.loading("Adding item to wishlist...", { id: toastId })
-      const result = await addProductToWishlist({
-        productId: product.id,
-        variantId: selectedVariant.id,
-      })
-      if (result.success) {
-        setIsWishlisted(true)
-      }
-      setActionState({
-        type: result.success ? "success" : "error",
-        message: result.message,
-      })
-      if (result.success) {
-        if (result.status === "already_present") {
-          notify.info(result.message, { id: toastId })
-        } else {
-          notify.success(result.message, { id: toastId })
-        }
-      } else {
-        notify.error(result.message, "Could not add this item to wishlist.", {
-          id: toastId,
         })
       }
     })
@@ -366,11 +365,11 @@ export default function CbaProductDetail({
             <p className="mt-2 text-[30px] font-black leading-tight">
               {price?.calculated_price ?? "Price unavailable"}
             </p>
-            {detail?.catalog_profile?.installment_eligible && (
-              <p className="mt-2 text-xs text-blue-600">
-                Installment plans available.
-              </p>
-            )}
+            <PdpInstallmentPreview
+              plans={installmentPlans}
+              currencyCode={price?.currency_code ?? "lkr"}
+              eligible={installmentEligible}
+            />
             <div className="mt-5 flex items-center gap-2 text-sm">
               <span
                 className={
@@ -465,19 +464,24 @@ export default function CbaProductDetail({
               </div>
             )}
             <div className="mt-5 flex items-center justify-between text-xs text-gray-600">
-              <button
-                type="button"
-                onClick={submitWishlist}
-                className="flex items-center gap-2 hover:text-brand"
-                disabled={isPending}
+              <WishlistProductButton
+                productId={product.id}
+                variantId={selectedVariant?.id}
+                productTitle={product.title}
+                toastId={`pdp-wishlist:${product.id}`}
+                variant="pdp"
+                disabled={isPending || !isValidVariant}
+                iconClassName="text-green-600"
+                className="flex items-center gap-2 hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                onResult={(result) =>
+                  setActionState({
+                    type: result.success ? "success" : "error",
+                    message: result.message,
+                  })
+                }
               >
-                <HeartIcon
-                  size={15}
-                  fill={isWishlisted ? "currentColor" : "none"}
-                  className="text-green-600"
-                />
                 {isWishlisted ? "Wishlist added" : "Wishlist"}
-              </button>
+              </WishlistProductButton>
               <span className="text-gray-300">|</span>
               <LocalizedClientLink
                 href="/compare"
@@ -552,6 +556,205 @@ export default function CbaProductDetail({
       </div>
     </main>
   )
+}
+
+function PdpInstallmentPreview({
+  plans,
+  currencyCode,
+  eligible,
+}: {
+  plans: StoreInstallmentPlan[]
+  currencyCode: string
+  eligible: boolean
+}) {
+  const slides = useMemo(() => chunkInstallmentPlans(plans, 3), [plans])
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [isPaused, setIsPaused] = useState(false)
+
+  const hasMultipleSlides = slides.length > 1
+
+  useEffect(() => {
+    if (activeIndex > Math.max(0, slides.length - 1)) {
+      setActiveIndex(0)
+    }
+  }, [activeIndex, slides.length])
+
+  useEffect(() => {
+    if (!hasMultipleSlides || isPaused || prefersReducedMotion()) {
+      return
+    }
+
+    const timer = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % slides.length)
+    }, 3500)
+
+    return () => window.clearInterval(timer)
+  }, [hasMultipleSlides, isPaused, slides.length])
+
+  if (!eligible || !plans.length) {
+    return null
+  }
+
+  const goToPreviousSlide = () => {
+    setActiveIndex((current) => (current - 1 + slides.length) % slides.length)
+  }
+
+  const goToNextSlide = () => {
+    setActiveIndex((current) => (current + 1) % slides.length)
+  }
+
+  return (
+    <div
+      className="mt-4 rounded-base border border-gray-200 bg-white p-3"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onFocus={() => setIsPaused(true)}
+      onBlur={() => setIsPaused(false)}
+      aria-roledescription="carousel"
+      aria-label="Installment plans"
+    >
+      <div className="flex min-h-8 items-center justify-between gap-2">
+        <p className="text-xs font-black uppercase text-gray-700">
+          Installment Plans
+        </p>
+        {hasMultipleSlides && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={goToPreviousSlide}
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-brand hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+              aria-label="Show previous installment plans"
+            >
+              <CarouselArrow direction="left" />
+            </button>
+            <button
+              type="button"
+              onClick={goToNextSlide}
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-brand hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+              aria-label="Show next installment plans"
+            >
+              <CarouselArrow direction="right" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-2 overflow-hidden">
+        <div
+          className="flex transition-transform duration-500 ease-out motion-reduce:transition-none"
+          style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+        >
+          {slides.map((slide, slideIndex) => (
+            <div
+              key={`installment-slide-${slideIndex}`}
+              className="w-full shrink-0 space-y-0"
+              aria-hidden={slideIndex !== activeIndex}
+            >
+              {slide.map((plan) => (
+                <InstallmentPlanPreviewRow
+                  key={plan.id}
+                  plan={plan}
+                  currencyCode={currencyCode}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {hasMultipleSlides && (
+        <p className="sr-only" aria-live="polite">
+          Showing installment plans {activeIndex * 3 + 1} to{" "}
+          {Math.min((activeIndex + 1) * 3, plans.length)} of {plans.length}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function formatInstallmentMoney(amount: number, currencyCode: string) {
+  return convertToLocale({
+    amount,
+    currency_code: currencyCode,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+function InstallmentPlanPreviewRow({
+  plan,
+  currencyCode,
+}: {
+  plan: StoreInstallmentPlan
+  currencyCode: string
+}) {
+  return (
+    <div className="grid min-h-[44px] grid-cols-[1fr_70px] items-center gap-2 border-b border-gray-100 py-2 last:border-b-0">
+      <div className="min-w-0">
+        <p className="truncate text-xs font-bold text-gray-700">
+          {plan.tenor_months} x{" "}
+          {plan.monthly_amount !== undefined
+            ? formatInstallmentMoney(plan.monthly_amount, currencyCode)
+            : "Available"}{" "}
+          at {formatInstallmentRate(plan.fee_percentage)}
+        </p>
+        <p className="truncate text-[11px] font-medium text-gray-500">
+          {plan.bank_name}
+        </p>
+      </div>
+      {plan.logo_path ? (
+        <span className="relative h-7 w-[70px] justify-self-end rounded bg-white">
+          <Image
+            src={plan.logo_path}
+            alt={plan.bank_name}
+            fill
+            sizes="70px"
+            className="object-contain"
+          />
+        </span>
+      ) : (
+        <span className="justify-self-end truncate text-[11px] font-bold text-gray-500">
+          {plan.bank_code.toUpperCase()}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function CarouselArrow({ direction }: { direction: "left" | "right" }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    >
+      {direction === "left" ? (
+        <path d="m15 18-6-6 6-6" />
+      ) : (
+        <path d="m9 18 6-6-6-6" />
+      )}
+    </svg>
+  )
+}
+
+function chunkInstallmentPlans(plans: StoreInstallmentPlan[], size: number) {
+  const chunks: StoreInstallmentPlan[][] = []
+  for (let index = 0; index < plans.length; index += size) {
+    chunks.push(plans.slice(index, index + size))
+  }
+  return chunks
+}
+
+function prefersReducedMotion() {
+  if (typeof window === "undefined") {
+    return false
+  }
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches
 }
 
 function Breadcrumbs({ product }: { product: HttpTypes.StoreProduct }) {
@@ -999,6 +1202,14 @@ function formatReviewDate(value: string) {
     month: "short",
     day: "numeric",
   }).format(date)
+}
+
+function formatInstallmentRate(value: number) {
+  const rate = Number(value)
+  if (!Number.isFinite(rate)) {
+    return ""
+  }
+  return `${Number.isInteger(rate) ? rate.toFixed(0) : rate.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}%`
 }
 
 function colorValue(value: string) {

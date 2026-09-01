@@ -132,13 +132,13 @@ export default function ProductActions({
     setIsAdding(true)
 
     try {
-      await addToCart({
+      const cart = await addToCart({
         variantId: selectedVariant.id,
         quantity: 1,
         countryCode,
       })
 
-      openSideCart({ pendingMessage: "Updating cart.", refresh: true })
+      openSideCart({ cart, refresh: true })
       notify.success("Item added to cart.", { id: toastId })
     } catch (error) {
       openSideCart({ pendingMessage: null, refresh: false })
