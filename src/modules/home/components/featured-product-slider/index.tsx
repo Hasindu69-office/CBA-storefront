@@ -221,6 +221,9 @@ export const FeaturedProductCardItem = ({
     !!product.default_variant?.id &&
     product.inventory.purchasable &&
     product.price.status === "available"
+  const hasMultipleVariants =
+    product.has_multiple_variants || (product.variant_count ?? 1) > 1
+  const canAddDirectly = isPurchasable && !hasMultipleVariants
   const displayBadges = product.badges
     .filter((badge) => !isFeaturedBadge(badge) && !isBenefitBadge(badge))
     .slice(0, 2)
@@ -229,6 +232,10 @@ export const FeaturedProductCardItem = ({
   const handleAddToCart = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
     event.stopPropagation()
+
+    if (hasMultipleVariants) {
+      return
+    }
 
     if (!product.default_variant?.id) {
       notify.error("Please select a valid product.")
@@ -327,7 +334,7 @@ export const FeaturedProductCardItem = ({
 
         <WishlistProductButton
           productId={product.product_id ?? product.id}
-          variantId={product.default_variant?.id}
+          variantId={hasMultipleVariants ? undefined : product.default_variant?.id}
           productTitle={product.title}
           toastId={`featured-wishlist:${product.id}`}
         />
@@ -478,15 +485,25 @@ export const FeaturedProductCardItem = ({
             kokoBranding={kokoBranding}
             kokoAvailable={kokoAvailable}
           />
-          <button
-            type="button"
-            onClick={handleAddToCart}
-            disabled={!isPurchasable || isAddingToCart}
-            className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-black bg-white px-3 text-[11px] font-bold uppercase tracking-normal text-black transition-colors hover:bg-black hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white"
-          >
-            <ShoppingCartIcon size={16} />
-            {isAddingToCart ? "Adding..." : "Add to cart"}
-          </button>
+          {hasMultipleVariants && isPurchasable ? (
+            <LocalizedClientLink
+              href={`/products/${product.handle}`}
+              className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-black bg-white px-3 text-[11px] font-bold uppercase tracking-normal text-black transition-colors hover:bg-black hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+            >
+              <ShoppingCartIcon size={16} />
+              Select options
+            </LocalizedClientLink>
+          ) : (
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={!canAddDirectly || isAddingToCart}
+              className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-black bg-white px-3 text-[11px] font-bold uppercase tracking-normal text-black transition-colors hover:bg-black hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white"
+            >
+              <ShoppingCartIcon size={16} />
+              {isAddingToCart ? "Adding..." : "Add to cart"}
+            </button>
+          )}
         </div>
       </div>
     </article>
