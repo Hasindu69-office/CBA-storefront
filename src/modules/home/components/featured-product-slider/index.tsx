@@ -597,7 +597,7 @@ const ProductCardPrice = ({
       className={[
         "flex min-w-0 flex-col gap-0.5 overflow-hidden",
         mobileCompact
-          ? "min-h-[58px]"
+          ? "min-h-[62px]"
           : "min-h-[58px]",
       ].join(" ")}
     >
@@ -620,7 +620,11 @@ const ProductCardPrice = ({
         <KokoCardPaymentLine
           amount={kokoInstallment}
           branding={kokoBranding}
-          className="mt-0.5"
+          className={
+            mobileCompact
+              ? "mt-0.5 text-[9px] leading-3 xsmall:text-[10px] xsmall:leading-4"
+              : "mt-0.5"
+          }
         />
       )}
     </div>

@@ -249,7 +249,7 @@ const BestSellingProductCard = ({
 
         <div className={`mt-auto flex items-center justify-between gap-2 border-t border-[#e5e7eb] ${
           isFlat
-            ? "-mx-2.5 min-h-[66px] px-2.5 pt-2 medium:-mx-3 medium:min-h-[68px] medium:px-3 large:-mx-3.5 large:px-3.5"
+            ? "-mx-2.5 min-h-[74px] px-2.5 pt-2 medium:-mx-3 medium:min-h-[72px] medium:px-3 large:-mx-3.5 large:px-3.5"
             : "-mx-3 min-h-[68px] px-3 pt-2 large:-mx-3.5 large:px-3.5"
         }`}>
           <ProductCardPrice
@@ -303,8 +303,8 @@ const ProductCardPrice = ({
     : null
 
   return (
-    <span className="flex min-w-0 flex-1 flex-col">
-      <span className="whitespace-normal break-words text-[11px] font-bold leading-4 text-black medium:text-[12px]">
+    <span className="flex min-w-0 flex-1 flex-col overflow-hidden pr-1">
+      <span className="min-w-0 whitespace-normal break-words text-[11px] font-bold leading-4 text-black medium:text-[12px]">
         {convertToLocale({
           amount: product.price.calculated_amount,
           currency_code: product.price.currency_code,
@@ -324,7 +324,7 @@ const ProductCardPrice = ({
         <KokoCardPaymentLine
           amount={kokoInstallment}
           branding={kokoBranding}
-          className="mt-0.5"
+          className="mt-0.5 text-[9px] leading-3 xsmall:text-[10px] xsmall:leading-4"
         />
       )}
     </span>
