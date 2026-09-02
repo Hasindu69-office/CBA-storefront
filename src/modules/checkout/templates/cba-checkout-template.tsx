@@ -53,6 +53,7 @@ import { useRouter } from "next/navigation"
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useTransition,
@@ -507,23 +508,45 @@ function DeliveryMethodSelector({
   const [calculatedPrices, setCalculatedPrices] = useState<Record<string, number>>(
     {}
   )
-  const deliveryMethods = shippingMethods.filter(
-    (method) => (method as any).service_zone?.fulfillment_set?.type !== "pickup"
+  const deliveryMethods = useMemo(
+    () =>
+      shippingMethods.filter(
+        (method) => (method as any).service_zone?.fulfillment_set?.type !== "pickup"
+      ),
+    [shippingMethods]
   )
 
   useEffect(() => {
-    deliveryMethods
-      .filter((method) => method.price_type === "calculated")
-      .forEach((method) => {
-        calculatePriceForShippingOption(method.id, cart.id).then((option) => {
-          if (option?.amount !== undefined) {
-            setCalculatedPrices((current) => ({
-              ...current,
-              [method.id]: option.amount!,
-            }))
-          }
-        })
+    const calculatedMethods = deliveryMethods.filter(
+      (method) => method.price_type === "calculated"
+    )
+    if (!calculatedMethods.length) {
+      setCalculatedPrices({})
+      return
+    }
+
+    let active = true
+    Promise.allSettled(
+      calculatedMethods.map((method) =>
+        calculatePriceForShippingOption(method.id, cart.id)
+      )
+    ).then((results) => {
+      if (!active) return
+      const prices: Record<string, number> = {}
+      results.forEach((result, index) => {
+        if (
+          result.status === "fulfilled" &&
+          typeof result.value?.amount === "number"
+        ) {
+          prices[calculatedMethods[index].id] = result.value.amount
+        }
       })
+      setCalculatedPrices(prices)
+    })
+
+    return () => {
+      active = false
+    }
   }, [cart.id, deliveryMethods])
 
   const selectMethod = (methodId: string) => {
@@ -568,6 +591,8 @@ function DeliveryMethodSelector({
               ? method.amount ?? 0
               : calculatedPrices[method.id]
           const isFree = Number(price ?? 0) <= 0
+          const calculationUnavailable =
+            method.price_type === "calculated" && typeof price !== "number"
 
           return (
             <button
@@ -577,7 +602,10 @@ function DeliveryMethodSelector({
               aria-checked={checked}
               onClick={() => selectMethod(method.id)}
               disabled={
-                isPending || isSavingCheckoutDetails || method.insufficient_inventory
+                isPending ||
+                isSavingCheckoutDetails ||
+                method.insufficient_inventory ||
+                calculationUnavailable
               }
               className={`flex min-h-[66px] items-center gap-4 rounded-md border px-4 text-left transition ${
                 checked
@@ -603,7 +631,7 @@ function DeliveryMethodSelector({
                 }`}
               >
                 {price === undefined
-                  ? "..."
+                  ? "Unavailable"
                   : isFree
                   ? "FREE"
                   : money(price, cart.currency_code)}

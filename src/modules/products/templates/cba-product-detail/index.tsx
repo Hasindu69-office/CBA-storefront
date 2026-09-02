@@ -304,11 +304,11 @@ export default function CbaProductDetail({
   }
 
   return (
-    <main className="bg-white text-[#191919]">
-      <div className="content-container py-8">
+    <main className="overflow-x-clip bg-white text-[#191919]">
+      <div className="content-container min-w-0 py-6 small:py-8">
         <Breadcrumbs product={product} />
 
-        <section className="grid gap-8 pt-7 small:grid-cols-[1.05fr_1fr_310px]">
+        <section className="grid min-w-0 gap-6 pt-6 small:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)_310px] small:gap-8 small:pt-7">
           <ProductGallery
             title={product.title}
             images={galleryImages}
@@ -381,7 +381,7 @@ export default function CbaProductDetail({
             <ProductMeta product={product} brandName={detail?.brand?.name} />
           </div>
 
-          <aside className="h-fit rounded-rounded bg-[#f3f5fb] p-6">
+          <aside className="h-fit min-w-0 rounded-rounded bg-[#f3f5fb] p-5 small:p-6">
             <p className="text-xs font-bold uppercase text-gray-500">Total Price</p>
             <p className="mt-2 text-[30px] font-black leading-tight">
               {price?.calculated_price ?? "Price unavailable"}
@@ -551,7 +551,7 @@ export default function CbaProductDetail({
           <section
             className={
               hasCompanionContent && hasPdpSidebarBanners
-                ? "mt-12 grid gap-4 small:grid-cols-[1fr_280px]"
+                ? "mt-12 grid min-w-0 gap-4 small:grid-cols-[minmax(0,1fr)_280px]"
                 : "mt-12"
             }
           >
@@ -795,27 +795,27 @@ function Breadcrumbs({ product }: { product: HttpTypes.StoreProduct }) {
   const category = product.categories?.[0]
 
   return (
-    <nav className="rounded-rounded border border-gray-100 px-6 py-5 text-xs font-semibold text-gray-400">
-      <LocalizedClientLink href="/" className="hover:text-brand">
+    <nav className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-rounded border border-gray-100 px-4 py-4 text-xs font-semibold text-gray-400 small:px-6 small:py-5">
+      <LocalizedClientLink href="/" className="shrink-0 hover:text-brand">
         Home
       </LocalizedClientLink>
-      <span className="mx-3">/</span>
-      <LocalizedClientLink href="/store" className="hover:text-brand">
+      <span className="shrink-0">/</span>
+      <LocalizedClientLink href="/store" className="shrink-0 hover:text-brand">
         Shop
       </LocalizedClientLink>
       {category?.handle && (
         <>
-          <span className="mx-3">/</span>
+          <span className="shrink-0">/</span>
           <LocalizedClientLink
             href={`/categories/${category.handle}`}
-            className="hover:text-brand"
+            className="min-w-0 break-words hover:text-brand"
           >
             {category.name}
           </LocalizedClientLink>
         </>
       )}
-      <span className="mx-3">/</span>
-      <span className="text-gray-900">{product.title}</span>
+      <span className="shrink-0">/</span>
+      <span className="min-w-0 break-words text-gray-900">{product.title}</span>
     </nav>
   )
 }
@@ -832,7 +832,7 @@ function ProductGallery({
   setActiveImage: (value: string) => void
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="relative aspect-[4/3] overflow-hidden rounded-rounded bg-gray-50">
         {activeImage ? (
           <Image
@@ -841,7 +841,7 @@ function ProductGallery({
             fill
             priority
             sizes="(max-width: 1024px) 92vw, 520px"
-            className="object-contain p-8"
+            className="object-contain p-5 xsmall:p-8"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-gray-400">
@@ -849,7 +849,7 @@ function ProductGallery({
           </div>
         )}
       </div>
-      <div className="mt-5 flex gap-4">
+      <div className="no-scrollbar mt-4 flex max-w-full gap-3 overflow-x-auto overscroll-x-contain pb-1 small:mt-5 small:gap-4">
         {images.slice(0, 5).map((image, index) => (
           <button
             type="button"
@@ -857,8 +857,8 @@ function ProductGallery({
             onClick={() => image.url && setActiveImage(image.url)}
             className={
               image.url === activeImage
-                ? "relative h-20 w-20 rounded-base border-2 border-brand bg-white"
-                : "relative h-20 w-20 rounded-base border border-gray-200 bg-white"
+                ? "relative h-16 w-16 shrink-0 rounded-base border-2 border-brand bg-white xsmall:h-20 xsmall:w-20"
+                : "relative h-16 w-16 shrink-0 rounded-base border border-gray-200 bg-white xsmall:h-20 xsmall:w-20"
             }
             aria-label={`View image ${index + 1}`}
           >
@@ -981,7 +981,7 @@ function ProductTabs({
 
   return (
     <section className="mt-12">
-      <div className="flex gap-8 overflow-x-auto border-b border-gray-200">
+      <div className="no-scrollbar flex max-w-full gap-6 overflow-x-auto overscroll-x-contain border-b border-gray-200 small:gap-8">
         {tabs.map((tab) => (
           <button
             type="button"
@@ -989,8 +989,8 @@ function ProductTabs({
             onClick={() => setActiveTab(tab.key)}
             className={
               activeTab === tab.key
-                ? "border-b-2 border-brand py-4 text-sm font-black uppercase text-black"
-                : "py-4 text-sm font-bold uppercase text-gray-400 hover:text-black"
+                ? "shrink-0 border-b-2 border-brand py-4 text-sm font-black uppercase text-black"
+                : "shrink-0 py-4 text-sm font-bold uppercase text-gray-400 hover:text-black"
             }
           >
             {tab.label}
