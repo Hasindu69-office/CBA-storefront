@@ -60,10 +60,10 @@ export default async function ProductPreview({
         </div>
         <div className="txt-compact-medium mt-4">
           <div className="flex justify-between gap-3">
-            <Text className="text-ui-fg-subtle" data-testid="product-title">
+            <Text className="min-w-0 break-words text-ui-fg-subtle" data-testid="product-title">
               {product.title}
             </Text>
-            <div className="flex shrink-0 items-center gap-x-2">
+            <div className="flex shrink-0 items-center gap-x-2 whitespace-nowrap">
               {cheapestPrice && <PreviewPrice price={cheapestPrice} />}
             </div>
           </div>
@@ -71,7 +71,7 @@ export default async function ProductPreview({
             <KokoCardPaymentLine
               amount={kokoInstallment}
               branding={kokoBranding}
-              className="mt-2 text-[12px] leading-5"
+              className="mt-2 text-[11px] leading-4 small:text-[12px] small:leading-5"
             />
           )}
         </div>
