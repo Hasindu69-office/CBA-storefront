@@ -1,9 +1,12 @@
 import { listBestSellingProductCards } from "@lib/data/best-selling-products"
+import type { KokoCheckoutBranding } from "@lib/data/koko-branding"
 import type { HomepageCmsSection } from "@lib/data/homepage"
 import BestSellingProductsCarousel from "./best-selling-products-carousel"
 
 type BestSellingProductsSectionProps = {
   sections: HomepageCmsSection[]
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
 }
 
 const BEST_SELLING_PLACEMENT = "homepage_best_selling_products"
@@ -13,6 +16,8 @@ const FALLBACK_DESCRIPTION =
 
 const BestSellingProductsSection = async ({
   sections,
+  kokoBranding,
+  kokoAvailable = false,
 }: BestSellingProductsSectionProps) => {
   const section = sections.find(isBestSellingSection)
   if (!section) {
@@ -72,7 +77,11 @@ const BestSellingProductsSection = async ({
             </div>
 
             <div className="absolute inset-x-0 top-[156px] z-20 px-6 xsmall:top-[172px] xsmall:px-7 md:top-[134px] md:px-10 medium:top-[188px] medium:px-7 large:px-9">
-              <BestSellingProductsCarousel products={products} />
+              <BestSellingProductsCarousel
+                products={products}
+                kokoBranding={kokoBranding}
+                kokoAvailable={kokoAvailable}
+              />
             </div>
           </div>
         </div>

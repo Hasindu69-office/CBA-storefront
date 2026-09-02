@@ -3,14 +3,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import type { FeaturedProductCard } from "@lib/data/featured-products"
+import type { KokoCheckoutBranding } from "@lib/data/koko-branding"
 import BestSellingProductCard from "./best-selling-product-card"
 
 type BestSellingProductsCarouselProps = {
   products: FeaturedProductCard[]
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
 }
 
 const BestSellingProductsCarousel = ({
   products,
+  kokoBranding,
+  kokoAvailable = false,
 }: BestSellingProductsCarouselProps) => {
   const visibleProducts = useMemo(() => products.slice(0, 5), [products])
   const trackRef = useRef<HTMLDivElement>(null)
@@ -117,6 +122,8 @@ const BestSellingProductsCarousel = ({
             key={product.id}
             product={product}
             priority={index < 5}
+            kokoBranding={kokoBranding}
+            kokoAvailable={kokoAvailable}
           />
         ))}
       </div>

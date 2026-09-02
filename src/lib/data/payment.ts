@@ -3,7 +3,7 @@
 import { sdk } from "@lib/config"
 import { getAuthHeaders } from "./cookies"
 import { HttpTypes } from "@medusajs/types"
-import { isWebxpay } from "@lib/constants"
+import { isKoko, isWebxpay } from "@lib/constants"
 
 export const listCartPaymentMethods = async (regionId: string) => {
   if (!regionId) {
@@ -30,6 +30,8 @@ export const listCartPaymentMethods = async (regionId: string) => {
       (payment_providers ?? []).sort((a, b) => {
         if (isWebxpay(a.id) && !isWebxpay(b.id)) return -1
         if (!isWebxpay(a.id) && isWebxpay(b.id)) return 1
+        if (isKoko(a.id) && !isKoko(b.id)) return -1
+        if (!isKoko(a.id) && isKoko(b.id)) return 1
         return a.id > b.id ? 1 : -1
       })
     )

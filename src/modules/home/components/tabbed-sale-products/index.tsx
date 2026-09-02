@@ -7,11 +7,14 @@ import {
   listFeaturedProductCards,
   type FeaturedProductCard,
 } from "@lib/data/featured-products"
+import type { KokoCheckoutBranding } from "@lib/data/koko-branding"
 import type { HomepageCmsSection } from "@lib/data/homepage"
 import TabbedSaleProductsClient from "./tabbed-sale-products-client"
 
 type TabbedSaleProductsSectionProps = {
   sections: HomepageCmsSection[]
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
 }
 
 export type TabbedSaleTabKey =
@@ -63,6 +66,8 @@ const TAB_CONFIG: Array<{ key: TabbedSaleTabKey; label: string }> = [
 
 const TabbedSaleProductsSection = async ({
   sections,
+  kokoBranding,
+  kokoAvailable = false,
 }: TabbedSaleProductsSectionProps) => {
   const section = sections.find(isTabbedSaleSection)
   if (!section) {
@@ -118,6 +123,8 @@ const TabbedSaleProductsSection = async ({
       banner={banner}
       tabs={tabs}
       visibility={visibility}
+      kokoBranding={kokoBranding}
+      kokoAvailable={kokoAvailable}
     />
   )
 }

@@ -5,10 +5,13 @@ import Image from "next/image"
 import { useParams } from "next/navigation"
 
 import { addToCart } from "@lib/data/cart"
+import type { KokoCheckoutBranding } from "@lib/data/koko-branding"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
+import { kokoInstallmentCardLabelFromAmount } from "@lib/util/koko-installments"
 import { openSideCart } from "@lib/util/side-cart-event"
+import KokoCardPaymentLine from "@modules/common/components/koko-card-payment-line"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import ProductCardRating from "@modules/common/components/product-card-rating"
 import PlaceholderImage from "@modules/common/icons/placeholder-image"
@@ -21,12 +24,16 @@ type BestSellingProductCardProps = {
   product: FeaturedProductCard
   priority: boolean
   variant?: "raised" | "flat"
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
 }
 
 const BestSellingProductCard = ({
   product,
   priority,
   variant = "raised",
+  kokoBranding,
+  kokoAvailable = false,
 }: BestSellingProductCardProps) => {
   const countryCode = useParams().countryCode as string
   const [isAddingToCart, setIsAddingToCart] = useState(false)
@@ -242,10 +249,14 @@ const BestSellingProductCard = ({
 
         <div className={`mt-auto flex items-center justify-between gap-2 border-t border-[#e5e7eb] ${
           isFlat
-            ? "-mx-2.5 min-h-[48px] px-2.5 pt-2 medium:-mx-3 medium:min-h-[52px] medium:px-3 large:-mx-3.5 large:px-3.5"
-            : "-mx-3 min-h-[52px] px-3 pt-2 large:-mx-3.5 large:px-3.5"
+            ? "-mx-2.5 min-h-[66px] px-2.5 pt-2 medium:-mx-3 medium:min-h-[68px] medium:px-3 large:-mx-3.5 large:px-3.5"
+            : "-mx-3 min-h-[68px] px-3 pt-2 large:-mx-3.5 large:px-3.5"
         }`}>
-          <ProductCardPrice product={product} />
+          <ProductCardPrice
+            product={product}
+            kokoBranding={kokoBranding}
+            kokoAvailable={kokoAvailable}
+          />
           <button
             type="button"
             onClick={handleAddToCart}
@@ -264,7 +275,15 @@ const BestSellingProductCard = ({
   )
 }
 
-const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
+const ProductCardPrice = ({
+  product,
+  kokoBranding,
+  kokoAvailable = false,
+}: {
+  product: FeaturedProductCard
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
+}) => {
   if (
     product.price.status !== "available" ||
     product.price.calculated_amount === null
@@ -275,6 +294,13 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
       </p>
     )
   }
+
+  const kokoInstallment = kokoAvailable
+    ? kokoInstallmentCardLabelFromAmount(
+        product.price.calculated_amount,
+        product.price.currency_code
+      )
+    : null
 
   return (
     <span className="flex min-w-0 flex-1 flex-col">
@@ -293,6 +319,13 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
             maximumFractionDigits: 2,
           })}
         </span>
+      )}
+      {kokoInstallment && (
+        <KokoCardPaymentLine
+          amount={kokoInstallment}
+          branding={kokoBranding}
+          className="mt-0.5"
+        />
       )}
     </span>
   )
