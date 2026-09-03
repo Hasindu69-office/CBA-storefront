@@ -111,6 +111,11 @@ export type ContactPageContent = {
   faq: ContactFaqItem[]
 }
 
+export type ContactDetails = Pick<
+  ContactPageContent["details"],
+  "phone_label" | "phone" | "email_label" | "email"
+>
+
 const DEFAULT_CONTACT: ContactPageContent = {
   page: {
     title: "Contact Us",
@@ -178,6 +183,43 @@ const DEFAULT_CONTACT: ContactPageContent = {
   faq: [],
 }
 
+export async function retrieveContactDetails(): Promise<ContactDetails> {
+  try {
+    const settingsResponse = await sdk.client.fetch<SiteSettingsResponse>(
+      "/store/cba/v1/site-settings",
+      {
+        query: { groups: "contact" },
+        cache: "no-store",
+      }
+    )
+
+    if (!settingsResponse.success) {
+      return defaultContactDetails()
+    }
+
+    const contactSettings = objectValue(
+      settingsResponse.data.settings.find(
+        (item) => item.group === "contact" && item.key === "details"
+      )?.value
+    )
+
+    return {
+      phone_label: text(
+        contactSettings.phone_label,
+        DEFAULT_CONTACT.details.phone_label
+      ),
+      phone: text(contactSettings.phone, DEFAULT_CONTACT.details.phone),
+      email_label: text(
+        contactSettings.email_label,
+        DEFAULT_CONTACT.details.email_label
+      ),
+      email: text(contactSettings.email, DEFAULT_CONTACT.details.email),
+    }
+  } catch {
+    return defaultContactDetails()
+  }
+}
+
 export async function retrieveContactPageContent(): Promise<ContactPageContent> {
   try {
     const locale = await getLocale()
@@ -215,6 +257,15 @@ export async function retrieveContactPageContent(): Promise<ContactPageContent> 
     return normalizeContactContent(pageResponse.data.page, sections, settings)
   } catch {
     return DEFAULT_CONTACT
+  }
+}
+
+function defaultContactDetails(): ContactDetails {
+  return {
+    phone_label: DEFAULT_CONTACT.details.phone_label,
+    phone: DEFAULT_CONTACT.details.phone,
+    email_label: DEFAULT_CONTACT.details.email_label,
+    email: DEFAULT_CONTACT.details.email,
   }
 }
 
