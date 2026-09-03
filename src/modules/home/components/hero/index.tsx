@@ -144,7 +144,7 @@ const Hero = ({ sections }: HeroProps) => {
 
                     {slide.descriptionHtml && (
                       <div
-                        className="mt-2.5 max-w-[min(100%,280px)] break-words text-[8px] leading-[11px] text-white/90 xsmall:text-[9px] xsmall:leading-[12px] sm:mt-3 sm:max-w-[360px] sm:text-[10px] sm:leading-[15px] small:mt-4 small:max-w-[410px] small:text-[13px] small:leading-[20px]"
+                        className="mt-2.5 max-w-[52%] break-words text-justify text-[8px] leading-[11px] text-white/90 xsmall:max-w-[min(60%,280px)] xsmall:text-[9px] xsmall:leading-[12px] sm:mt-3 sm:max-w-[360px] sm:text-[10px] sm:leading-[15px] small:mt-4 small:max-w-[410px] small:text-[13px] small:leading-[20px]"
                         dangerouslySetInnerHTML={{ __html: slide.descriptionHtml }}
                       />
                     )}
