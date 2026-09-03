@@ -40,7 +40,15 @@ const MAX_QUERY_LENGTH = 120
 const DEBOUNCE_MS = 250
 const SEARCH_LISTBOX_ID = "site-search-results"
 
-export default function CbaSearchForm() {
+type CbaSearchFormProps = {
+  inputId?: string
+  listboxId?: string
+}
+
+export default function CbaSearchForm({
+  inputId = "site-search",
+  listboxId = SEARCH_LISTBOX_ID,
+}: CbaSearchFormProps = {}) {
   const [searchQuery, setSearchQuery] = useState("")
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [products, setProducts] = useState<FeaturedProductCard[]>([])
@@ -258,11 +266,11 @@ export default function CbaSearchForm() {
       className="relative flex w-full items-center"
       role="search"
     >
-      <label htmlFor="site-search" className="sr-only">
+      <label htmlFor={inputId} className="sr-only">
         Search products
       </label>
       <input
-        id="site-search"
+        id={inputId}
         type="search"
         value={searchQuery}
         onChange={(event) => {
@@ -280,9 +288,9 @@ export default function CbaSearchForm() {
         role="combobox"
         aria-autocomplete="list"
         aria-expanded={showDropdown}
-        aria-controls={SEARCH_LISTBOX_ID}
+        aria-controls={listboxId}
         aria-activedescendant={
-          activeIndex >= 0 ? `${SEARCH_LISTBOX_ID}-${activeIndex}` : undefined
+          activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined
         }
         placeholder="Search products, brands, SKUs"
       />
@@ -296,7 +304,7 @@ export default function CbaSearchForm() {
 
       {showDropdown && (
         <div
-          id={SEARCH_LISTBOX_ID}
+          id={listboxId}
           role="listbox"
           aria-label="Search suggestions"
           className="absolute left-0 right-0 top-[52px] z-[80] max-h-[75vh] overflow-hidden rounded-[8px] border border-[#e5e7eb] bg-white shadow-[0_18px_46px_rgba(17,24,39,0.14)]"
@@ -319,6 +327,7 @@ export default function CbaSearchForm() {
                 key={item.key}
                 item={item}
                 index={index}
+                listboxId={listboxId}
                 active={index === activeIndex}
                 onMouseDown={handleResultMouseDown}
               />
@@ -332,15 +341,17 @@ export default function CbaSearchForm() {
 function SearchResultButton({
   item,
   index,
+  listboxId,
   active,
   onMouseDown,
 }: {
   item: ResultItem
   index: number
+  listboxId: string
   active: boolean
   onMouseDown: (event: MouseEvent<HTMLButtonElement>, item: ResultItem) => void
 }) {
-  const optionId = `${SEARCH_LISTBOX_ID}-${index}`
+  const optionId = `${listboxId}-${index}`
   const className = `w-full border-b border-[#f0f1f3] px-4 py-3 text-left transition last:border-b-0 ${
     active ? "bg-[#fff8f4]" : "bg-white hover:bg-[#fff8f4]"
   }`

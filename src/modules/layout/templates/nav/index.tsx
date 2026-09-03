@@ -9,6 +9,7 @@ import { HttpTypes, StoreCartShippingOption } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CbaSearchForm from "@modules/layout/components/cba-search-form"
 import DesktopCategoryDrawer from "@modules/layout/components/desktop-category-drawer"
+import DesktopStickyHeader from "@modules/layout/components/desktop-sticky-header"
 import MobileBottomNav from "@modules/layout/components/mobile-bottom-nav"
 import MobileHeaderMenu from "@modules/layout/components/mobile-header-menu"
 import ScrollToTopButton from "@modules/layout/components/scroll-to-top-button"
@@ -391,6 +392,110 @@ export default async function Nav({
             </HeaderLink>
           </div>
         </div>
+
+        <DesktopStickyHeader>
+          <div className="content-container">
+            <div className="flex h-14 items-center gap-4">
+              <HeaderLink
+                href={cmsLayout.header.logo.href}
+                className="flex w-[148px] flex-shrink-0 items-center"
+              >
+                <Image
+                  src={cmsLayout.header.logo.image_url}
+                  alt={cmsLayout.header.logo.alt_text}
+                  width={180}
+                  height={76}
+                  priority
+                  className="h-auto w-[128px] max-w-full"
+                />
+              </HeaderLink>
+
+              <DesktopCategoryDrawer
+                label={cmsLayout.header.commerce.all_categories_label}
+                links={dropdownItems}
+              />
+
+              <div className="min-w-[280px] flex-1">
+                <CbaSearchForm
+                  inputId="sticky-site-search"
+                  listboxId="sticky-site-search-results"
+                />
+              </div>
+
+              <div className="flex flex-shrink-0 items-center justify-end gap-5 text-sm">
+                <SideCart
+                  cart={cart}
+                  shippingOptions={shippingOptions}
+                  wishlistCount={wishlistCount}
+                />
+
+                <WishlistHeaderLink
+                  initialCount={wishlistCount}
+                  label={cmsLayout.header.commerce.wishlist_label}
+                  variant="desktop"
+                />
+
+                <LocalizedClientLink
+                  href="/account"
+                  className="flex min-w-0 items-center gap-2.5 transition-opacity hover:opacity-80"
+                >
+                  {customer ? (
+                    <>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-white ring-2 ring-orange-100">
+                        <UserIcon
+                          size={20}
+                          strokeWidth={1.8}
+                          className="text-white"
+                        />
+                      </span>
+                      <span className="hidden min-w-0 max-w-[120px] leading-tight medium:block">
+                        <span className="block text-[11px] font-medium text-gray-500">
+                          Hi!
+                        </span>
+                        <span className="block truncate text-[13px] font-semibold text-black">
+                          {signedInAccountName}
+                        </span>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <UserIcon size={24} strokeWidth={1.5} className="text-black" />
+                      <div className="hidden leading-tight medium:block">
+                        <p className="text-[13px] font-semibold text-black">
+                          {accountLabel}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-gray-400">
+                          {accountHint}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </LocalizedClientLink>
+              </div>
+            </div>
+
+            <div className="mt-1 flex h-8 items-center justify-center overflow-hidden border-t border-gray-100 pt-1">
+              <div className="no-scrollbar flex min-w-0 max-w-full items-center justify-center overflow-x-auto whitespace-nowrap text-[13px] font-medium text-[#2d2d2d]">
+                {navLinks.map((link) => (
+                  <HeaderLink
+                    key={`sticky-${link.label}`}
+                    href={link.href}
+                    className="mr-7 transition-colors hover:text-brand"
+                  >
+                    {link.label}
+                  </HeaderLink>
+                ))}
+
+                <HeaderLink
+                  href={cmsLayout.header.commerce.deals_url}
+                  className="mr-7 font-medium text-brand transition-colors hover:text-brand-hover"
+                >
+                  {cmsLayout.header.commerce.deals_label}
+                </HeaderLink>
+              </div>
+            </div>
+          </div>
+        </DesktopStickyHeader>
 
         <nav className="hidden bg-white pb-2 small:block">
           <div className="content-container">
