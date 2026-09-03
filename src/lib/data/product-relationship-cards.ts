@@ -282,6 +282,8 @@ function buildUnavailableCompanionCard(
     brand: null,
     category: null,
     default_variant: null,
+    variant_count: 0,
+    has_multiple_variants: false,
     price: {
       currency_code: "lkr",
       calculated_amount: null,

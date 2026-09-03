@@ -42,6 +42,9 @@ const BestSellingProductCard = ({
     !!product.default_variant?.id &&
     product.inventory.purchasable &&
     product.price.status === "available"
+  const hasMultipleVariants =
+    product.has_multiple_variants || (product.variant_count ?? 1) > 1
+  const canAddDirectly = isPurchasable && !hasMultipleVariants
   const displayBadges = product.badges
     .filter((badge) => !isFeaturedBadge(badge) && !isBenefitBadge(badge))
     .slice(0, 1)
@@ -55,6 +58,10 @@ const BestSellingProductCard = ({
   const handleAddToCart = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
     event.stopPropagation()
+
+    if (hasMultipleVariants) {
+      return
+    }
 
     if (!product.default_variant?.id) {
       notify.error("Please select a valid product.")
@@ -143,7 +150,7 @@ const BestSellingProductCard = ({
 
         <WishlistProductButton
           productId={product.product_id ?? product.id}
-          variantId={product.default_variant?.id}
+          variantId={hasMultipleVariants ? undefined : product.default_variant?.id}
           productTitle={product.title}
           toastId={`best-selling-wishlist:${product.id}`}
           variant="best-selling"
@@ -257,18 +264,31 @@ const BestSellingProductCard = ({
             kokoBranding={kokoBranding}
             kokoAvailable={kokoAvailable}
           />
-          <button
-            type="button"
-            onClick={handleAddToCart}
-            disabled={!isPurchasable || isAddingToCart}
-            aria-label={`Add ${product.title} to cart`}
-            title={isAddingToCart ? "Adding to cart" : "Add to cart"}
-            className={`flex flex-shrink-0 items-center justify-center rounded-[8px] border border-brand bg-white text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white ${
-              isFlat ? "h-8 w-9 medium:h-8 medium:w-9" : "h-9 w-10 medium:h-8 medium:w-9"
-            }`}
-          >
-            <ShoppingCartIcon size={15} />
-          </button>
+          {hasMultipleVariants && isPurchasable ? (
+            <LocalizedClientLink
+              href={`/products/${product.handle}`}
+              aria-label={`Select options for ${product.title}`}
+              title="Select options"
+              className={`flex flex-shrink-0 items-center justify-center rounded-[8px] border border-brand bg-white text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${
+                isFlat ? "h-8 w-9 medium:h-8 medium:w-9" : "h-9 w-10 medium:h-8 medium:w-9"
+              }`}
+            >
+              <ShoppingCartIcon size={15} />
+            </LocalizedClientLink>
+          ) : (
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={!canAddDirectly || isAddingToCart}
+              aria-label={`Add ${product.title} to cart`}
+              title={isAddingToCart ? "Adding to cart" : "Add to cart"}
+              className={`flex flex-shrink-0 items-center justify-center rounded-[8px] border border-brand bg-white text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white ${
+                isFlat ? "h-8 w-9 medium:h-8 medium:w-9" : "h-9 w-10 medium:h-8 medium:w-9"
+              }`}
+            >
+              <ShoppingCartIcon size={15} />
+            </button>
+          )}
         </div>
       </div>
     </article>
