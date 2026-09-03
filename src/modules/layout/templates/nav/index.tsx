@@ -46,6 +46,9 @@ const fallbackDropdownItems = [
   "Computer Accessories",
 ]
 
+const dealsNavLinkClassName =
+  "deals-nav-link inline-flex h-7 items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-2.5 text-[13px] font-semibold leading-none text-brand transition-[background-color,border-color,color] hover:border-brand hover:bg-brand hover:text-white"
+
 function topLevelCategories(categories: HttpTypes.StoreProductCategory[]) {
   return categories.filter((category) => !category.parent_category)
 }
@@ -88,6 +91,36 @@ function HeaderLink({
     <LocalizedClientLink href={href} className={className}>
       {children}
     </LocalizedClientLink>
+  )
+}
+
+function isDealsNavLink(
+  link: { label: string; href: string },
+  dealsLabel: string
+) {
+  const linkLabel = link.label.trim().toLowerCase()
+  const targetLabel = dealsLabel.trim().toLowerCase()
+
+  return Boolean(targetLabel) && linkLabel === targetLabel
+}
+
+function DealsNavLink({
+  href,
+  label,
+  className,
+}: {
+  href: string
+  label: string
+  className?: string
+}) {
+  return (
+    <HeaderLink
+      href={href}
+      className={[dealsNavLinkClassName, className].filter(Boolean).join(" ")}
+    >
+      <TagIcon size={14} strokeWidth={2} />
+      <span>{label}</span>
+    </HeaderLink>
   )
 }
 
@@ -137,6 +170,12 @@ export default async function Nav({
     cmsLayout.headerMenuItems,
     categories,
     fallbackPrimaryLinks
+  )
+  const hasDealsInPrimaryLinks = navLinks.some((link) =>
+    isDealsNavLink(
+      link,
+      cmsLayout.header.commerce.deals_label
+    )
   )
 
   const dropdownItems = navCategoryLinks.length
@@ -474,24 +513,36 @@ export default async function Nav({
               </div>
             </div>
 
-            <div className="mt-1 flex h-8 items-center justify-center overflow-hidden border-t border-gray-100 pt-1">
+            <div className="mt-1 flex min-h-9 items-center justify-center border-t border-gray-100 pt-1">
               <div className="no-scrollbar flex min-w-0 max-w-full items-center justify-center overflow-x-auto whitespace-nowrap text-[13px] font-medium text-[#2d2d2d]">
-                {navLinks.map((link) => (
-                  <HeaderLink
-                    key={`sticky-${link.label}`}
-                    href={link.href}
-                    className="mr-7 transition-colors hover:text-brand"
-                  >
-                    {link.label}
-                  </HeaderLink>
-                ))}
+                {navLinks.map((link) =>
+                  isDealsNavLink(
+                    link,
+                    cmsLayout.header.commerce.deals_label
+                  ) ? (
+                    <DealsNavLink
+                      key={`sticky-${link.label}`}
+                      href={link.href}
+                      label={link.label}
+                      className="mr-7"
+                    />
+                  ) : (
+                    <HeaderLink
+                      key={`sticky-${link.label}`}
+                      href={link.href}
+                      className="mr-7 transition-colors hover:text-brand"
+                    >
+                      {link.label}
+                    </HeaderLink>
+                  )
+                )}
 
-                <HeaderLink
-                  href={cmsLayout.header.commerce.deals_url}
-                  className="mr-7 font-medium text-brand transition-colors hover:text-brand-hover"
-                >
-                  {cmsLayout.header.commerce.deals_label}
-                </HeaderLink>
+                {!hasDealsInPrimaryLinks && (
+                  <DealsNavLink
+                    href={cmsLayout.header.commerce.deals_url}
+                    label={cmsLayout.header.commerce.deals_label}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -506,22 +557,35 @@ export default async function Nav({
               />
 
               <div className="flex items-center flex-1 px-4 small:px-6 font-medium text-[13px] text-[#2d2d2d] overflow-x-auto whitespace-nowrap no-scrollbar">
-                {navLinks.map((link) => (
-                  <HeaderLink
-                    key={link.label}
-                    href={link.href}
-                    className="hover:text-brand transition-colors mx-3"
-                  >
-                    {link.label}
-                  </HeaderLink>
-                ))}
+                {navLinks.map((link) =>
+                  isDealsNavLink(
+                    link,
+                    cmsLayout.header.commerce.deals_label
+                  ) ? (
+                    <DealsNavLink
+                      key={link.label}
+                      href={link.href}
+                      label={link.label}
+                      className="mx-3"
+                    />
+                  ) : (
+                    <HeaderLink
+                      key={link.label}
+                      href={link.href}
+                      className="mx-3 transition-colors hover:text-brand"
+                    >
+                      {link.label}
+                    </HeaderLink>
+                  )
+                )}
 
-                <HeaderLink
-                  href={cmsLayout.header.commerce.deals_url}
-                  className="text-brand hover:text-brand-hover transition-colors mx-3 font-medium"
-                >
-                  {cmsLayout.header.commerce.deals_label}
-                </HeaderLink>
+                {!hasDealsInPrimaryLinks && (
+                  <DealsNavLink
+                    href={cmsLayout.header.commerce.deals_url}
+                    label={cmsLayout.header.commerce.deals_label}
+                    className="mx-3"
+                  />
+                )}
               </div>
             </div>
           </div>
