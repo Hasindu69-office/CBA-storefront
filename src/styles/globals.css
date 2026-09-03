@@ -66,6 +66,27 @@
     }
   }
 
+  @keyframes deals-nav-pulse {
+    0%,
+    100% {
+      background-color: rgba(255, 92, 14, 0.08);
+      border-color: rgba(255, 92, 14, 0.3);
+    }
+    50% {
+      background-color: rgba(255, 92, 14, 0.16);
+      border-color: rgba(255, 92, 14, 0.48);
+    }
+  }
+
+  .deals-nav-link {
+    animation: deals-nav-pulse 2.8s ease-out infinite;
+  }
+
+  .deals-nav-link:hover,
+  .deals-nav-link:focus-visible {
+    animation: none;
+  }
+
   .order-success-icon__check {
     stroke-dasharray: 44;
     stroke-dashoffset: 44;
@@ -95,6 +116,10 @@
     .order-success-icon__check {
       animation: none;
       stroke-dashoffset: 0;
+    }
+
+    .deals-nav-link {
+      animation: none;
     }
   }
 

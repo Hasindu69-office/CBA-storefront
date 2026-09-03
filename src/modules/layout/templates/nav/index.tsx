@@ -9,6 +9,7 @@ import { HttpTypes, StoreCartShippingOption } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CbaSearchForm from "@modules/layout/components/cba-search-form"
 import DesktopCategoryDrawer from "@modules/layout/components/desktop-category-drawer"
+import DesktopStickyHeader from "@modules/layout/components/desktop-sticky-header"
 import MobileBottomNav from "@modules/layout/components/mobile-bottom-nav"
 import MobileHeaderMenu from "@modules/layout/components/mobile-header-menu"
 import ScrollToTopButton from "@modules/layout/components/scroll-to-top-button"
@@ -44,6 +45,9 @@ const fallbackDropdownItems = [
   "Printers & Scanners",
   "Computer Accessories",
 ]
+
+const dealsNavLinkClassName =
+  "deals-nav-link inline-flex h-7 items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-2.5 text-[13px] font-semibold leading-none text-brand transition-[background-color,border-color,color] hover:border-brand hover:bg-brand hover:text-white focus-visible:border-brand focus-visible:bg-brand focus-visible:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/25"
 
 function topLevelCategories(categories: HttpTypes.StoreProductCategory[]) {
   return categories.filter((category) => !category.parent_category)
@@ -87,6 +91,36 @@ function HeaderLink({
     <LocalizedClientLink href={href} className={className}>
       {children}
     </LocalizedClientLink>
+  )
+}
+
+function isDealsNavLink(
+  link: { label: string; href: string },
+  dealsLabel: string
+) {
+  const linkLabel = link.label.trim().toLowerCase()
+  const targetLabel = dealsLabel.trim().toLowerCase()
+
+  return Boolean(targetLabel) && linkLabel === targetLabel
+}
+
+function DealsNavLink({
+  href,
+  label,
+  className,
+}: {
+  href: string
+  label: string
+  className?: string
+}) {
+  return (
+    <HeaderLink
+      href={href}
+      className={[dealsNavLinkClassName, className].filter(Boolean).join(" ")}
+    >
+      <TagIcon size={14} strokeWidth={2} />
+      <span>{label}</span>
+    </HeaderLink>
   )
 }
 
@@ -136,6 +170,12 @@ export default async function Nav({
     cmsLayout.headerMenuItems,
     categories,
     fallbackPrimaryLinks
+  )
+  const hasDealsInPrimaryLinks = navLinks.some((link) =>
+    isDealsNavLink(
+      link,
+      cmsLayout.header.commerce.deals_label
+    )
   )
 
   const dropdownItems = navCategoryLinks.length
@@ -392,6 +432,122 @@ export default async function Nav({
           </div>
         </div>
 
+        <DesktopStickyHeader>
+          <div className="content-container">
+            <div className="flex h-14 items-center gap-4">
+              <HeaderLink
+                href={cmsLayout.header.logo.href}
+                className="flex w-[148px] flex-shrink-0 items-center"
+              >
+                <Image
+                  src={cmsLayout.header.logo.image_url}
+                  alt={cmsLayout.header.logo.alt_text}
+                  width={180}
+                  height={76}
+                  priority
+                  className="h-auto w-[128px] max-w-full"
+                />
+              </HeaderLink>
+
+              <DesktopCategoryDrawer
+                label={cmsLayout.header.commerce.all_categories_label}
+                links={dropdownItems}
+              />
+
+              <div className="min-w-[280px] flex-1">
+                <CbaSearchForm
+                  inputId="sticky-site-search"
+                  listboxId="sticky-site-search-results"
+                />
+              </div>
+
+              <div className="flex flex-shrink-0 items-center justify-end gap-5 text-sm">
+                <SideCart
+                  cart={cart}
+                  shippingOptions={shippingOptions}
+                  wishlistCount={wishlistCount}
+                />
+
+                <WishlistHeaderLink
+                  initialCount={wishlistCount}
+                  label={cmsLayout.header.commerce.wishlist_label}
+                  variant="desktop"
+                />
+
+                <LocalizedClientLink
+                  href="/account"
+                  className="flex min-w-0 items-center gap-2.5 transition-opacity hover:opacity-80"
+                >
+                  {customer ? (
+                    <>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-white ring-2 ring-orange-100">
+                        <UserIcon
+                          size={20}
+                          strokeWidth={1.8}
+                          className="text-white"
+                        />
+                      </span>
+                      <span className="hidden min-w-0 max-w-[120px] leading-tight medium:block">
+                        <span className="block text-[11px] font-medium text-gray-500">
+                          Hi!
+                        </span>
+                        <span className="block truncate text-[13px] font-semibold text-black">
+                          {signedInAccountName}
+                        </span>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <UserIcon size={24} strokeWidth={1.5} className="text-black" />
+                      <div className="hidden leading-tight medium:block">
+                        <p className="text-[13px] font-semibold text-black">
+                          {accountLabel}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-gray-400">
+                          {accountHint}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </LocalizedClientLink>
+              </div>
+            </div>
+
+            <div className="mt-1 flex min-h-9 items-center justify-center border-t border-gray-100 pt-1">
+              <div className="no-scrollbar flex min-w-0 max-w-full items-center justify-center overflow-x-auto whitespace-nowrap text-[13px] font-medium text-[#2d2d2d]">
+                {navLinks.map((link) =>
+                  isDealsNavLink(
+                    link,
+                    cmsLayout.header.commerce.deals_label
+                  ) ? (
+                    <DealsNavLink
+                      key={`sticky-${link.label}`}
+                      href={link.href}
+                      label={link.label}
+                      className="mr-7"
+                    />
+                  ) : (
+                    <HeaderLink
+                      key={`sticky-${link.label}`}
+                      href={link.href}
+                      className="mr-7 transition-colors hover:text-brand"
+                    >
+                      {link.label}
+                    </HeaderLink>
+                  )
+                )}
+
+                {!hasDealsInPrimaryLinks && (
+                  <DealsNavLink
+                    href={cmsLayout.header.commerce.deals_url}
+                    label={cmsLayout.header.commerce.deals_label}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </DesktopStickyHeader>
+
         <nav className="hidden bg-white pb-2 small:block">
           <div className="content-container">
             <div className="flex items-center border border-gray-100 rounded-md overflow-visible">
@@ -401,22 +557,35 @@ export default async function Nav({
               />
 
               <div className="flex items-center flex-1 px-4 small:px-6 font-medium text-[13px] text-[#2d2d2d] overflow-x-auto whitespace-nowrap no-scrollbar">
-                {navLinks.map((link) => (
-                  <HeaderLink
-                    key={link.label}
-                    href={link.href}
-                    className="hover:text-brand transition-colors mx-3"
-                  >
-                    {link.label}
-                  </HeaderLink>
-                ))}
+                {navLinks.map((link) =>
+                  isDealsNavLink(
+                    link,
+                    cmsLayout.header.commerce.deals_label
+                  ) ? (
+                    <DealsNavLink
+                      key={link.label}
+                      href={link.href}
+                      label={link.label}
+                      className="mx-3"
+                    />
+                  ) : (
+                    <HeaderLink
+                      key={link.label}
+                      href={link.href}
+                      className="mx-3 transition-colors hover:text-brand"
+                    >
+                      {link.label}
+                    </HeaderLink>
+                  )
+                )}
 
-                <HeaderLink
-                  href={cmsLayout.header.commerce.deals_url}
-                  className="text-brand hover:text-brand-hover transition-colors mx-3 font-medium"
-                >
-                  {cmsLayout.header.commerce.deals_label}
-                </HeaderLink>
+                {!hasDealsInPrimaryLinks && (
+                  <DealsNavLink
+                    href={cmsLayout.header.commerce.deals_url}
+                    label={cmsLayout.header.commerce.deals_label}
+                    className="mx-3"
+                  />
+                )}
               </div>
             </div>
           </div>

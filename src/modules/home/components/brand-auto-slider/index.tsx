@@ -4,6 +4,7 @@ import type { CSSProperties } from "react"
 import { listHomepageBrands } from "@lib/data/brands"
 import type { StorefrontBrand } from "@lib/data/brands"
 import type { HomepageCmsSection } from "@lib/data/homepage"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
 
 type BrandAutoSliderProps = {
   sections: HomepageCmsSection[]
@@ -42,7 +43,7 @@ const BrandAutoSlider = async ({ sections }: BrandAutoSliderProps) => {
   return (
     <section className="bg-white pb-6 pt-1.5 sm:pb-7 md:pb-8 small:pb-10 small:pt-2" aria-label="Featured brands">
       <div className="mx-auto w-[92%] small:w-[90%]">
-        <div className="w-full overflow-hidden rounded-[4px] border border-[#e2e2e2] bg-white px-3 py-4 sm:px-4 sm:py-[18px] md:px-5 md:py-5 small:px-8">
+        <div className="w-full overflow-hidden bg-white px-3 py-4 sm:px-4 sm:py-[18px] md:px-5 md:py-5 small:px-8">
           <div
             className={[
               "brand-slider-track flex items-center",
@@ -88,9 +89,12 @@ function BrandLogoLink({
   hiddenFromA11y: boolean
 }) {
   return (
-    <div
+    <LocalizedClientLink
+      href={`/store?brand=${encodeURIComponent(brand.id)}`}
       aria-hidden={hiddenFromA11y}
-      className="flex h-9 w-[96px] flex-shrink-0 items-center justify-center sm:w-[104px] md:h-10 md:w-[118px] small:w-[132px]"
+      aria-label={hiddenFromA11y ? undefined : `Browse ${brand.name} products`}
+      tabIndex={hiddenFromA11y ? -1 : undefined}
+      className="flex h-9 w-[96px] flex-shrink-0 items-center justify-center transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 sm:w-[104px] md:h-10 md:w-[118px] small:w-[132px]"
     >
       <Image
         src={brand.logo_url ?? ""}
@@ -101,7 +105,7 @@ function BrandLogoLink({
         sizes="(min-width: 1024px) 132px, (min-width: 768px) 118px, 104px"
         className="max-h-9 w-auto max-w-[96px] object-contain sm:max-w-[104px] md:max-h-10 md:max-w-[118px] small:max-w-[132px]"
       />
-    </div>
+    </LocalizedClientLink>
   )
 }
 

@@ -82,6 +82,7 @@ export default async function Home(props: {
         <HomePromoBanner sections={homepageContent.sections} />
         <FeaturedProductSlider
           products={featuredProducts}
+          mobileCompactCards
           kokoBranding={kokoBranding}
           kokoAvailable={kokoAvailable}
         />
