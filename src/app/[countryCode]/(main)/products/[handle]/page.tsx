@@ -76,6 +76,7 @@ export default async function ProductPage(props: Props) {
       fields:
         "*variants.calculated_price,+variants.inventory_quantity,*variants.images,+metadata,+tags,*categories,*collection,*options,*images",
     },
+    cache: "no-store",
   }).then(({ response }) => response.products[0])
 
   if (!pricedProduct) {

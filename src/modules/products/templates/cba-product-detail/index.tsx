@@ -151,6 +151,9 @@ export default function CbaProductDetail({
   const price = selectedVariant
     ? selectedPrice.variantPrice
     : selectedPrice.cheapestPrice
+  const hasDiscount = Boolean(
+    price && price.original_price_number > price.calculated_price_number
+  )
   const kokoInstallment =
     kokoAvailable && inStock && isValidVariant
       ? kokoInstallmentCardLabelFromAmount(
@@ -331,9 +334,31 @@ export default function CbaProductDetail({
               {product.title}
             </h1>
             {price && (
-              <p className="mt-3 text-2xl font-bold">
-                {price.calculated_price}
-              </p>
+              <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span
+                  className={
+                    hasDiscount
+                      ? "text-2xl font-bold text-[#c62828]"
+                      : "text-2xl font-bold"
+                  }
+                  data-testid="pdp-calculated-price"
+                >
+                  {price.calculated_price}
+                </span>
+                {hasDiscount && (
+                  <>
+                    <span
+                      className="text-sm text-gray-500 line-through"
+                      data-testid="pdp-original-price"
+                    >
+                      {price.original_price}
+                    </span>
+                    <span className="rounded-full bg-red-50 px-2 py-1 text-xs font-bold uppercase text-[#c62828]">
+                      Save {price.percentage_diff}%
+                    </span>
+                  </>
+                )}
+              </div>
             )}
             {kokoInstallment && (
               <KokoInstallmentLine
@@ -385,9 +410,37 @@ export default function CbaProductDetail({
 
           <aside className="h-fit min-w-0 rounded-rounded bg-[#f3f5fb] p-5 small:p-6">
             <p className="text-xs font-bold uppercase text-gray-500">Total Price</p>
-            <p className="mt-2 text-[30px] font-black leading-tight">
-              {price?.calculated_price ?? "Price unavailable"}
-            </p>
+            {price ? (
+              <div className="mt-2">
+                {hasDiscount && (
+                  <p
+                    className="text-sm text-gray-500 line-through"
+                    data-testid="pdp-sidebar-original-price"
+                  >
+                    {price.original_price}
+                  </p>
+                )}
+                <p
+                  className={
+                    hasDiscount
+                      ? "text-[30px] font-black leading-tight text-[#c62828]"
+                      : "text-[30px] font-black leading-tight"
+                  }
+                  data-testid="pdp-sidebar-calculated-price"
+                >
+                  {price.calculated_price}
+                </p>
+                {hasDiscount && (
+                  <span className="mt-2 inline-flex rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold uppercase text-[#c62828]">
+                    Save {price.percentage_diff}%
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p className="mt-2 text-[30px] font-black leading-tight">
+                Price unavailable
+              </p>
+            )}
             {kokoInstallment && (
               <div className="mt-3 rounded-base border border-[#eadfff] bg-white px-3 py-3">
                 <KokoInstallmentLine
