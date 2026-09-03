@@ -47,7 +47,7 @@ const fallbackDropdownItems = [
 ]
 
 const dealsNavLinkClassName =
-  "deals-nav-link inline-flex h-7 items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-2.5 text-[13px] font-semibold leading-none text-brand transition-[background-color,border-color,color] hover:border-brand hover:bg-brand hover:text-white"
+  "deals-nav-link inline-flex h-7 items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-2.5 text-[13px] font-semibold leading-none text-brand transition-[background-color,border-color,color] hover:border-brand hover:bg-brand hover:text-white focus-visible:border-brand focus-visible:bg-brand focus-visible:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/25"
 
 function topLevelCategories(categories: HttpTypes.StoreProductCategory[]) {
   return categories.filter((category) => !category.parent_category)

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import type { KokoCheckoutBranding } from "@lib/data/koko-branding"
+import { FeaturedProductCardItem } from "@modules/home/components/featured-product-slider"
 import BestSellingProductCard from "./best-selling-product-card"
 
 type BestSellingProductsCarouselProps = {
@@ -29,9 +30,7 @@ const BestSellingProductsCarousel = ({
       return
     }
 
-    const cards = Array.from(
-      track.querySelectorAll<HTMLElement>("[data-best-selling-product-card]")
-    )
+    const cards = getCarouselCards(track)
     if (!cards.length) {
       setActiveIndex(0)
       return
@@ -85,9 +84,7 @@ const BestSellingProductsCarousel = ({
   const handleDotClick = useCallback((index: number) => {
     const track = trackRef.current
     const productIndex = pageIndexes[index] ?? index
-    const card = track?.querySelectorAll<HTMLElement>(
-      "[data-best-selling-product-card]"
-    )[productIndex]
+    const card = track ? getCarouselCards(track)[productIndex] : undefined
 
     card?.scrollIntoView({
       behavior: "smooth",
@@ -115,16 +112,32 @@ const BestSellingProductsCarousel = ({
       <div
         ref={trackRef}
         onScroll={handleScroll}
-        className="no-scrollbar flex snap-x snap-mandatory justify-start gap-3 overflow-x-auto scroll-smooth pb-5 pl-0 pr-2 [&>[data-best-selling-product-card]]:w-[min(78vw,280px)] xsmall:[&>[data-best-selling-product-card]]:w-[calc((100%_-_12px)_/_2)] small:[&>[data-best-selling-product-card]]:w-[220px] medium:grid medium:grid-cols-5 medium:items-stretch medium:gap-3 medium:overflow-visible medium:pb-0 medium:pr-0 medium:[&>[data-best-selling-product-card]]:w-full large:gap-4"
+        className="no-scrollbar flex snap-x snap-mandatory justify-start gap-3 overflow-x-auto scroll-smooth pb-5 pl-0 pr-0 medium:grid medium:grid-cols-5 medium:items-stretch medium:gap-3 medium:overflow-visible medium:pb-0 medium:pr-0 large:gap-4"
       >
         {visibleProducts.map((product, index) => (
-          <BestSellingProductCard
+          <div
             key={product.id}
-            product={product}
-            priority={index < 5}
-            kokoBranding={kokoBranding}
-            kokoAvailable={kokoAvailable}
-          />
+            data-best-selling-carousel-card
+            className="w-[calc((100%_-_12px)_/_2)] min-w-0 flex-none snap-start medium:w-full medium:flex-auto"
+          >
+            <div className="medium:hidden">
+              <FeaturedProductCardItem
+                product={product}
+                priority={index < 5}
+                mobileCompact
+                kokoBranding={kokoBranding}
+                kokoAvailable={kokoAvailable}
+              />
+            </div>
+            <div className="hidden h-full medium:block">
+              <BestSellingProductCard
+                product={product}
+                priority={index < 5}
+                kokoBranding={kokoBranding}
+                kokoAvailable={kokoAvailable}
+              />
+            </div>
+          </div>
         ))}
       </div>
 
@@ -154,6 +167,12 @@ const BestSellingProductsCarousel = ({
         </div>
       )}
     </>
+  )
+}
+
+function getCarouselCards(track: HTMLElement) {
+  return Array.from(
+    track.querySelectorAll<HTMLElement>("[data-best-selling-carousel-card]")
   )
 }
 

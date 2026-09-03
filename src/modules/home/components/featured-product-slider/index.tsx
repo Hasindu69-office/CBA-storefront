@@ -98,7 +98,7 @@ const FeaturedProductSlider = ({
   const scrollerClassName = embedded
     ? "no-scrollbar grid auto-cols-[minmax(210px,calc((100%_-_20px)_/_2))] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
     : mobileCompactCards
-      ? "no-scrollbar grid auto-cols-[minmax(218px,64vw)] grid-flow-col gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 pr-5 2xsmall:auto-cols-[minmax(224px,62vw)] xsmall:auto-cols-[minmax(232px,46vw)] sm:auto-cols-[minmax(238px,42vw)] md:auto-cols-[calc((100%_-_16px)_/_2)] md:gap-4 md:pr-1 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
+      ? "no-scrollbar grid auto-cols-[calc((100%_-_12px)_/_2)] grid-flow-col gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 small:auto-cols-[calc((100%_-_12px)_/_2)] medium:auto-cols-[calc((100%_-_64px)_/_5)] medium:gap-4 medium:pr-1"
       : "no-scrollbar grid auto-cols-[minmax(260px,82vw)] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 pr-4 xsmall:auto-cols-[minmax(280px,76vw)] sm:auto-cols-[minmax(300px,52vw)] md:auto-cols-[calc((100%_-_16px)_/_2)] md:pr-1 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
 
   const content = (
@@ -398,19 +398,19 @@ export const FeaturedProductCardItem = ({
           mobileCompact ? "px-2.5 py-2" : "px-3 py-3 sm:px-3.5 sm:py-3.5 small:px-3 small:py-3",
         ].join(" ")}
       >
-        <div className="flex min-h-[22px] items-center gap-2">
+        <div className="flex min-h-[28px] items-center gap-2.5 overflow-hidden">
           {product.brand?.logo_url ? (
-            <span className="relative block h-5 w-[72px] flex-shrink-0">
+            <span className="relative block h-[26px] w-[88px] flex-shrink-0">
               <Image
                 src={product.brand.logo_url}
                 alt={product.brand.logo_alt_text || `${product.brand.name} logo`}
                 fill
-                sizes="72px"
+                sizes="88px"
                 className="object-contain object-left"
               />
             </span>
           ) : product.brand?.name ? (
-            <span className="line-clamp-1 text-[11px] font-bold uppercase leading-4 text-black">
+            <span className="line-clamp-1 max-w-[88px] text-[12px] font-bold uppercase leading-4 text-black">
               {product.brand.name}
             </span>
           ) : null}
@@ -418,7 +418,7 @@ export const FeaturedProductCardItem = ({
             <span className="h-4 w-px flex-shrink-0 bg-[#d4d4d8]" />
           )}
           {product.category?.name && (
-            <span className="line-clamp-1 text-[11px] leading-4 text-[#9a9aa0]">
+            <span className="line-clamp-1 min-w-0 flex-1 text-[11px] leading-4 text-[#9a9aa0]">
               {product.category.name}
             </span>
           )}

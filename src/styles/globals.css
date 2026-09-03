@@ -82,6 +82,11 @@
     animation: deals-nav-pulse 2.8s ease-out infinite;
   }
 
+  .deals-nav-link:hover,
+  .deals-nav-link:focus-visible {
+    animation: none;
+  }
+
   .order-success-icon__check {
     stroke-dasharray: 44;
     stroke-dashoffset: 44;
