@@ -343,7 +343,9 @@ export default function CbaProductDetail({
               />
             )}
             <ul className="mt-4 space-y-1.5 text-sm text-gray-700">
-              {shortDescription && <li>{shortDescription}</li>}
+              {shortDescription && (
+                <li className="text-justify leading-6">{shortDescription}</li>
+              )}
               {bulletSpecs.map((spec) => (
                 <li key={spec.definition_id}>
                   {spec.definition?.name ? `${spec.definition.name}: ` : ""}
@@ -1020,7 +1022,7 @@ function DescriptionContent({
 
   if (!richDescription?.body_html) {
     return (
-      <p className="max-w-5xl text-sm leading-7 text-gray-700">
+      <p className="max-w-5xl text-justify text-sm leading-7 text-gray-700">
         {product.description || "Product description is not available."}
       </p>
     )
