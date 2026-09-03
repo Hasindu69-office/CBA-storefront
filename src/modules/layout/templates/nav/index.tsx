@@ -435,6 +435,13 @@ export default async function Nav({
         <DesktopStickyHeader>
           <div className="content-container">
             <div className="flex h-14 items-center gap-4">
+              <DesktopCategoryDrawer
+                label={cmsLayout.header.commerce.all_categories_label}
+                links={dropdownItems}
+                primaryLinks={navLinks}
+                compact
+              />
+
               <HeaderLink
                 href={cmsLayout.header.logo.href}
                 className="flex w-[148px] flex-shrink-0 items-center"
@@ -448,11 +455,6 @@ export default async function Nav({
                   className="h-auto w-[128px] max-w-full"
                 />
               </HeaderLink>
-
-              <DesktopCategoryDrawer
-                label={cmsLayout.header.commerce.all_categories_label}
-                links={dropdownItems}
-              />
 
               <div className="min-w-[280px] flex-1">
                 <CbaSearchForm
@@ -510,39 +512,6 @@ export default async function Nav({
                     </>
                   )}
                 </LocalizedClientLink>
-              </div>
-            </div>
-
-            <div className="mt-1 flex min-h-9 items-center justify-center border-t border-gray-100 pt-1">
-              <div className="no-scrollbar flex min-w-0 max-w-full items-center justify-center overflow-x-auto whitespace-nowrap text-[13px] font-medium text-[#2d2d2d]">
-                {navLinks.map((link) =>
-                  isDealsNavLink(
-                    link,
-                    cmsLayout.header.commerce.deals_label
-                  ) ? (
-                    <DealsNavLink
-                      key={`sticky-${link.label}`}
-                      href={link.href}
-                      label={link.label}
-                      className="mr-7"
-                    />
-                  ) : (
-                    <HeaderLink
-                      key={`sticky-${link.label}`}
-                      href={link.href}
-                      className="mr-7 transition-colors hover:text-brand"
-                    >
-                      {link.label}
-                    </HeaderLink>
-                  )
-                )}
-
-                {!hasDealsInPrimaryLinks && (
-                  <DealsNavLink
-                    href={cmsLayout.header.commerce.deals_url}
-                    label={cmsLayout.header.commerce.deals_label}
-                  />
-                )}
               </div>
             </div>
           </div>
