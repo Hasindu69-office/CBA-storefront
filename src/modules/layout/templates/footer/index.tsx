@@ -96,7 +96,8 @@ function FooterTextLink({
   href: string
   children: React.ReactNode
 }) {
-  const className = "hover:text-orange-500 flex items-center gap-2 transition-colors"
+  const className =
+    "flex items-center gap-1.5 transition-colors hover:text-orange-500 small:gap-2"
 
   if (/^https?:\/\//i.test(href)) {
     return (
@@ -131,7 +132,7 @@ function SocialLink({
   children: React.ReactNode
 }) {
   const className =
-    "w-10 h-10 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 hover:bg-orange-500 hover:text-white transition-colors"
+    "flex h-9 w-9 items-center justify-center rounded-full border border-orange-500 text-orange-500 transition-colors hover:bg-orange-500 hover:text-white small:h-10 small:w-10"
 
   if (/^https?:\/\//i.test(href)) {
     return (
@@ -235,7 +236,7 @@ export default async function Footer() {
   ].filter((item) => item.value && item.href)
 
   return (
-    <footer className="w-full relative isolate mt-24 pt-20 pb-[calc(104px+env(safe-area-inset-bottom))] small:pb-0 medium:mt-20 medium:pt-10">
+    <footer className="w-full relative isolate mt-20 pt-14 pb-[calc(80px+env(safe-area-inset-bottom))] small:mt-24 small:pt-20 small:pb-0 medium:mt-20 medium:pt-10">
       <div
         className="absolute inset-0 w-full h-full z-0 pointer-events-none medium:hidden"
         aria-hidden="true"
@@ -290,26 +291,26 @@ export default async function Footer() {
         )}
       </div>
 
-      <div className="relative z-10 content-container pt-36 pb-10 min-[640px]:max-[1279px]:pt-[40vw] medium:pt-32 medium:pb-12">
-        <div className="grid grid-cols-1 gap-10 text-white small:grid-cols-2 small:gap-x-8 small:gap-y-12 medium:grid-cols-4 medium:gap-12">
-          <div className="space-y-5 text-center small:col-span-2 medium:col-span-1 medium:space-y-6 medium:text-left">
-            <div className="flex flex-col items-center gap-4 medium:flex-row medium:items-center medium:gap-3">
+      <div className="relative z-10 content-container pt-40 pb-8 min-[640px]:max-[1279px]:pt-[44vw] small:pt-36 small:pb-10 medium:pt-32 medium:pb-12">
+        <div className="grid grid-cols-1 gap-7 text-white small:grid-cols-2 small:gap-x-8 small:gap-y-12 medium:grid-cols-4 medium:gap-12">
+          <div className="space-y-4 text-center small:col-span-2 small:space-y-5 medium:col-span-1 medium:space-y-6 medium:text-left">
+            <div className="flex flex-col items-center gap-3 small:gap-4 medium:flex-row medium:items-center medium:gap-3">
               <Image
                 src={cmsLayout.footer.company.logo_url}
                 alt={cmsLayout.footer.company.logo_alt_text}
                 width={80}
                 height={80}
-                className="h-20 w-20 flex-shrink-0 object-contain"
+                className="h-16 w-16 flex-shrink-0 object-contain small:h-20 small:w-20"
               />
               <div className="min-w-0">
-                <h3 className="font-bold text-xl leading-tight uppercase tracking-wider medium:text-[17px]">
+                <h3 className="text-lg font-bold uppercase leading-tight tracking-wider small:text-xl medium:text-[17px]">
                   {companyNameLines(cmsLayout.footer.company.name).map((line) => (
                     <span key={line} className="block whitespace-nowrap">
                       {line}
                     </span>
                   ))}
                 </h3>
-                <p className="text-xs text-gray-400 mt-2 uppercase medium:mt-1">
+                <p className="mt-1.5 text-[11px] uppercase leading-4 text-gray-400 small:mt-2 small:text-xs medium:mt-1">
                   {companyAddressLines(cmsLayout.footer.company.address).map(
                     (line) => (
                       <span key={line} className="block whitespace-nowrap">
@@ -319,7 +320,7 @@ export default async function Footer() {
                   )}
                 </p>
                 {contactRows.length > 0 && (
-                  <div className="mt-3 flex flex-col items-center gap-2 text-xs text-gray-300 medium:items-start">
+                  <div className="mt-2.5 flex flex-col items-center gap-2 text-xs text-gray-300 small:mt-3 medium:items-start">
                     {contactRows.map((item) => (
                       <a
                         key={item.label}
@@ -342,10 +343,10 @@ export default async function Footer() {
                 )}
               </div>
             </div>
-            <p className="mx-auto max-w-[520px] text-base leading-7 text-gray-300 medium:max-w-none medium:text-sm medium:text-gray-400 medium:leading-relaxed">
+            <p className="mx-auto max-w-[330px] text-sm leading-6 text-gray-300 small:max-w-[520px] small:text-base small:leading-7 medium:max-w-none medium:text-sm medium:text-gray-400 medium:leading-relaxed">
               {cmsLayout.footer.company.description}
             </p>
-            <div className="flex justify-center gap-8 pt-2 medium:justify-start medium:gap-4">
+            <div className="flex justify-center gap-5 pt-1 small:gap-8 small:pt-2 medium:justify-start medium:gap-4">
               {cmsLayout.footer.social.links.map((item) => (
                 <SocialLink key={item.label} href={item.href} label={item.label}>
                   {socialIcon(item.label)}
@@ -354,28 +355,30 @@ export default async function Footer() {
             </div>
           </div>
 
-          {footerColumns.map((column) => (
-            <div key={column.label}>
-              <h4 className="text-base font-semibold mb-4 border-b border-gray-700 pb-2 inline-block w-full small:text-lg small:mb-6">
-                {column.label}
-              </h4>
-              <ul className="space-y-3 text-sm text-gray-300 small:space-y-4">
-                {column.links.map((item) => (
-                  <li key={item.label}>
-                    <FooterTextLink href={item.href}>
-                      <span className="text-current text-xs">&rsaquo;</span>{" "}
-                      {item.label}
-                    </FooterTextLink>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <div className="grid grid-cols-3 gap-4 text-left small:contents">
+            {footerColumns.map((column) => (
+              <div key={column.label} className="min-w-0">
+                <h4 className="mb-3 inline-block w-full border-b border-gray-700 pb-1.5 text-sm font-semibold small:mb-6 small:pb-2 small:text-lg">
+                  {column.label}
+                </h4>
+                <ul className="space-y-2 text-xs leading-5 text-gray-300 small:space-y-4 small:text-sm">
+                  {column.links.map((item) => (
+                    <li key={item.label}>
+                      <FooterTextLink href={item.href}>
+                        <span className="text-current text-xs">&rsaquo;</span>{" "}
+                        <span className="min-w-0 break-words">{item.label}</span>
+                      </FooterTextLink>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
       <div className="relative z-10">
-        <div className="content-container py-6 flex flex-col items-center justify-between gap-4 text-center medium:flex-row medium:text-left">
+        <div className="content-container flex flex-col items-center justify-between gap-3 py-4 text-center small:gap-4 small:py-6 medium:flex-row medium:text-left">
           <p className="text-xs text-gray-400">
             Copyright &copy; {new Date().getFullYear()}{" "}
             {cmsLayout.footer.copyright.text}
