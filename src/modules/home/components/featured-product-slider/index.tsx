@@ -475,8 +475,8 @@ export const FeaturedProductCardItem = ({
 
         <div
           className={[
-            "border-t border-[#e5e7eb] pt-2",
-            mobileCompact ? "mt-3" : "mt-auto small:mt-4",
+            "mt-auto border-t border-[#e5e7eb] pt-2",
+            mobileCompact ? "" : "small:mt-4",
           ].join(" ")}
         >
           <ProductCardPrice
@@ -588,7 +588,12 @@ const ProductCardPrice = ({
     product.price.calculated_amount === null
   ) {
     return (
-      <p className="text-[14px] font-bold leading-5 text-black">
+      <p
+        className={[
+          "flex items-end text-[14px] font-bold leading-5 text-black",
+          mobileCompact ? "min-h-[62px]" : "min-h-[58px]",
+        ].join(" ")}
+      >
         Contact for price
       </p>
     )
