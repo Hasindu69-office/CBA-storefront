@@ -94,16 +94,16 @@ function BrandLogoLink({
       aria-hidden={hiddenFromA11y}
       aria-label={hiddenFromA11y ? undefined : `Browse ${brand.name} products`}
       tabIndex={hiddenFromA11y ? -1 : undefined}
-      className="flex h-9 w-[96px] flex-shrink-0 items-center justify-center transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 sm:w-[104px] md:h-10 md:w-[118px] small:w-[132px]"
+      className="flex h-11 w-[116px] flex-shrink-0 items-center justify-center transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 sm:w-[126px] md:h-12 md:w-[142px] small:w-[158px]"
     >
       <Image
         src={brand.logo_url ?? ""}
         alt={hiddenFromA11y ? "" : brand.logo_alt_text || `${brand.name} logo`}
-        width={132}
-        height={40}
+        width={158}
+        height={48}
         priority={priority}
-        sizes="(min-width: 1024px) 132px, (min-width: 768px) 118px, 104px"
-        className="max-h-9 w-auto max-w-[96px] object-contain sm:max-w-[104px] md:max-h-10 md:max-w-[118px] small:max-w-[132px]"
+        sizes="(min-width: 1024px) 158px, (min-width: 768px) 142px, 126px"
+        className="max-h-11 w-auto max-w-[116px] object-contain sm:max-w-[126px] md:max-h-12 md:max-w-[142px] small:max-w-[158px]"
       />
     </LocalizedClientLink>
   )
