@@ -81,6 +81,7 @@ export default async function ProductTemplate({
         pdpBanners={pdpBanners}
         kokoBranding={kokoBranding}
         kokoAvailable={kokoAvailable}
+        selectedVariantId={selectedVariantId}
       />
     </WishlistProductProvider>
   )
