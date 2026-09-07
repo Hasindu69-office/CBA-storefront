@@ -82,9 +82,27 @@ const HomepagePromoTileGrid = ({ sections }: HomepagePromoTileGridProps) => {
     .filter((item) => item.config?.placement === PLACEMENT)
     .slice()
     .sort((left, right) => left.sort_order - right.sort_order)
-    .slice(0, FALLBACK_TILES.length)
+  const itemsBySlot = new Map<number, HomepageCmsItem>()
+  for (const item of items) {
+    const slot = slotFromItem(item)
+    if (
+      slot >= 0 &&
+      slot < FALLBACK_TILES.length &&
+      !itemsBySlot.has(slot) &&
+      isRenderablePromoTile(item)
+    ) {
+      itemsBySlot.set(slot, item)
+    }
+  }
+  const rowVisibility = rowVisibilityFromSection(section)
+  const topRowItems = rowVisibility.top
+    ? [0, 1].map((slot) => itemsBySlot.get(slot)).filter(isCmsItem)
+    : []
+  const bottomRowItems = rowVisibility.bottom
+    ? [2, 3, 4].map((slot) => itemsBySlot.get(slot)).filter(isCmsItem)
+    : []
 
-  if (items.length !== FALLBACK_TILES.length || items.some((item) => !item.title)) {
+  if (!topRowItems.length && !bottomRowItems.length) {
     return null
   }
 
@@ -95,20 +113,35 @@ const HomepagePromoTileGrid = ({ sections }: HomepagePromoTileGridProps) => {
     >
       <div className="content-container">
         <div className="grid w-full gap-4 sm:gap-5 md:gap-6 medium:gap-7">
-          <div className="grid gap-4 sm:gap-5 md:gap-6 medium:grid-cols-[minmax(0,2.08fr)_minmax(0,1fr)] medium:gap-7">
-            {items.slice(0, 2).map((item, index) => (
-              <PromoTile key={tileKey(item, index)} item={item} index={index} priority />
-            ))}
-          </div>
-          <div className="grid gap-4 sm:gap-5 md:gap-6 medium:grid-cols-[minmax(0,2.12fr)_minmax(0,1fr)_minmax(0,1fr)] medium:gap-7">
-            {items.slice(2).map((item, offset) => (
-              <PromoTile
-                key={tileKey(item, offset + 2)}
-                item={item}
-                index={offset + 2}
-              />
-            ))}
-          </div>
+          {!!topRowItems.length && (
+            <div className="grid gap-4 sm:gap-5 md:gap-6 medium:grid-cols-[minmax(0,2.08fr)_minmax(0,1fr)] medium:gap-7">
+              {topRowItems.map((item) => {
+                const index = slotFromItem(item)
+                return (
+                  <PromoTile
+                    key={tileKey(item, index)}
+                    item={item}
+                    index={index}
+                    priority
+                  />
+                )
+              })}
+            </div>
+          )}
+          {!!bottomRowItems.length && (
+            <div className="grid gap-4 sm:gap-5 md:gap-6 medium:grid-cols-[minmax(0,2.12fr)_minmax(0,1fr)_minmax(0,1fr)] medium:gap-7">
+              {bottomRowItems.map((item) => {
+                const index = slotFromItem(item)
+                return (
+                  <PromoTile
+                    key={tileKey(item, index)}
+                    item={item}
+                    index={index}
+                  />
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -127,6 +160,7 @@ function PromoTile({
   const fallback = FALLBACK_TILES[index]
   const imageUrl = item.media?.url ?? item.media_url ?? fallback.image
   const eyebrow = stringValue(item.config?.eyebrow) || fallback.eyebrow
+  const href = promoTileHref(item)
   const content = (
     <article
       className={[
@@ -161,13 +195,13 @@ function PromoTile({
     </article>
   )
 
-  if (!isSafeStorefrontPath(item.url)) {
+  if (!href) {
     return <div className={["h-full w-full", fallback.itemClassName].join(" ")}>{content}</div>
   }
 
   return (
     <LocalizedClientLink
-      href={item.url!.trim()}
+      href={href}
       className={[
         "block h-full w-full rounded-[18px] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
         fallback.itemClassName,
@@ -186,8 +220,48 @@ function tileKey(item: HomepageCmsItem, index: number) {
   return `${item.reference_id ?? item.media_url ?? item.title ?? "tile"}-${index}`
 }
 
+function slotFromItem(item: HomepageCmsItem) {
+  const slot = Number(item.config?.slot ?? item.sort_order)
+  return Number.isInteger(slot) ? slot : -1
+}
+
 function stringValue(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : ""
+}
+
+function rowVisibilityFromSection(section: HomepageCmsSection) {
+  const value = section.config?.row_visibility
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { top: true, bottom: true }
+  }
+  const visibility = value as Record<string, unknown>
+  return {
+    top: typeof visibility.top === "boolean" ? visibility.top : true,
+    bottom: typeof visibility.bottom === "boolean" ? visibility.bottom : true,
+  }
+}
+
+function isCmsItem(item: HomepageCmsItem | undefined): item is HomepageCmsItem {
+  return Boolean(item)
+}
+
+function isRenderablePromoTile(item: HomepageCmsItem) {
+  return Boolean(
+    item.title &&
+      (item.reference_type !== "product" ||
+        (item.resolved && typeof item.resolved === "object"))
+  )
+}
+
+function promoTileHref(item: HomepageCmsItem) {
+  const productHandle = stringValue(item.resolved?.handle)
+  if (productHandle) {
+    return `/products/${productHandle}`
+  }
+  if (isSafeStorefrontPath(item.url)) {
+    return item.url!.trim()
+  }
+  return null
 }
 
 function isSafeStorefrontPath(value?: string | null) {
