@@ -2,12 +2,13 @@ import Image from "next/image"
 
 import type { HomepageCmsItem, HomepageCmsSection } from "@lib/data/homepage"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import MobileCategoryLinks from "./mobile-category-links"
 
 type CategoryShowcaseProps = {
   sections: HomepageCmsSection[]
 }
 
-type ResolvedCategory = {
+export type ResolvedCategory = {
   id: string
   name: string
   handle: string
@@ -154,24 +155,26 @@ const CategoryShowcase = ({ sections }: CategoryShowcaseProps) => {
 
                 <div className="my-7 h-px bg-[#d9d9d9]" />
 
-                <div className="grid grid-cols-2 gap-x-9 gap-y-8">
-                  {categories.slice(0, 4).map((category) => (
+                <MobileCategoryLinks categories={categories.slice(0, 6)} />
+
+                <div className="hidden gap-x-5 gap-y-7 small:grid small:grid-cols-3">
+                  {categories.slice(0, 6).map((category) => (
                     <LocalizedClientLink
                       key={category.id}
                       href={`/categories/${category.handle}`}
                       className="group grid min-w-0 justify-items-center text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                     >
-                      <div className="relative flex h-[110px] w-[110px] items-center justify-center overflow-hidden rounded-full bg-[#f3f3f5] small:h-[118px] small:w-[118px]">
+                      <div className="relative flex h-[96px] w-[96px] items-center justify-center overflow-hidden rounded-full border border-[#e5e7eb] bg-white shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-300 group-hover:border-brand/50 group-hover:shadow-[0_10px_24px_rgba(255,92,14,0.12)] small:h-[104px] small:w-[104px]">
                         {category.image_url ? (
                           <Image
                             src={category.image_url}
                             alt={category.image_alt || category.name}
                             fill
-                            sizes="118px"
-                            className="object-contain object-center p-4 transition-transform duration-300 group-hover:scale-[1.04]"
+                            sizes="104px"
+                            className="object-contain object-center p-3.5 transition-transform duration-300 group-hover:scale-[1.04]"
                           />
                         ) : (
-                          <span className="px-4 text-[28px] font-bold uppercase leading-none text-[#b8bac3]">
+                          <span className="px-4 text-[26px] font-bold uppercase leading-none text-[#b8bac3]">
                             {categoryInitials(category.name)}
                           </span>
                         )}
