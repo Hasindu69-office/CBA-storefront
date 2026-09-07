@@ -673,109 +673,151 @@ function PdpInstallmentPreview({
   currencyCode: string
   eligible: boolean
 }) {
-  const slides = useMemo(() => chunkInstallmentPlans(plans, 3), [plans])
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [isPaused, setIsPaused] = useState(false)
-
-  const hasMultipleSlides = slides.length > 1
+  const bankGroups = useMemo(() => groupInstallmentPlansByBank(plans), [plans])
+  const [openBankCode, setOpenBankCode] = useState<string | null>("__first__")
 
   useEffect(() => {
-    if (activeIndex > Math.max(0, slides.length - 1)) {
-      setActiveIndex(0)
-    }
-  }, [activeIndex, slides.length])
-
-  useEffect(() => {
-    if (!hasMultipleSlides || isPaused || prefersReducedMotion()) {
+    if (!bankGroups.length) {
+      setOpenBankCode(null)
       return
     }
+    if (
+      openBankCode === "__first__" ||
+      (openBankCode && !bankGroups.some((group) => group.bankCode === openBankCode))
+    ) {
+      setOpenBankCode(bankGroups[0].bankCode)
+    }
+  }, [bankGroups, openBankCode])
 
-    const timer = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % slides.length)
-    }, 3500)
-
-    return () => window.clearInterval(timer)
-  }, [hasMultipleSlides, isPaused, slides.length])
-
-  if (!eligible || !plans.length) {
+  if (!eligible || !bankGroups.length) {
     return null
-  }
-
-  const goToPreviousSlide = () => {
-    setActiveIndex((current) => (current - 1 + slides.length) % slides.length)
-  }
-
-  const goToNextSlide = () => {
-    setActiveIndex((current) => (current + 1) % slides.length)
   }
 
   return (
     <div
       className="mt-4 rounded-base border border-gray-200 bg-white p-3"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      onFocus={() => setIsPaused(true)}
-      onBlur={() => setIsPaused(false)}
-      aria-roledescription="carousel"
       aria-label="Installment plans"
     >
       <div className="flex min-h-8 items-center justify-between gap-2">
         <p className="text-xs font-black uppercase text-gray-700">
           Installment Plans
         </p>
-        {hasMultipleSlides && (
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={goToPreviousSlide}
-              className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-brand hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-              aria-label="Show previous installment plans"
-            >
-              <CarouselArrow direction="left" />
-            </button>
-            <button
-              type="button"
-              onClick={goToNextSlide}
-              className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-brand hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-              aria-label="Show next installment plans"
-            >
-              <CarouselArrow direction="right" />
-            </button>
-          </div>
-        )}
       </div>
 
-      <div className="mt-2 overflow-hidden">
-        <div
-          className="flex transition-transform duration-500 ease-out motion-reduce:transition-none"
-          style={{ transform: `translateX(-${activeIndex * 100}%)` }}
-        >
-          {slides.map((slide, slideIndex) => (
-            <div
-              key={`installment-slide-${slideIndex}`}
-              className="w-full shrink-0 space-y-0"
-              aria-hidden={slideIndex !== activeIndex}
-            >
-              {slide.map((plan) => (
-                <InstallmentPlanPreviewRow
-                  key={plan.id}
-                  plan={plan}
-                  currencyCode={currencyCode}
+      <div className="mt-2 divide-y divide-gray-100">
+        {bankGroups.map((group) => {
+          const panelId = `pdp-installments-${safeDomId(group.bankCode)}`
+          const isOpen = openBankCode === group.bankCode
+
+          return (
+            <div key={group.bankCode} className="py-1 first:pt-0 last:pb-0">
+              <button
+                type="button"
+                className="grid w-full grid-cols-[minmax(0,1fr)_72px_18px] items-center gap-2 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                aria-expanded={isOpen}
+                aria-controls={panelId}
+                onClick={() =>
+                  setOpenBankCode((current) =>
+                    current === group.bankCode ? null : group.bankCode
+                  )
+                }
+              >
+                <span className="min-w-0">
+                  <span className="block text-xs font-bold leading-5 text-gray-800">
+                    Up to {group.maxTenorMonths} months from{" "}
+                    {group.lowestMonthlyAmount !== null
+                      ? formatInstallmentMoney(group.lowestMonthlyAmount, currencyCode)
+                      : "available"}
+                    /month
+                  </span>
+                  <span className="block break-words text-[11px] font-medium leading-4 text-gray-500">
+                    {group.bankName}
+                  </span>
+                </span>
+                <BankLogo group={group} />
+                <ChevronDownIcon
+                  className={
+                    isOpen
+                      ? "h-4 w-4 rotate-180 justify-self-end text-gray-500 transition"
+                      : "h-4 w-4 justify-self-end text-gray-500 transition"
+                  }
                 />
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
+              </button>
 
-      {hasMultipleSlides && (
-        <p className="sr-only" aria-live="polite">
-          Showing installment plans {activeIndex * 3 + 1} to{" "}
-          {Math.min((activeIndex + 1) * 3, plans.length)} of {plans.length}
-        </p>
-      )}
+              <div
+                id={panelId}
+                className={
+                  isOpen
+                    ? "grid grid-rows-[1fr] opacity-100 transition-all duration-300 ease-out motion-reduce:transition-none"
+                    : "grid grid-rows-[0fr] opacity-0 transition-all duration-300 ease-out motion-reduce:transition-none"
+                }
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <div className="pb-2 pl-1 pr-1">
+                    <div className="rounded-base bg-gray-50 px-2 py-1">
+                      {group.plans.map((plan) => (
+                        <InstallmentPlanPreviewRow
+                          key={plan.id}
+                          plan={plan}
+                          currencyCode={currencyCode}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
+}
+
+type InstallmentBankGroup = {
+  bankCode: string
+  bankName: string
+  logoPath: string | null
+  maxTenorMonths: number
+  lowestMonthlyAmount: number | null
+  plans: StoreInstallmentPlan[]
+}
+
+function groupInstallmentPlansByBank(
+  plans: StoreInstallmentPlan[]
+): InstallmentBankGroup[] {
+  const grouped = new Map<string, StoreInstallmentPlan[]>()
+
+  for (const plan of plans) {
+    const bankCode = plan.bank_code || plan.bank_name
+    grouped.set(bankCode, [...(grouped.get(bankCode) ?? []), plan])
+  }
+
+  return Array.from(grouped.entries()).map(([bankCode, bankPlans]) => {
+    const sortedPlans = [...bankPlans].sort(
+      (left, right) => left.tenor_months - right.tenor_months
+    )
+    const monthlyAmounts = sortedPlans
+      .map((plan) => plan.monthly_amount)
+      .filter((amount): amount is number => Number.isFinite(amount))
+
+    return {
+      bankCode,
+      bankName: sortedPlans[0]?.bank_name ?? bankCode.toUpperCase(),
+      logoPath: sortedPlans.find((plan) => plan.logo_path)?.logo_path ?? null,
+      maxTenorMonths: Math.max(
+        ...sortedPlans.map((plan) => Number(plan.tenor_months) || 0)
+      ),
+      lowestMonthlyAmount: monthlyAmounts.length
+        ? Math.min(...monthlyAmounts)
+        : null,
+      plans: sortedPlans,
+    }
+  })
+}
+
+function safeDomId(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "")
 }
 
 function formatInstallmentMoney(amount: number, currencyCode: string) {
@@ -795,43 +837,49 @@ function InstallmentPlanPreviewRow({
   currencyCode: string
 }) {
   return (
-    <div className="grid min-h-[44px] grid-cols-[1fr_70px] items-center gap-2 border-b border-gray-100 py-2 last:border-b-0">
+    <div className="grid min-h-[38px] grid-cols-[1fr_auto] items-center gap-2 border-b border-gray-200 py-2 last:border-b-0">
       <div className="min-w-0">
         <p className="truncate text-xs font-bold text-gray-700">
           {plan.tenor_months} x{" "}
           {plan.monthly_amount !== undefined
             ? formatInstallmentMoney(plan.monthly_amount, currencyCode)
-            : "Available"}{" "}
-          at {formatInstallmentRate(plan.fee_percentage)}
-        </p>
-        <p className="truncate text-[11px] font-medium text-gray-500">
-          {plan.bank_name}
+            : "Available"}
         </p>
       </div>
-      {plan.logo_path ? (
-        <span className="relative h-7 w-[70px] justify-self-end rounded bg-white">
-          <Image
-            src={plan.logo_path}
-            alt={plan.bank_name}
-            fill
-            sizes="70px"
-            className="object-contain"
-          />
-        </span>
-      ) : (
-        <span className="justify-self-end truncate text-[11px] font-bold text-gray-500">
-          {plan.bank_code.toUpperCase()}
-        </span>
-      )}
+      <span className="justify-self-end whitespace-nowrap text-[11px] font-semibold text-gray-500">
+        Rate {formatInstallmentRate(plan.fee_percentage)}
+      </span>
     </div>
   )
 }
 
-function CarouselArrow({ direction }: { direction: "left" | "right" }) {
+function BankLogo({ group }: { group: InstallmentBankGroup }) {
+  if (group.logoPath) {
+    return (
+      <span className="relative h-8 w-[72px] justify-self-end rounded bg-white">
+        <Image
+          src={group.logoPath}
+          alt={group.bankName}
+          fill
+          sizes="72px"
+          className="object-contain"
+        />
+      </span>
+    )
+  }
+
+  return (
+    <span className="justify-self-end truncate text-[11px] font-bold text-gray-500">
+      {group.bankCode.toUpperCase()}
+    </span>
+  )
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
-      className="h-4 w-4"
+      className={className}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -839,28 +887,9 @@ function CarouselArrow({ direction }: { direction: "left" | "right" }) {
       strokeLinejoin="round"
       strokeWidth="2"
     >
-      {direction === "left" ? (
-        <path d="m15 18-6-6 6-6" />
-      ) : (
-        <path d="m9 18 6-6-6-6" />
-      )}
+      <path d="m6 9 6 6 6-6" />
     </svg>
   )
-}
-
-function chunkInstallmentPlans(plans: StoreInstallmentPlan[], size: number) {
-  const chunks: StoreInstallmentPlan[][] = []
-  for (let index = 0; index < plans.length; index += size) {
-    chunks.push(plans.slice(index, index + size))
-  }
-  return chunks
-}
-
-function prefersReducedMotion() {
-  if (typeof window === "undefined") {
-    return false
-  }
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches
 }
 
 function Breadcrumbs({ product }: { product: HttpTypes.StoreProduct }) {
@@ -1049,9 +1078,9 @@ function ProductTabs({
 }) {
   const tabs = [
     { key: "description", label: "Description" },
-    { key: "reviews", label: `Reviews (${detail?.review_summary?.total_reviews ?? 0})` },
-    { key: "additional", label: "Additional Information" },
     { key: "specifications", label: "Specifications" },
+    { key: "additional", label: "Additional Information" },
+    { key: "reviews", label: `Reviews (${detail?.review_summary?.total_reviews ?? 0})` },
   ]
 
   return (
@@ -1076,9 +1105,9 @@ function ProductTabs({
         {activeTab === "description" && (
           <DescriptionContent product={product} detail={detail} />
         )}
-        {activeTab === "reviews" && <ReviewsContent detail={detail} reviews={reviews} />}
-        {activeTab === "additional" && <AdditionalContent detail={detail} />}
         {activeTab === "specifications" && <SpecificationsContent detail={detail} />}
+        {activeTab === "additional" && <AdditionalContent detail={detail} />}
+        {activeTab === "reviews" && <ReviewsContent detail={detail} reviews={reviews} />}
       </div>
     </section>
   )
