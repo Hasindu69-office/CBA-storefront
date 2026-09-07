@@ -10,7 +10,7 @@ export type CategorySliderItem = {
     alt: string
   }
   background: {
-    variant: "background_1" | "background_2"
+    variant: "background_1" | "background_2" | "custom"
     url: string
   }
   sort_order: number
