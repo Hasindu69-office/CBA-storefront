@@ -53,6 +53,7 @@ type CbaProductDetailProps = {
   pdpBanners: PdpBannerContent
   kokoBranding?: KokoCheckoutBranding | null
   kokoAvailable?: boolean
+  selectedVariantId?: string
 }
 
 type ActionState = {
@@ -69,7 +70,18 @@ function optionsAsKeymap(
   }, {})
 }
 
-function initialOptions(product: HttpTypes.StoreProduct) {
+function initialOptions(
+  product: HttpTypes.StoreProduct,
+  selectedVariantId?: string
+) {
+  const selectedVariant = selectedVariantId
+    ? product.variants?.find((variant) => variant.id === selectedVariantId)
+    : undefined
+
+  if (selectedVariant) {
+    return optionsAsKeymap(selectedVariant.options) ?? {}
+  }
+
   const firstPurchasable =
     product.variants?.find((variant) => variant.manage_inventory === false) ??
     product.variants?.find(
@@ -96,13 +108,14 @@ export default function CbaProductDetail({
   pdpBanners,
   kokoBranding,
   kokoAvailable = false,
+  selectedVariantId,
 }: CbaProductDetailProps) {
   const galleryImages = images.length ? images : product.thumbnail
     ? [{ id: "thumbnail", url: product.thumbnail } as HttpTypes.StoreProductImage]
     : []
   const [activeImage, setActiveImage] = useState(galleryImages[0]?.url ?? "")
   const [options, setOptions] = useState<Record<string, string | undefined>>(
-    initialOptions(product)
+    initialOptions(product, selectedVariantId)
   )
   const [quantity, setQuantity] = useState(1)
   const [activeTab, setActiveTab] = useState("description")
@@ -405,7 +418,11 @@ export default function CbaProductDetail({
               ))}
             </div>
 
-            <ProductMeta product={product} brandName={detail?.brand?.name} />
+            <ProductMeta
+              product={product}
+              selectedVariant={selectedVariant}
+              brandName={detail?.brand?.name}
+            />
           </div>
 
           <aside className="h-fit min-w-0 rounded-rounded bg-[#f3f5fb] p-5 small:p-6">
@@ -982,12 +999,15 @@ function ProductOptionGroup({
 
 function ProductMeta({
   product,
+  selectedVariant,
   brandName,
 }: {
   product: HttpTypes.StoreProduct
+  selectedVariant?: HttpTypes.StoreProductVariant
   brandName?: string
 }) {
-  const sku = product.variants?.find((variant) => variant.sku)?.sku
+  const sku =
+    selectedVariant?.sku ?? product.variants?.find((variant) => variant.sku)?.sku
   const category = product.categories?.[0]?.name
 
   return (
