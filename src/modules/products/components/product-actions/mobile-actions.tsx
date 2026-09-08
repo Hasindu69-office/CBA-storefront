@@ -10,6 +10,7 @@ import { getProductPrice } from "@lib/util/get-product-price"
 import OptionSelect from "./option-select"
 import { HttpTypes } from "@medusajs/types"
 import { isSimpleProduct } from "@lib/util/product"
+import { hasPurchasablePrice, visibleProductOptions } from "@lib/util/product-options"
 
 type MobileActionsProps = {
   product: HttpTypes.StoreProduct
@@ -118,7 +119,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
               </Button>}
               <Button
                 onClick={handleAddToCart}
-                disabled={!inStock || !variant}
+                disabled={!inStock || !variant || !hasPurchasablePrice(variant) || isAdding || optionsDisabled}
                 className="w-full"
                 isLoading={isAdding}
                 data-testid="mobile-cart-button"
@@ -174,7 +175,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                   <div className="bg-white px-6 py-12">
                     {(product.variants?.length ?? 0) > 1 && (
                       <div className="flex flex-col gap-y-6">
-                        {(product.options || []).map((option) => {
+                        {visibleProductOptions(product.options).map((option) => {
                           return (
                             <div key={option.id}>
                               <OptionSelect

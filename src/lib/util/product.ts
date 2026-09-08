@@ -1,5 +1,6 @@
 import { HttpTypes } from "@medusajs/types";
+import { visibleProductOptions } from "./product-options";
 
 export const isSimpleProduct = (product: HttpTypes.StoreProduct): boolean => {
-    return product.options?.length === 1 && product.options[0].values?.length === 1;
+    return visibleProductOptions(product.options).length === 0;
 }

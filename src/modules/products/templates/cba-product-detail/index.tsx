@@ -15,6 +15,7 @@ import type {
 } from "@lib/data/product-detail"
 import { notify } from "@lib/notifications"
 import { getProductPrice } from "@lib/util/get-product-price"
+import { hasPurchasablePrice, variantOptionsMap, visibleProductOptions } from "@lib/util/product-options"
 import { kokoInstallmentCardLabelFromAmount } from "@lib/util/koko-installments"
 import { convertToLocale } from "@lib/util/money"
 import { openSideCart } from "@lib/util/side-cart-event"
@@ -64,10 +65,7 @@ type ActionState = {
 function optionsAsKeymap(
   variantOptions: HttpTypes.StoreProductVariant["options"]
 ) {
-  return variantOptions?.reduce((acc: Record<string, string>, option: any) => {
-    acc[option.option_id] = option.value
-    return acc
-  }, {})
+  return variantOptionsMap(variantOptions)
 }
 
 function initialOptions(
@@ -148,6 +146,14 @@ export default function CbaProductDetail({
     )
   }, [product.variants, options])
 
+  const displayOptions = visibleProductOptions(product.options)
+  const hasPrice = hasPurchasablePrice(selectedVariant)
+
+  useEffect(() => {
+    setOptions(initialOptions(product, selectedVariantId))
+    setQuantity(1)
+  }, [product, selectedVariantId])
+
   const inStock = useMemo(() => {
     if (selectedVariant && !selectedVariant.manage_inventory) return true
     if (selectedVariant?.allow_backorder) return true
@@ -189,7 +195,7 @@ export default function CbaProductDetail({
     mainPrice: price?.calculated_price_number ?? null,
     currencyCode: price?.currency_code ?? "lkr",
     mainVariantId: selectedVariant?.id,
-    mainPurchasable: inStock && isValidVariant,
+    mainPurchasable: inStock && isValidVariant && hasPrice,
     mainValid: isValidVariant,
     quantity,
     onActionMessage: setActionState,
@@ -232,10 +238,14 @@ export default function CbaProductDetail({
   }
 
   function clampQuantity(value: number) {
-    setQuantity(Math.min(99, Math.max(1, Number.isFinite(value) ? value : 1)))
+    setQuantity(Math.min(99, Math.max(1, Number.isFinite(value) ? Math.trunc(value) : 1)))
   }
 
   function submitAddToCart() {
+    if (!hasPrice || !Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
+      notify.error(!hasPrice ? "Price unavailable for this product." : "Enter a quantity from 1 to 99.")
+      return
+    }
     if (!selectedVariant?.id || !isValidVariant) {
       notify.error("Select a valid product option.")
       setActionState({ type: "error", message: "Select a valid product option." })
@@ -395,7 +405,11 @@ export default function CbaProductDetail({
               )}
             </ul>
 
-            <div className="mt-5 flex flex-wrap gap-2 border-b border-gray-200 pb-5">
+            <div
+              className={`mt-5 flex flex-wrap gap-2 pb-5 ${
+                displayOptions.length > 0 ? "border-b border-gray-200" : ""
+              }`}
+            >
               {detail?.badges.map((badge) => (
                 <span
                   key={`promo-${badge.code}`}
@@ -406,8 +420,8 @@ export default function CbaProductDetail({
               ))}
             </div>
 
-            <div className="mt-5 space-y-5">
-              {(product.options ?? []).map((option) => (
+            {displayOptions.length > 0 && <div className="mt-5 space-y-5">
+              {displayOptions.map((option) => (
                 <ProductOptionGroup
                   key={option.id}
                   option={option}
@@ -416,7 +430,7 @@ export default function CbaProductDetail({
                   disabled={isPending}
                 />
               ))}
-            </div>
+            </div>}
 
             <ProductMeta
               product={product}
@@ -512,7 +526,7 @@ export default function CbaProductDetail({
             <button
               type="button"
               onClick={submitAddToCart}
-              disabled={!selectedVariant || !isValidVariant || !inStock || isPending}
+              disabled={!selectedVariant || !isValidVariant || !inStock || !hasPrice || isPending}
               className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-base border border-brand bg-white text-xs font-bold uppercase text-brand transition hover:bg-brand hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ShoppingCartIcon size={16} />
