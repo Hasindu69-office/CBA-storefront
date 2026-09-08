@@ -1,4 +1,8 @@
 import { listProductsWithSort } from "@lib/data/products"
+import {
+  retrieveKokoCheckoutBranding,
+  retrieveKokoPaymentAvailability,
+} from "@lib/data/koko-branding"
 import { getRegion } from "@lib/data/regions"
 import {
   searchStoreProducts,
@@ -88,6 +92,13 @@ export default async function PaginatedProducts({
         countryCode,
       }))
     const totalPages = Math.ceil(count / STORE_PRODUCT_LIMIT)
+    const region = await getRegion(countryCode)
+    const [kokoBranding, kokoAvailable] = region
+      ? await Promise.all([
+          retrieveKokoCheckoutBranding(),
+          retrieveKokoPaymentAvailability(region.id),
+        ])
+      : [null, false] as const
 
     if (!products.length) {
       return (
@@ -116,6 +127,8 @@ export default async function PaginatedProducts({
                 product={product}
                 priority={index < 5}
                 variant="flat"
+                kokoBranding={kokoBranding}
+                kokoAvailable={kokoAvailable}
               />
             </li>
           ))}

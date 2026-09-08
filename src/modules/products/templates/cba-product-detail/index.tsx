@@ -7,6 +7,7 @@ import {
   type StoreInstallmentPlan,
 } from "@lib/data/installments"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
+import type { KokoCheckoutBranding } from "@lib/data/koko-branding"
 import type { PdpBannerContent } from "@lib/data/pdp-banners"
 import type {
   ProductDetailResponse,
@@ -14,10 +15,12 @@ import type {
 } from "@lib/data/product-detail"
 import { notify } from "@lib/notifications"
 import { getProductPrice } from "@lib/util/get-product-price"
+import { kokoInstallmentCardLabelFromAmount } from "@lib/util/koko-installments"
 import { convertToLocale } from "@lib/util/money"
 import { openSideCart } from "@lib/util/side-cart-event"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import KokoInstallmentLine from "@modules/common/components/koko-installment-line"
 import ProductCompanionZone from "@modules/products/components/product-companion-zone"
 import PdpSidebarBanners from "@modules/products/components/pdp-sidebar-banners"
 import RelatedProductsSection from "@modules/products/components/related-products-section"
@@ -48,6 +51,9 @@ type CbaProductDetailProps = {
   upSellProducts: FeaturedProductCard[]
   relatedProducts: FeaturedProductCard[]
   pdpBanners: PdpBannerContent
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
+  selectedVariantId?: string
 }
 
 type ActionState = {
@@ -64,7 +70,18 @@ function optionsAsKeymap(
   }, {})
 }
 
-function initialOptions(product: HttpTypes.StoreProduct) {
+function initialOptions(
+  product: HttpTypes.StoreProduct,
+  selectedVariantId?: string
+) {
+  const selectedVariant = selectedVariantId
+    ? product.variants?.find((variant) => variant.id === selectedVariantId)
+    : undefined
+
+  if (selectedVariant) {
+    return optionsAsKeymap(selectedVariant.options) ?? {}
+  }
+
   const firstPurchasable =
     product.variants?.find((variant) => variant.manage_inventory === false) ??
     product.variants?.find(
@@ -89,13 +106,16 @@ export default function CbaProductDetail({
   upSellProducts,
   relatedProducts,
   pdpBanners,
+  kokoBranding,
+  kokoAvailable = false,
+  selectedVariantId,
 }: CbaProductDetailProps) {
   const galleryImages = images.length ? images : product.thumbnail
     ? [{ id: "thumbnail", url: product.thumbnail } as HttpTypes.StoreProductImage]
     : []
   const [activeImage, setActiveImage] = useState(galleryImages[0]?.url ?? "")
   const [options, setOptions] = useState<Record<string, string | undefined>>(
-    initialOptions(product)
+    initialOptions(product, selectedVariantId)
   )
   const [quantity, setQuantity] = useState(1)
   const [activeTab, setActiveTab] = useState("description")
@@ -144,6 +164,16 @@ export default function CbaProductDetail({
   const price = selectedVariant
     ? selectedPrice.variantPrice
     : selectedPrice.cheapestPrice
+  const hasDiscount = Boolean(
+    price && price.original_price_number > price.calculated_price_number
+  )
+  const kokoInstallment =
+    kokoAvailable && inStock && isValidVariant
+      ? kokoInstallmentCardLabelFromAmount(
+          price?.calculated_price_number,
+          price?.currency_code
+        )
+      : null
   const reviewCount = detail?.review_summary?.total_reviews ?? 0
   const rating = detail?.review_summary?.average_rating ?? null
   const mainProductImage = activeImage || product.thumbnail || galleryImages[0]?.url || null
@@ -290,11 +320,11 @@ export default function CbaProductDetail({
   }
 
   return (
-    <main className="bg-white text-[#191919]">
-      <div className="content-container py-8">
+    <main className="overflow-x-clip bg-white text-[#191919]">
+      <div className="content-container min-w-0 py-6 small:py-8">
         <Breadcrumbs product={product} />
 
-        <section className="grid gap-8 pt-7 small:grid-cols-[1.05fr_1fr_310px]">
+        <section className="grid min-w-0 gap-6 pt-6 small:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)_310px] small:gap-8 small:pt-7">
           <ProductGallery
             title={product.title}
             images={galleryImages}
@@ -317,12 +347,43 @@ export default function CbaProductDetail({
               {product.title}
             </h1>
             {price && (
-              <p className="mt-3 text-2xl font-bold">
-                {price.calculated_price}
-              </p>
+              <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span
+                  className={
+                    hasDiscount
+                      ? "text-2xl font-bold text-[#c62828]"
+                      : "text-2xl font-bold"
+                  }
+                  data-testid="pdp-calculated-price"
+                >
+                  {price.calculated_price}
+                </span>
+                {hasDiscount && (
+                  <>
+                    <span
+                      className="text-sm text-gray-500 line-through"
+                      data-testid="pdp-original-price"
+                    >
+                      {price.original_price}
+                    </span>
+                    <span className="rounded-full bg-red-50 px-2 py-1 text-xs font-bold uppercase text-[#c62828]">
+                      Save {price.percentage_diff}%
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+            {kokoInstallment && (
+              <KokoInstallmentLine
+                installment={kokoInstallment}
+                branding={kokoBranding}
+                className="mt-2"
+              />
             )}
             <ul className="mt-4 space-y-1.5 text-sm text-gray-700">
-              {shortDescription && <li>{shortDescription}</li>}
+              {shortDescription && (
+                <li className="text-justify leading-6">{shortDescription}</li>
+              )}
               {bulletSpecs.map((spec) => (
                 <li key={spec.definition_id}>
                   {spec.definition?.name ? `${spec.definition.name}: ` : ""}
@@ -357,14 +418,55 @@ export default function CbaProductDetail({
               ))}
             </div>
 
-            <ProductMeta product={product} brandName={detail?.brand?.name} />
+            <ProductMeta
+              product={product}
+              selectedVariant={selectedVariant}
+              brandName={detail?.brand?.name}
+            />
           </div>
 
-          <aside className="h-fit rounded-rounded bg-[#f3f5fb] p-6">
+          <aside className="h-fit min-w-0 rounded-rounded bg-[#f3f5fb] p-5 small:p-6">
             <p className="text-xs font-bold uppercase text-gray-500">Total Price</p>
-            <p className="mt-2 text-[30px] font-black leading-tight">
-              {price?.calculated_price ?? "Price unavailable"}
-            </p>
+            {price ? (
+              <div className="mt-2">
+                {hasDiscount && (
+                  <p
+                    className="text-sm text-gray-500 line-through"
+                    data-testid="pdp-sidebar-original-price"
+                  >
+                    {price.original_price}
+                  </p>
+                )}
+                <p
+                  className={
+                    hasDiscount
+                      ? "text-[30px] font-black leading-tight text-[#c62828]"
+                      : "text-[30px] font-black leading-tight"
+                  }
+                  data-testid="pdp-sidebar-calculated-price"
+                >
+                  {price.calculated_price}
+                </p>
+                {hasDiscount && (
+                  <span className="mt-2 inline-flex rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold uppercase text-[#c62828]">
+                    Save {price.percentage_diff}%
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p className="mt-2 text-[30px] font-black leading-tight">
+                Price unavailable
+              </p>
+            )}
+            {kokoInstallment && (
+              <div className="mt-3 rounded-base border border-[#eadfff] bg-white px-3 py-3">
+                <KokoInstallmentLine
+                  installment={kokoInstallment}
+                  branding={kokoBranding}
+                  className="text-[12px] leading-5"
+                />
+              </div>
+            )}
             <PdpInstallmentPreview
               plans={installmentPlans}
               currencyCode={price?.currency_code ?? "lkr"}
@@ -521,7 +623,7 @@ export default function CbaProductDetail({
           <section
             className={
               hasCompanionContent && hasPdpSidebarBanners
-                ? "mt-12 grid gap-4 small:grid-cols-[1fr_280px]"
+                ? "mt-12 grid min-w-0 gap-4 small:grid-cols-[minmax(0,1fr)_280px]"
                 : "mt-12"
             }
           >
@@ -552,7 +654,11 @@ export default function CbaProductDetail({
           reviews={reviews}
         />
 
-        <RelatedProductsSection products={relatedProducts} />
+        <RelatedProductsSection
+          products={relatedProducts}
+          kokoBranding={kokoBranding}
+          kokoAvailable={kokoAvailable}
+        />
       </div>
     </main>
   )
@@ -567,109 +673,151 @@ function PdpInstallmentPreview({
   currencyCode: string
   eligible: boolean
 }) {
-  const slides = useMemo(() => chunkInstallmentPlans(plans, 3), [plans])
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [isPaused, setIsPaused] = useState(false)
-
-  const hasMultipleSlides = slides.length > 1
+  const bankGroups = useMemo(() => groupInstallmentPlansByBank(plans), [plans])
+  const [openBankCode, setOpenBankCode] = useState<string | null>("__first__")
 
   useEffect(() => {
-    if (activeIndex > Math.max(0, slides.length - 1)) {
-      setActiveIndex(0)
-    }
-  }, [activeIndex, slides.length])
-
-  useEffect(() => {
-    if (!hasMultipleSlides || isPaused || prefersReducedMotion()) {
+    if (!bankGroups.length) {
+      setOpenBankCode(null)
       return
     }
+    if (
+      openBankCode === "__first__" ||
+      (openBankCode && !bankGroups.some((group) => group.bankCode === openBankCode))
+    ) {
+      setOpenBankCode(bankGroups[0].bankCode)
+    }
+  }, [bankGroups, openBankCode])
 
-    const timer = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % slides.length)
-    }, 3500)
-
-    return () => window.clearInterval(timer)
-  }, [hasMultipleSlides, isPaused, slides.length])
-
-  if (!eligible || !plans.length) {
+  if (!eligible || !bankGroups.length) {
     return null
-  }
-
-  const goToPreviousSlide = () => {
-    setActiveIndex((current) => (current - 1 + slides.length) % slides.length)
-  }
-
-  const goToNextSlide = () => {
-    setActiveIndex((current) => (current + 1) % slides.length)
   }
 
   return (
     <div
       className="mt-4 rounded-base border border-gray-200 bg-white p-3"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      onFocus={() => setIsPaused(true)}
-      onBlur={() => setIsPaused(false)}
-      aria-roledescription="carousel"
       aria-label="Installment plans"
     >
       <div className="flex min-h-8 items-center justify-between gap-2">
         <p className="text-xs font-black uppercase text-gray-700">
           Installment Plans
         </p>
-        {hasMultipleSlides && (
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={goToPreviousSlide}
-              className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-brand hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-              aria-label="Show previous installment plans"
-            >
-              <CarouselArrow direction="left" />
-            </button>
-            <button
-              type="button"
-              onClick={goToNextSlide}
-              className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:border-brand hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-              aria-label="Show next installment plans"
-            >
-              <CarouselArrow direction="right" />
-            </button>
-          </div>
-        )}
       </div>
 
-      <div className="mt-2 overflow-hidden">
-        <div
-          className="flex transition-transform duration-500 ease-out motion-reduce:transition-none"
-          style={{ transform: `translateX(-${activeIndex * 100}%)` }}
-        >
-          {slides.map((slide, slideIndex) => (
-            <div
-              key={`installment-slide-${slideIndex}`}
-              className="w-full shrink-0 space-y-0"
-              aria-hidden={slideIndex !== activeIndex}
-            >
-              {slide.map((plan) => (
-                <InstallmentPlanPreviewRow
-                  key={plan.id}
-                  plan={plan}
-                  currencyCode={currencyCode}
+      <div className="mt-2 divide-y divide-gray-100">
+        {bankGroups.map((group) => {
+          const panelId = `pdp-installments-${safeDomId(group.bankCode)}`
+          const isOpen = openBankCode === group.bankCode
+
+          return (
+            <div key={group.bankCode} className="py-1 first:pt-0 last:pb-0">
+              <button
+                type="button"
+                className="grid w-full grid-cols-[minmax(0,1fr)_72px_18px] items-center gap-2 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                aria-expanded={isOpen}
+                aria-controls={panelId}
+                onClick={() =>
+                  setOpenBankCode((current) =>
+                    current === group.bankCode ? null : group.bankCode
+                  )
+                }
+              >
+                <span className="min-w-0">
+                  <span className="block text-xs font-bold leading-5 text-gray-800">
+                    Up to {group.maxTenorMonths} months from{" "}
+                    {group.lowestMonthlyAmount !== null
+                      ? formatInstallmentMoney(group.lowestMonthlyAmount, currencyCode)
+                      : "available"}
+                    /month
+                  </span>
+                  <span className="block break-words text-[11px] font-medium leading-4 text-gray-500">
+                    {group.bankName}
+                  </span>
+                </span>
+                <BankLogo group={group} />
+                <ChevronDownIcon
+                  className={
+                    isOpen
+                      ? "h-4 w-4 rotate-180 justify-self-end text-gray-500 transition"
+                      : "h-4 w-4 justify-self-end text-gray-500 transition"
+                  }
                 />
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
+              </button>
 
-      {hasMultipleSlides && (
-        <p className="sr-only" aria-live="polite">
-          Showing installment plans {activeIndex * 3 + 1} to{" "}
-          {Math.min((activeIndex + 1) * 3, plans.length)} of {plans.length}
-        </p>
-      )}
+              <div
+                id={panelId}
+                className={
+                  isOpen
+                    ? "grid grid-rows-[1fr] opacity-100 transition-all duration-300 ease-out motion-reduce:transition-none"
+                    : "grid grid-rows-[0fr] opacity-0 transition-all duration-300 ease-out motion-reduce:transition-none"
+                }
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <div className="pb-2 pl-1 pr-1">
+                    <div className="rounded-base bg-gray-50 px-2 py-1">
+                      {group.plans.map((plan) => (
+                        <InstallmentPlanPreviewRow
+                          key={plan.id}
+                          plan={plan}
+                          currencyCode={currencyCode}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
+}
+
+type InstallmentBankGroup = {
+  bankCode: string
+  bankName: string
+  logoPath: string | null
+  maxTenorMonths: number
+  lowestMonthlyAmount: number | null
+  plans: StoreInstallmentPlan[]
+}
+
+function groupInstallmentPlansByBank(
+  plans: StoreInstallmentPlan[]
+): InstallmentBankGroup[] {
+  const grouped = new Map<string, StoreInstallmentPlan[]>()
+
+  for (const plan of plans) {
+    const bankCode = plan.bank_code || plan.bank_name
+    grouped.set(bankCode, [...(grouped.get(bankCode) ?? []), plan])
+  }
+
+  return Array.from(grouped.entries()).map(([bankCode, bankPlans]) => {
+    const sortedPlans = [...bankPlans].sort(
+      (left, right) => left.tenor_months - right.tenor_months
+    )
+    const monthlyAmounts = sortedPlans
+      .map((plan) => plan.monthly_amount)
+      .filter((amount): amount is number => Number.isFinite(amount))
+
+    return {
+      bankCode,
+      bankName: sortedPlans[0]?.bank_name ?? bankCode.toUpperCase(),
+      logoPath: sortedPlans.find((plan) => plan.logo_path)?.logo_path ?? null,
+      maxTenorMonths: Math.max(
+        ...sortedPlans.map((plan) => Number(plan.tenor_months) || 0)
+      ),
+      lowestMonthlyAmount: monthlyAmounts.length
+        ? Math.min(...monthlyAmounts)
+        : null,
+      plans: sortedPlans,
+    }
+  })
+}
+
+function safeDomId(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "")
 }
 
 function formatInstallmentMoney(amount: number, currencyCode: string) {
@@ -689,43 +837,49 @@ function InstallmentPlanPreviewRow({
   currencyCode: string
 }) {
   return (
-    <div className="grid min-h-[44px] grid-cols-[1fr_70px] items-center gap-2 border-b border-gray-100 py-2 last:border-b-0">
+    <div className="grid min-h-[38px] grid-cols-[1fr_auto] items-center gap-2 border-b border-gray-200 py-2 last:border-b-0">
       <div className="min-w-0">
         <p className="truncate text-xs font-bold text-gray-700">
           {plan.tenor_months} x{" "}
           {plan.monthly_amount !== undefined
             ? formatInstallmentMoney(plan.monthly_amount, currencyCode)
-            : "Available"}{" "}
-          at {formatInstallmentRate(plan.fee_percentage)}
-        </p>
-        <p className="truncate text-[11px] font-medium text-gray-500">
-          {plan.bank_name}
+            : "Available"}
         </p>
       </div>
-      {plan.logo_path ? (
-        <span className="relative h-7 w-[70px] justify-self-end rounded bg-white">
-          <Image
-            src={plan.logo_path}
-            alt={plan.bank_name}
-            fill
-            sizes="70px"
-            className="object-contain"
-          />
-        </span>
-      ) : (
-        <span className="justify-self-end truncate text-[11px] font-bold text-gray-500">
-          {plan.bank_code.toUpperCase()}
-        </span>
-      )}
+      <span className="justify-self-end whitespace-nowrap text-[11px] font-semibold text-gray-500">
+        Rate {formatInstallmentRate(plan.fee_percentage)}
+      </span>
     </div>
   )
 }
 
-function CarouselArrow({ direction }: { direction: "left" | "right" }) {
+function BankLogo({ group }: { group: InstallmentBankGroup }) {
+  if (group.logoPath) {
+    return (
+      <span className="relative h-8 w-[72px] justify-self-end rounded bg-white">
+        <Image
+          src={group.logoPath}
+          alt={group.bankName}
+          fill
+          sizes="72px"
+          className="object-contain"
+        />
+      </span>
+    )
+  }
+
+  return (
+    <span className="justify-self-end truncate text-[11px] font-bold text-gray-500">
+      {group.bankCode.toUpperCase()}
+    </span>
+  )
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
-      className="h-4 w-4"
+      className={className}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -733,55 +887,36 @@ function CarouselArrow({ direction }: { direction: "left" | "right" }) {
       strokeLinejoin="round"
       strokeWidth="2"
     >
-      {direction === "left" ? (
-        <path d="m15 18-6-6 6-6" />
-      ) : (
-        <path d="m9 18 6-6-6-6" />
-      )}
+      <path d="m6 9 6 6 6-6" />
     </svg>
   )
-}
-
-function chunkInstallmentPlans(plans: StoreInstallmentPlan[], size: number) {
-  const chunks: StoreInstallmentPlan[][] = []
-  for (let index = 0; index < plans.length; index += size) {
-    chunks.push(plans.slice(index, index + size))
-  }
-  return chunks
-}
-
-function prefersReducedMotion() {
-  if (typeof window === "undefined") {
-    return false
-  }
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches
 }
 
 function Breadcrumbs({ product }: { product: HttpTypes.StoreProduct }) {
   const category = product.categories?.[0]
 
   return (
-    <nav className="rounded-rounded border border-gray-100 px-6 py-5 text-xs font-semibold text-gray-400">
-      <LocalizedClientLink href="/" className="hover:text-brand">
+    <nav className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-rounded border border-gray-100 px-4 py-4 text-xs font-semibold text-gray-400 small:px-6 small:py-5">
+      <LocalizedClientLink href="/" className="shrink-0 hover:text-brand">
         Home
       </LocalizedClientLink>
-      <span className="mx-3">/</span>
-      <LocalizedClientLink href="/store" className="hover:text-brand">
+      <span className="shrink-0">/</span>
+      <LocalizedClientLink href="/store" className="shrink-0 hover:text-brand">
         Shop
       </LocalizedClientLink>
       {category?.handle && (
         <>
-          <span className="mx-3">/</span>
+          <span className="shrink-0">/</span>
           <LocalizedClientLink
             href={`/categories/${category.handle}`}
-            className="hover:text-brand"
+            className="min-w-0 break-words hover:text-brand"
           >
             {category.name}
           </LocalizedClientLink>
         </>
       )}
-      <span className="mx-3">/</span>
-      <span className="text-gray-900">{product.title}</span>
+      <span className="shrink-0">/</span>
+      <span className="min-w-0 break-words text-gray-900">{product.title}</span>
     </nav>
   )
 }
@@ -798,7 +933,7 @@ function ProductGallery({
   setActiveImage: (value: string) => void
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="relative aspect-[4/3] overflow-hidden rounded-rounded bg-gray-50">
         {activeImage ? (
           <Image
@@ -807,7 +942,7 @@ function ProductGallery({
             fill
             priority
             sizes="(max-width: 1024px) 92vw, 520px"
-            className="object-contain p-8"
+            className="object-contain p-5 xsmall:p-8"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-gray-400">
@@ -815,7 +950,7 @@ function ProductGallery({
           </div>
         )}
       </div>
-      <div className="mt-5 flex gap-4">
+      <div className="no-scrollbar mt-4 flex max-w-full gap-3 overflow-x-auto overscroll-x-contain pb-1 small:mt-5 small:gap-4">
         {images.slice(0, 5).map((image, index) => (
           <button
             type="button"
@@ -823,8 +958,8 @@ function ProductGallery({
             onClick={() => image.url && setActiveImage(image.url)}
             className={
               image.url === activeImage
-                ? "relative h-20 w-20 rounded-base border-2 border-brand bg-white"
-                : "relative h-20 w-20 rounded-base border border-gray-200 bg-white"
+                ? "relative h-16 w-16 shrink-0 rounded-base border-2 border-brand bg-white xsmall:h-20 xsmall:w-20"
+                : "relative h-16 w-16 shrink-0 rounded-base border border-gray-200 bg-white xsmall:h-20 xsmall:w-20"
             }
             aria-label={`View image ${index + 1}`}
           >
@@ -893,12 +1028,15 @@ function ProductOptionGroup({
 
 function ProductMeta({
   product,
+  selectedVariant,
   brandName,
 }: {
   product: HttpTypes.StoreProduct
+  selectedVariant?: HttpTypes.StoreProductVariant
   brandName?: string
 }) {
-  const sku = product.variants?.find((variant) => variant.sku)?.sku
+  const sku =
+    selectedVariant?.sku ?? product.variants?.find((variant) => variant.sku)?.sku
   const category = product.categories?.[0]?.name
 
   return (
@@ -940,14 +1078,14 @@ function ProductTabs({
 }) {
   const tabs = [
     { key: "description", label: "Description" },
-    { key: "reviews", label: `Reviews (${detail?.review_summary?.total_reviews ?? 0})` },
-    { key: "additional", label: "Additional Information" },
     { key: "specifications", label: "Specifications" },
+    { key: "additional", label: "Additional Information" },
+    { key: "reviews", label: `Reviews (${detail?.review_summary?.total_reviews ?? 0})` },
   ]
 
   return (
     <section className="mt-12">
-      <div className="flex gap-8 overflow-x-auto border-b border-gray-200">
+      <div className="no-scrollbar flex max-w-full gap-6 overflow-x-auto overscroll-x-contain border-b border-gray-200 small:gap-8">
         {tabs.map((tab) => (
           <button
             type="button"
@@ -955,8 +1093,8 @@ function ProductTabs({
             onClick={() => setActiveTab(tab.key)}
             className={
               activeTab === tab.key
-                ? "border-b-2 border-brand py-4 text-sm font-black uppercase text-black"
-                : "py-4 text-sm font-bold uppercase text-gray-400 hover:text-black"
+                ? "shrink-0 border-b-2 border-brand py-4 text-sm font-black uppercase text-black"
+                : "shrink-0 py-4 text-sm font-bold uppercase text-gray-400 hover:text-black"
             }
           >
             {tab.label}
@@ -967,9 +1105,9 @@ function ProductTabs({
         {activeTab === "description" && (
           <DescriptionContent product={product} detail={detail} />
         )}
-        {activeTab === "reviews" && <ReviewsContent detail={detail} reviews={reviews} />}
-        {activeTab === "additional" && <AdditionalContent detail={detail} />}
         {activeTab === "specifications" && <SpecificationsContent detail={detail} />}
+        {activeTab === "additional" && <AdditionalContent detail={detail} />}
+        {activeTab === "reviews" && <ReviewsContent detail={detail} reviews={reviews} />}
       </div>
     </section>
   )
@@ -986,7 +1124,7 @@ function DescriptionContent({
 
   if (!richDescription?.body_html) {
     return (
-      <p className="max-w-5xl text-sm leading-7 text-gray-700">
+      <p className="max-w-5xl text-justify text-sm leading-7 text-gray-700">
         {product.description || "Product description is not available."}
       </p>
     )

@@ -5,10 +5,13 @@ import Image from "next/image"
 import { useParams } from "next/navigation"
 
 import { addToCart } from "@lib/data/cart"
+import type { KokoCheckoutBranding } from "@lib/data/koko-branding"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
+import { kokoInstallmentCardLabelFromAmount } from "@lib/util/koko-installments"
 import { openSideCart } from "@lib/util/side-cart-event"
+import KokoCardPaymentLine from "@modules/common/components/koko-card-payment-line"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import ProductCardRating from "@modules/common/components/product-card-rating"
 import PlaceholderImage from "@modules/common/icons/placeholder-image"
@@ -21,12 +24,16 @@ type BestSellingProductCardProps = {
   product: FeaturedProductCard
   priority: boolean
   variant?: "raised" | "flat"
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
 }
 
 const BestSellingProductCard = ({
   product,
   priority,
   variant = "raised",
+  kokoBranding,
+  kokoAvailable = false,
 }: BestSellingProductCardProps) => {
   const countryCode = useParams().countryCode as string
   const [isAddingToCart, setIsAddingToCart] = useState(false)
@@ -35,6 +42,9 @@ const BestSellingProductCard = ({
     !!product.default_variant?.id &&
     product.inventory.purchasable &&
     product.price.status === "available"
+  const hasMultipleVariants =
+    product.has_multiple_variants || (product.variant_count ?? 1) > 1
+  const canAddDirectly = isPurchasable && !hasMultipleVariants
   const displayBadges = product.badges
     .filter((badge) => !isFeaturedBadge(badge) && !isBenefitBadge(badge))
     .slice(0, 1)
@@ -48,6 +58,10 @@ const BestSellingProductCard = ({
   const handleAddToCart = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
     event.stopPropagation()
+
+    if (hasMultipleVariants) {
+      return
+    }
 
     if (!product.default_variant?.id) {
       notify.error("Please select a valid product.")
@@ -136,7 +150,7 @@ const BestSellingProductCard = ({
 
         <WishlistProductButton
           productId={product.product_id ?? product.id}
-          variantId={product.default_variant?.id}
+          variantId={hasMultipleVariants ? undefined : product.default_variant?.id}
           productTitle={product.title}
           toastId={`best-selling-wishlist:${product.id}`}
           variant="best-selling"
@@ -181,22 +195,22 @@ const BestSellingProductCard = ({
       <div className={`flex min-h-0 flex-1 flex-col large:px-3.5 ${
         isFlat ? "px-2.5 py-2 medium:px-3 medium:py-2.5" : "px-3 py-2.5"
       }`}>
-        <div className="flex min-h-[20px] items-center gap-2">
+        <div className="flex min-h-[26px] items-center gap-2.5 overflow-hidden">
           {product.brand?.logo_url ? (
             <span className={`relative block flex-shrink-0 ${
-              isFlat ? "h-[16px] w-[44px] medium:h-[18px] medium:w-[50px]" : "h-[18px] w-[50px]"
+              isFlat ? "h-[22px] w-[66px] medium:h-[24px] medium:w-[74px]" : "h-[24px] w-[72px]"
             }`}>
               <Image
                 src={product.brand.logo_url}
                 alt={product.brand.logo_alt_text || `${product.brand.name} logo`}
                 fill
-                sizes="50px"
+                sizes={isFlat ? "(min-width: 1024px) 74px, 66px" : "72px"}
                 className="object-contain object-left"
               />
             </span>
           ) : product.brand?.name ? (
             <span className={`line-clamp-1 font-bold uppercase text-black ${
-              isFlat ? "max-w-[48px] text-[9px] leading-4 medium:max-w-[58px] medium:text-[10px]" : "max-w-[58px] text-[10px] leading-4"
+              isFlat ? "max-w-[66px] text-[10px] leading-4 medium:max-w-[74px] medium:text-[11px]" : "max-w-[72px] text-[11px] leading-4"
             }`}>
               {product.brand.name}
             </span>
@@ -205,7 +219,7 @@ const BestSellingProductCard = ({
             <span className="h-4 w-px flex-shrink-0 bg-[#d4d4d8]" />
           )}
           {product.category?.name && (
-            <span className={`line-clamp-1 leading-4 text-[#9ca3af] ${
+            <span className={`line-clamp-1 min-w-0 flex-1 leading-4 text-[#9ca3af] ${
               isFlat ? "text-[9px] medium:text-[10px]" : "text-[10px]"
             }`}>
               {product.category.name}
@@ -242,29 +256,54 @@ const BestSellingProductCard = ({
 
         <div className={`mt-auto flex items-center justify-between gap-2 border-t border-[#e5e7eb] ${
           isFlat
-            ? "-mx-2.5 min-h-[48px] px-2.5 pt-2 medium:-mx-3 medium:min-h-[52px] medium:px-3 large:-mx-3.5 large:px-3.5"
-            : "-mx-3 min-h-[52px] px-3 pt-2 large:-mx-3.5 large:px-3.5"
+            ? "-mx-2.5 min-h-[74px] px-2.5 pt-2 medium:-mx-3 medium:min-h-[72px] medium:px-3 large:-mx-3.5 large:px-3.5"
+            : "-mx-3 min-h-[68px] px-3 pt-2 large:-mx-3.5 large:px-3.5"
         }`}>
-          <ProductCardPrice product={product} />
-          <button
-            type="button"
-            onClick={handleAddToCart}
-            disabled={!isPurchasable || isAddingToCart}
-            aria-label={`Add ${product.title} to cart`}
-            title={isAddingToCart ? "Adding to cart" : "Add to cart"}
-            className={`flex flex-shrink-0 items-center justify-center rounded-[8px] border border-brand bg-white text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white ${
-              isFlat ? "h-8 w-9 medium:h-8 medium:w-9" : "h-9 w-10 medium:h-8 medium:w-9"
-            }`}
-          >
-            <ShoppingCartIcon size={15} />
-          </button>
+          <ProductCardPrice
+            product={product}
+            kokoBranding={kokoBranding}
+            kokoAvailable={kokoAvailable}
+          />
+          {hasMultipleVariants && isPurchasable ? (
+            <LocalizedClientLink
+              href={`/products/${product.handle}`}
+              aria-label={`Select options for ${product.title}`}
+              title="Select options"
+              className={`flex flex-shrink-0 items-center justify-center rounded-[8px] border border-brand bg-white text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${
+                isFlat ? "h-8 w-9 medium:h-8 medium:w-9" : "h-9 w-10 medium:h-8 medium:w-9"
+              }`}
+            >
+              <ShoppingCartIcon size={15} />
+            </LocalizedClientLink>
+          ) : (
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={!canAddDirectly || isAddingToCart}
+              aria-label={`Add ${product.title} to cart`}
+              title={isAddingToCart ? "Adding to cart" : "Add to cart"}
+              className={`flex flex-shrink-0 items-center justify-center rounded-[8px] border border-brand bg-white text-brand transition-colors hover:bg-brand hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white ${
+                isFlat ? "h-8 w-9 medium:h-8 medium:w-9" : "h-9 w-10 medium:h-8 medium:w-9"
+              }`}
+            >
+              <ShoppingCartIcon size={15} />
+            </button>
+          )}
         </div>
       </div>
     </article>
   )
 }
 
-const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
+const ProductCardPrice = ({
+  product,
+  kokoBranding,
+  kokoAvailable = false,
+}: {
+  product: FeaturedProductCard
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
+}) => {
   if (
     product.price.status !== "available" ||
     product.price.calculated_amount === null
@@ -276,9 +315,16 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
     )
   }
 
+  const kokoInstallment = kokoAvailable
+    ? kokoInstallmentCardLabelFromAmount(
+        product.price.calculated_amount,
+        product.price.currency_code
+      )
+    : null
+
   return (
-    <span className="flex min-w-0 flex-1 flex-col">
-      <span className="whitespace-normal break-words text-[11px] font-bold leading-4 text-black medium:text-[12px]">
+    <span className="flex min-w-0 flex-1 flex-col overflow-hidden pr-1">
+      <span className="min-w-0 whitespace-normal break-words text-[11px] font-bold leading-4 text-black medium:text-[12px]">
         {convertToLocale({
           amount: product.price.calculated_amount,
           currency_code: product.price.currency_code,
@@ -293,6 +339,13 @@ const ProductCardPrice = ({ product }: { product: FeaturedProductCard }) => {
             maximumFractionDigits: 2,
           })}
         </span>
+      )}
+      {kokoInstallment && (
+        <KokoCardPaymentLine
+          amount={kokoInstallment}
+          branding={kokoBranding}
+          className="mt-0.5 text-[9px] leading-3 xsmall:text-[10px] xsmall:leading-4"
+        />
       )}
     </span>
   )

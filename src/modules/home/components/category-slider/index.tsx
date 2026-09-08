@@ -80,14 +80,14 @@ const CategorySlider = ({ categories }: CategorySliderProps) => {
 
         <div
           ref={scrollerRef}
-          className="no-scrollbar grid auto-cols-[minmax(248px,82vw)] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 pr-4 xsmall:auto-cols-[minmax(280px,72vw)] sm:auto-cols-[minmax(300px,46vw)] md:auto-cols-[calc((100%_-_20px)_/_2)] md:gap-5 md:pr-1 small:auto-cols-[calc((100%_-_20px)_/_2)] medium:auto-cols-[calc((100%_-_60px)_/_4)]"
+          className="no-scrollbar grid auto-cols-[calc((100%_-_12px)_/_2)] grid-flow-col gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 sm:auto-cols-[calc((100%_-_12px)_/_2)] md:auto-cols-[calc((100%_-_20px)_/_2)] md:gap-5 md:pr-1 small:auto-cols-[calc((100%_-_20px)_/_2)] medium:auto-cols-[calc((100%_-_60px)_/_4)]"
         >
           {categories.map((category, index) => (
             <LocalizedClientLink
               key={category.id}
               href={`/categories/${category.handle}`}
               data-category-card
-              className="group relative flex h-[316px] w-full min-w-0 snap-start overflow-hidden rounded-[8px] border border-transparent bg-white px-4 pb-5 pt-0 transition-colors hover:border-brand/40 xsmall:h-[336px] xsmall:px-5 sm:h-[348px] md:h-[360px] medium:h-[382px]"
+              className="group relative flex h-[238px] w-full min-w-0 snap-start overflow-hidden rounded-[8px] border border-transparent bg-white px-2.5 pb-4 pt-0 transition-colors hover:border-brand/40 xsmall:h-[300px] xsmall:px-4 sm:h-[348px] sm:px-5 md:h-[360px] medium:h-[382px]"
               style={{
                 backgroundImage: `url("${category.background.url}")`,
                 backgroundSize: "100% 92%",
@@ -97,23 +97,23 @@ const CategorySlider = ({ categories }: CategorySliderProps) => {
             >
               <div className="absolute inset-0 bg-white/10" />
               <div className="relative z-10 flex h-full w-full flex-col justify-between">
-                <div className="relative mx-auto -mt-1 h-[196px] w-full flex-shrink-0 xsmall:h-[214px] sm:h-[226px] md:h-[238px] medium:h-[252px]">
+                <div className="relative mx-auto -mt-1 h-[142px] w-full flex-shrink-0 xsmall:h-[184px] sm:h-[226px] md:h-[238px] medium:h-[252px]">
                   <Image
                     src={category.image.url}
                     alt={category.image.alt}
                     fill
                     priority={index < 4}
-                    sizes="(min-width: 1280px) 282px, (min-width: 1024px) 45vw, (min-width: 768px) 42vw, 82vw"
+                    sizes="(min-width: 1280px) 282px, (min-width: 1024px) 45vw, (min-width: 768px) 42vw, 46vw"
                     className="object-contain object-top transition-transform duration-300 group-hover:scale-[1.03]"
                   />
                 </div>
 
-                <div className="min-h-[66px] px-1 pb-0 xsmall:px-2 small:px-3">
-                  <h3 className="line-clamp-1 text-[14px] font-bold leading-5 tracking-normal text-black xsmall:text-[15px] small:text-[17px]">
+                <div className="min-h-[58px] px-0.5 pb-0 xsmall:min-h-[66px] xsmall:px-2 small:px-3">
+                  <h3 className="line-clamp-1 text-[12px] font-bold leading-4 tracking-normal text-black xsmall:text-[15px] xsmall:leading-5 small:text-[17px]">
                     {category.name}
                   </h3>
-                  <div className="mt-1 min-h-[34px]">
-                    <p className="line-clamp-2 text-[11px] leading-[16px] tracking-normal text-black xsmall:text-[12px] xsmall:leading-[17px] small:text-[13px]">
+                  <div className="mt-1 min-h-[32px] xsmall:min-h-[34px]">
+                    <p className="line-clamp-2 text-[10px] leading-[15px] tracking-normal text-black xsmall:text-[12px] xsmall:leading-[17px] small:text-[13px]">
                       {category.description}
                     </p>
                   </div>

@@ -17,13 +17,20 @@ export type DesktopCategoryDrawerLink = {
 type DesktopCategoryDrawerProps = {
   label: string
   links: DesktopCategoryDrawerLink[]
+  primaryLinks?: DesktopCategoryDrawerLink[]
+  compact?: boolean
 }
 
 export default function DesktopCategoryDrawer({
   label,
   links,
+  primaryLinks,
+  compact = false,
 }: DesktopCategoryDrawerProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<"menu" | "categories">(
+    "categories"
+  )
   const pathname = usePathname()
   const previousOverflowRef = useRef<string | null>(null)
 
@@ -50,14 +57,16 @@ export default function DesktopCategoryDrawer({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="flex h-[46px] w-[220px] flex-shrink-0 items-center rounded-md bg-[#1f1a1a] px-5 font-medium text-white transition-colors hover:bg-[#2b2525] focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2"
+        className={`flex h-[46px] flex-shrink-0 items-center rounded-md bg-[#1f1a1a] font-medium text-white transition-colors hover:bg-[#2b2525] focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 ${
+          compact ? "w-10 justify-center px-0" : "w-[220px] px-5"
+        }`}
         aria-label={`Open ${label}`}
         aria-expanded={isOpen}
         data-testid="desktop-category-drawer-trigger"
       >
         <span className="flex min-w-0 items-center gap-3">
           <LayoutGridIcon size={18} />
-          <span className="truncate text-[14.5px]">{label}</span>
+          {!compact && <span className="truncate text-[14.5px]">{label}</span>}
         </span>
       </button>
 
@@ -118,15 +127,45 @@ export default function DesktopCategoryDrawer({
                         <XIcon size={24} strokeWidth={2} />
                       </button>
                     </div>
-                    <div className="mt-4 h-px w-14 bg-brand" />
+                    {primaryLinks ? (
+                      <div className="relative mt-5 grid grid-cols-2 border-y border-gray-100">
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("menu")}
+                          className={`h-12 text-[14px] font-bold transition-colors ${
+                            activeTab === "menu" ? "text-brand" : "text-[#596070]"
+                          }`}
+                        >
+                          Main Menu
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("categories")}
+                          className={`h-12 text-[14px] font-bold transition-colors ${
+                            activeTab === "categories" ? "text-brand" : "text-[#596070]"
+                          }`}
+                        >
+                          Categories
+                        </button>
+                        <span
+                          className={`absolute bottom-0 left-0 h-0.5 w-1/2 bg-brand transition-transform duration-300 ${
+                            activeTab === "categories"
+                              ? "translate-x-full"
+                              : "translate-x-0"
+                          }`}
+                        />
+                      </div>
+                    ) : (
+                      <div className="mt-4 h-px w-14 bg-brand" />
+                    )}
                   </div>
 
                   <nav
                     className="min-h-0 flex-1 overflow-y-auto px-5 py-3"
-                    aria-label={label}
+                    aria-label={activeTab === "menu" ? "Main Menu" : label}
                   >
                     <ul className="divide-y divide-gray-100">
-                      {links.map((link) => (
+                      {(activeTab === "menu" && primaryLinks ? primaryLinks : links).map((link) => (
                         <li key={`${link.label}-${link.href}`}>
                           <LocalizedClientLink
                             href={link.href}

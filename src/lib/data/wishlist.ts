@@ -23,6 +23,8 @@ export type WishlistProductCard = {
   subtitle: string | null
   thumbnail: { url: string; alt: string } | null
   default_variant: { id: string; title: string; sku: string | null } | null
+  variant_count?: number
+  has_multiple_variants?: boolean
   price: {
     currency_code: string
     calculated_amount: number | null

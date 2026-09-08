@@ -27,25 +27,42 @@ const HomePromoBanner = ({ sections }: HomePromoBannerProps) => {
 
   const imageUrl =
     item?.media?.url ?? item?.media_url ?? (!banner ? FALLBACK_BANNER_IMAGE : null)
+  const mobileImageUrl = stringFromConfig(item?.config?.mobile_media_url)
+  const mobileAltText = stringFromConfig(item?.config?.mobile_media_alt_text)
+  const desktopAltText =
+    item?.media?.alt_text ??
+    item?.media_alt_text ??
+    item?.title ??
+    FALLBACK_BANNER_ALT
 
   if (!imageUrl) {
     return null
   }
 
-  const image = (
+  const desktopImage = (
     <Image
       src={imageUrl}
-      alt={
-        item?.media?.alt_text ??
-        item?.media_alt_text ??
-        item?.title ??
-        FALLBACK_BANNER_ALT
-      }
+      alt={desktopAltText}
       width={1627}
       height={512}
       sizes="(min-width: 1280px) 1280px, (min-width: 768px) calc(100vw - 96px), calc(100vw - 32px)"
-      className="h-auto w-full"
+      className={mobileImageUrl ? "hidden h-auto w-full small:block" : "h-auto w-full"}
     />
+  )
+  const image = mobileImageUrl ? (
+    <>
+      <Image
+        src={mobileImageUrl}
+        alt={mobileAltText || desktopAltText}
+        width={768}
+        height={576}
+        sizes="calc(100vw - 32px)"
+        className="h-auto w-full small:hidden"
+      />
+      {desktopImage}
+    </>
+  ) : (
+    desktopImage
   )
 
   return (
@@ -71,6 +88,10 @@ const HomePromoBanner = ({ sections }: HomePromoBannerProps) => {
 function isSafeStorefrontPath(value?: string | null) {
   const path = value?.trim()
   return Boolean(path && path.startsWith("/") && !path.startsWith("//") && !path.includes("\\"))
+}
+
+function stringFromConfig(value: unknown) {
+  return typeof value === "string" ? value.trim() : ""
 }
 
 export default HomePromoBanner

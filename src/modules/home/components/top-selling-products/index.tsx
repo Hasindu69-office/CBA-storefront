@@ -1,9 +1,12 @@
 import { listTopSellingProductCards } from "@lib/data/top-selling-products"
+import type { KokoCheckoutBranding } from "@lib/data/koko-branding"
 import type { HomepageCmsSection } from "@lib/data/homepage"
 import FeaturedProductSlider from "@modules/home/components/featured-product-slider"
 
 type TopSellingProductsSectionProps = {
   sections: HomepageCmsSection[]
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
 }
 
 const TOP_SELLING_PLACEMENT = "homepage_top_selling_products"
@@ -15,6 +18,8 @@ const MAX_LIMIT = 24
 
 const TopSellingProductsSection = async ({
   sections,
+  kokoBranding,
+  kokoAvailable = false,
 }: TopSellingProductsSectionProps) => {
   const section = sections.find(isTopSellingSection)
   if (!section) {
@@ -58,6 +63,8 @@ const TopSellingProductsSection = async ({
       titleId="top-selling-products-title"
       mobileCompactCards
       sectionClassName="bg-white pt-7 pb-11 sm:pt-9 sm:pb-14 md:pb-16 small:py-14"
+      kokoBranding={kokoBranding}
+      kokoAvailable={kokoAvailable}
     />
   )
 }

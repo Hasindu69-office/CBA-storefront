@@ -101,12 +101,22 @@ const Shipping: React.FC<ShippingProps> = ({
           const pricesMap: Record<string, number> = {}
           res
             .filter((r) => r.status === "fulfilled")
-            .forEach((p) => (pricesMap[p.value?.id || ""] = p.value?.amount!))
+            .forEach((p) => {
+              if (p.value?.id && typeof p.value.amount === "number") {
+                pricesMap[p.value.id] = p.value.amount
+              }
+            })
 
           setCalculatedPricesMap(pricesMap)
           setIsLoadingPrices(false)
         })
+      } else {
+        setCalculatedPricesMap({})
+        setIsLoadingPrices(false)
       }
+    } else {
+      setCalculatedPricesMap({})
+      setIsLoadingPrices(false)
     }
 
     if (_pickupMethods?.find((m) => m.id === shippingMethodId)) {

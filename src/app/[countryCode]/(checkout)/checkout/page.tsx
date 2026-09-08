@@ -2,6 +2,7 @@ import { retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
 import { listCartShippingMethods } from "@lib/data/fulfillment"
 import { listCartPaymentMethods } from "@lib/data/payment"
+import { retrieveKokoCheckoutBranding } from "@lib/data/koko-branding"
 import { retrieveWebxpayCheckoutBranding } from "@lib/data/webxpay-branding"
 import PaymentWrapper from "@modules/checkout/components/payment-wrapper"
 import CbaCheckoutTemplate from "@modules/checkout/templates/cba-checkout-template"
@@ -22,10 +23,11 @@ export default async function Checkout() {
   }
 
   const customer = await retrieveCustomer()
-  const [shippingMethods, paymentMethods, webxpayBranding] = await Promise.all([
+  const [shippingMethods, paymentMethods, webxpayBranding, kokoBranding] = await Promise.all([
     listCartShippingMethods(cart.id),
     listCartPaymentMethods(cart.region?.id ?? ""),
     retrieveWebxpayCheckoutBranding(),
+    retrieveKokoCheckoutBranding(),
   ])
 
   if (!shippingMethods || !paymentMethods) {
@@ -40,6 +42,7 @@ export default async function Checkout() {
         shippingMethods={shippingMethods}
         paymentMethods={paymentMethods}
         webxpayBranding={webxpayBranding}
+        kokoBranding={kokoBranding}
       />
     </PaymentWrapper>
   )

@@ -4,8 +4,11 @@ import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 import Image from "next/image"
 import Link from "next/link"
+import type { KokoCheckoutBranding } from "@lib/data/koko-branding"
+import { kokoInstallmentCardLabelFromAmount } from "@lib/util/koko-installments"
 
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import KokoCardPaymentLine from "@modules/common/components/koko-card-payment-line"
 import { FeaturedProductCardItem } from "@modules/home/components/featured-product-slider"
 import {
   HeartIcon,
@@ -21,12 +24,16 @@ type TabbedSaleProductsClientProps = {
   banner: TabbedSaleBanner
   tabs: TabbedSaleTab[]
   visibility: TabbedSaleProductsVisibility
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
 }
 
 const TabbedSaleProductsClient = ({
   banner,
   tabs,
   visibility,
+  kokoBranding,
+  kokoAvailable = false,
 }: TabbedSaleProductsClientProps) => {
   const [activeTabKey, setActiveTabKey] = useState(tabs[0]?.key ?? "")
   const activeTab = tabs.find((tab) => tab.key === activeTabKey) ?? tabs[0] ?? null
@@ -146,7 +153,11 @@ const TabbedSaleProductsClient = ({
 
             <div className="flex flex-col gap-4 medium:items-start">
               <Countdown endsAt={banner.offerEndsAt} />
-              <FeaturedPrice product={banner.product} />
+              <FeaturedPrice
+                product={banner.product}
+                kokoBranding={kokoBranding}
+                kokoAvailable={kokoAvailable}
+              />
               <SaleCta
                 href={banner.productUrl ?? banner.ctaUrl}
                 className="flex h-11 w-full max-w-[300px] self-center items-center justify-center gap-2 rounded-[8px] border border-black bg-white px-5 text-[13px] font-bold uppercase text-black transition-colors hover:bg-black hover:text-white medium:self-auto"
@@ -167,6 +178,8 @@ const TabbedSaleProductsClient = ({
                 product={product}
                 priority={index < 5}
                 mobileCompact
+                kokoBranding={kokoBranding}
+                kokoAvailable={kokoAvailable}
               />
             ))}
           </div>
@@ -234,22 +247,41 @@ function TimeBox({ value, label }: { value: number; label: string }) {
 
 function FeaturedPrice({
   product,
+  kokoBranding,
+  kokoAvailable = false,
 }: {
   product: TabbedSaleTab["products"][number] | null
+  kokoBranding?: KokoCheckoutBranding | null
+  kokoAvailable?: boolean
 }) {
   if (!product || product.price.calculated_amount === null) {
     return null
   }
+  const kokoInstallment = kokoAvailable
+    ? kokoInstallmentCardLabelFromAmount(
+        product.price.calculated_amount,
+        product.price.currency_code
+      )
+    : null
 
   return (
-    <div className="flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 self-center medium:justify-start medium:self-auto">
-      <p className="whitespace-nowrap text-[24px] font-bold leading-8 text-black">
-        {formatAmount(product.price.calculated_amount, product.price.currency_code)}
-      </p>
-      {product.price.original_amount !== null && product.price.has_discount && (
-        <p className="whitespace-nowrap text-[13px] font-medium text-[#9a9aa2] line-through">
-          {formatAmount(product.price.original_amount, product.price.currency_code)}
+    <div className="flex flex-col items-center gap-y-1 self-center medium:items-start medium:self-auto">
+      <div className="flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 medium:justify-start">
+        <p className="whitespace-nowrap text-[24px] font-bold leading-8 text-black">
+          {formatAmount(product.price.calculated_amount, product.price.currency_code)}
         </p>
+        {product.price.original_amount !== null && product.price.has_discount && (
+          <p className="whitespace-nowrap text-[13px] font-medium text-[#9a9aa2] line-through">
+            {formatAmount(product.price.original_amount, product.price.currency_code)}
+          </p>
+        )}
+      </div>
+      {kokoInstallment && (
+        <KokoCardPaymentLine
+          amount={kokoInstallment}
+          branding={kokoBranding}
+          className="text-[12px]"
+        />
       )}
     </div>
   )

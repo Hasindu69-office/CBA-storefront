@@ -51,7 +51,7 @@ export default function ScrollToTopButton() {
       type="button"
       onClick={scrollToTop}
       aria-label="Scroll to top"
-      className={`fixed bottom-[calc(92px+env(safe-area-inset-bottom))] right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/80 bg-white/95 text-brand shadow-[0_10px_30px_rgba(17,24,39,0.18),0_2px_8px_rgba(17,24,39,0.10)] backdrop-blur transition-all duration-200 ease-out small:hidden ${
+      className={`fixed bottom-[calc(92px+env(safe-area-inset-bottom))] right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/80 bg-white/95 text-brand shadow-[0_10px_30px_rgba(17,24,39,0.18),0_2px_8px_rgba(17,24,39,0.10)] backdrop-blur transition-all duration-200 ease-out small:bottom-6 small:right-6 small:h-12 small:w-12 ${
         isVisible
           ? "translate-y-0 opacity-100"
           : "pointer-events-none translate-y-2 opacity-0"
