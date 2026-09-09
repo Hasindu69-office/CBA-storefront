@@ -8,6 +8,16 @@ import { headers as nextHeaders } from "next/headers"
 import { redirect } from "next/navigation"
 import { localizedPath } from "@lib/util/routes"
 import {
+  normalizeEmail,
+  normalizeText,
+  validateEmail,
+  validatePersonName,
+  validatePlaceName,
+  validateSafeAddressText,
+  validateSriLankanPhone,
+  validateSriLankanPostalCode,
+} from "@lib/util/storefront-form-validation"
+import {
   getAuthHeaders,
   getCacheTag,
   getCartId,
@@ -17,10 +27,7 @@ import {
   setCartId,
 } from "./cookies"
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const PHONE_PATTERN = /^[+()\d\s-]{7,24}$/
 const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
-const POSTAL_CODE_PATTERN = /^[A-Za-z0-9\s-]{3,16}$/
 const OAUTH_PROVIDERS = ["google", "facebook", "apple"] as const
 type OAuthProvider = (typeof OAUTH_PROVIDERS)[number]
 const CART_ID_PATTERN = /^cart_[A-Za-z0-9_-]+$/
@@ -55,6 +62,11 @@ export const retrieveCustomer =
   }
 
 export const updateCustomer = async (body: HttpTypes.StoreUpdateCustomer) => {
+  const validationError = validateCustomerProfileUpdate(body)
+  if (validationError) {
+    throw new Error(validationError)
+  }
+
   const headers = {
     ...(await getAuthHeaders()),
   }
@@ -74,7 +86,7 @@ export async function signup(_currentState: unknown, formData: FormData) {
   const password = text(formData.get("password"))
   const confirmPassword = text(formData.get("confirm_password"))
   const customerForm = {
-    email: text(formData.get("email")).toLowerCase(),
+    email: normalizeEmail(formData.get("email")),
     first_name: text(formData.get("first_name")),
     last_name: text(formData.get("last_name")),
     phone: text(formData.get("phone")),
@@ -122,7 +134,7 @@ export async function signup(_currentState: unknown, formData: FormData) {
 }
 
 export async function login(_currentState: unknown, formData: FormData) {
-  const email = text(formData.get("email")).toLowerCase()
+  const email = normalizeEmail(formData.get("email"))
   const password = text(formData.get("password"))
 
   const validationError = validateLogin(email, password)
@@ -148,8 +160,8 @@ export async function login(_currentState: unknown, formData: FormData) {
 }
 
 export async function requestPasswordReset(_currentState: unknown, formData: FormData) {
-  const email = text(formData.get("email")).toLowerCase()
-  if (!EMAIL_PATTERN.test(email)) {
+  const email = normalizeEmail(formData.get("email"))
+  if (validateEmail(email)) {
     return "Enter a valid email address."
   }
   try {
@@ -165,11 +177,11 @@ export async function requestPasswordReset(_currentState: unknown, formData: For
 }
 
 export async function resetPassword(_currentState: unknown, formData: FormData) {
-  const email = text(formData.get("email")).toLowerCase()
+  const email = normalizeEmail(formData.get("email"))
   const token = text(formData.get("token"))
   const password = text(formData.get("password"))
   const confirmPassword = text(formData.get("confirm_password"))
-  if (!EMAIL_PATTERN.test(email)) {
+  if (validateEmail(email)) {
     return "Enter a valid email address."
   }
   if (!/^[A-Za-z0-9._-]{20,2048}$/.test(token)) {
@@ -535,7 +547,7 @@ function publishableKeyHeader(): Record<string, string> {
 }
 
 function validateLogin(email: string, password: string) {
-  if (!EMAIL_PATTERN.test(email)) {
+  if (validateEmail(email)) {
     return "Enter a valid email address."
   }
   if (!password) {
@@ -553,11 +565,16 @@ function validateSignup(
   if (!customer.first_name || !customer.last_name) {
     return "First name and last name are required."
   }
-  if (!EMAIL_PATTERN.test(customer.email)) {
+  const firstNameError = validatePersonName(customer.first_name, "First name")
+  if (firstNameError) return firstNameError
+  const lastNameError = validatePersonName(customer.last_name, "Last name")
+  if (lastNameError) return lastNameError
+  if (validateEmail(customer.email)) {
     return "Enter a valid email address."
   }
-  if (customer.phone && !PHONE_PATTERN.test(customer.phone)) {
-    return "Enter a valid phone number."
+  const phoneError = validateSriLankanPhone(customer.phone, { required: false })
+  if (phoneError) {
+    return phoneError
   }
   if (!isStrongPassword(password)) {
     return "Password must be at least 8 characters and include letters and numbers."
@@ -631,7 +648,23 @@ function decodeAuthProfile(token: string) {
 }
 
 function text(value: unknown) {
-  return typeof value === "string" ? value.trim() : ""
+  return normalizeText(value)
+}
+
+function validateCustomerProfileUpdate(body: HttpTypes.StoreUpdateCustomer) {
+  if ("first_name" in body && body.first_name) {
+    const error = validatePersonName(String(body.first_name), "First name")
+    if (error) return error
+  }
+  if ("last_name" in body && body.last_name) {
+    const error = validatePersonName(String(body.last_name), "Last name")
+    if (error) return error
+  }
+  if ("phone" in body) {
+    const error = validateSriLankanPhone(String(body.phone ?? ""))
+    if (error) return error
+  }
+  return null
 }
 
 function isNextRedirect(error: unknown) {
@@ -661,9 +694,13 @@ export const addCustomerAddress = async (
     is_default_shipping: isDefaultShipping,
   }
 
-  const validationError = validateCustomerAddress(address)
-  if (validationError) {
-    return { success: false, error: validationError }
+  const fieldErrors = validateCustomerAddressFields(address)
+  if (Object.keys(fieldErrors).length) {
+    return {
+      success: false,
+      error: "Please check the highlighted address fields.",
+      fieldErrors,
+    }
   }
 
   const headers = {
@@ -734,12 +771,16 @@ export const updateCustomerAddress = async (
     address.phone = phone
   }
 
-  const validationError = validateCustomerAddress({
+  const fieldErrors = validateCustomerAddressFields({
     ...address,
     phone,
   })
-  if (validationError) {
-    return { success: false, error: validationError }
+  if (Object.keys(fieldErrors).length) {
+    return {
+      success: false,
+      error: "Please check the highlighted address fields.",
+      fieldErrors,
+    }
   }
 
   const headers = {
@@ -767,23 +808,52 @@ function validateCustomerAddress(address: {
   country_code?: string | null
   phone?: string | null
 }) {
+  const fieldErrors = validateCustomerAddressFields(address)
+  return firstFieldError(fieldErrors)
+}
+
+function validateCustomerAddressFields(address: {
+  first_name?: string | null
+  last_name?: string | null
+  address_1?: string | null
+  city?: string | null
+  postal_code?: string | null
+  country_code?: string | null
+  phone?: string | null
+}) {
+  const fieldErrors: Record<string, string> = {}
   if (!address.first_name || !address.last_name) {
-    return "First name and last name are required."
+    if (!address.first_name) fieldErrors.first_name = "First name is required."
+    if (!address.last_name) fieldErrors.last_name = "Last name is required."
   }
-  if (!address.address_1) {
-    return "Street address is required."
+  if (address.first_name) {
+    const firstNameError = validatePersonName(address.first_name, "First name")
+    if (firstNameError) fieldErrors.first_name = firstNameError
   }
-  if (!address.city) {
-    return "City is required."
+  if (address.last_name) {
+    const lastNameError = validatePersonName(address.last_name, "Last name")
+    if (lastNameError) fieldErrors.last_name = lastNameError
   }
+  const addressError = validateSafeAddressText(address.address_1 ?? "", "Street address")
+  if (addressError) fieldErrors.address_1 = addressError
+  const cityError = validatePlaceName(address.city ?? "", "City")
+  if (cityError) fieldErrors.city = cityError
   if (!address.country_code) {
-    return "Country is required."
+    fieldErrors.country_code = "Country is required."
+  } else if (address.country_code.toLowerCase() !== "lk") {
+    fieldErrors.country_code = "Country must be Sri Lanka."
   }
-  if (address.postal_code && !POSTAL_CODE_PATTERN.test(address.postal_code)) {
-    return "Enter a valid postal code."
+  const postalCodeError = validateSriLankanPostalCode(address.postal_code ?? "")
+  if (postalCodeError) fieldErrors.postal_code = postalCodeError
+  const phoneError = validateSriLankanPhone(address.phone ?? "", {
+    required: false,
+  })
+  if (phoneError) {
+    fieldErrors.phone = phoneError
   }
-  if (address.phone && !PHONE_PATTERN.test(address.phone)) {
-    return "Enter a valid phone number."
-  }
-  return null
+  return fieldErrors
+}
+
+function firstFieldError(fieldErrors: Record<string, string>) {
+  return Object.values(fieldErrors)[0] ?? null
 }

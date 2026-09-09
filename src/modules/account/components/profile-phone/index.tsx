@@ -8,6 +8,12 @@ import AccountInfo from "../account-info"
 import { HttpTypes } from "@medusajs/types"
 import { updateCustomer } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
+import {
+  sanitizeSriLankanPhoneInput,
+  SRI_LANKA_PHONE_EXAMPLE,
+  SRI_LANKA_PHONE_MAX_LENGTH,
+  validateSriLankanPhone,
+} from "@lib/util/storefront-form-validation"
 
 type MyInformationProps = {
   customer: HttpTypes.StoreCustomer
@@ -15,6 +21,7 @@ type MyInformationProps = {
 
 const ProfileEmail: React.FC<MyInformationProps> = ({ customer }) => {
   const [successState, setSuccessState] = React.useState(false)
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({})
 
   const updateCustomerPhone = async (
     _currentState: Record<string, unknown>,
@@ -52,8 +59,17 @@ const ProfileEmail: React.FC<MyInformationProps> = ({ customer }) => {
     }
   }, [state])
 
+  function validate(event: React.FormEvent<HTMLFormElement>) {
+    const phone = String(new FormData(event.currentTarget).get("phone") ?? "")
+    const error = validateSriLankanPhone(phone)
+    setFieldErrors(error ? { phone: error } : {})
+    if (error) {
+      event.preventDefault()
+    }
+  }
+
   return (
-    <form action={formAction} className="w-full">
+    <form action={formAction} onSubmit={validate} className="w-full" noValidate>
       <AccountInfo
         label="Phone"
         currentInfo={`${customer.phone}`}
@@ -67,10 +83,22 @@ const ProfileEmail: React.FC<MyInformationProps> = ({ customer }) => {
           <Input
             label="Phone"
             name="phone"
-            type="phone"
-            autoComplete="phone"
+            type="tel"
+            autoComplete="tel"
+            inputMode="tel"
+            maxLength={SRI_LANKA_PHONE_MAX_LENGTH}
+            placeholder={SRI_LANKA_PHONE_EXAMPLE}
             required
+            errors={fieldErrors}
             defaultValue={customer.phone ?? ""}
+            onChange={(event) => {
+              const sanitized = sanitizeSriLankanPhoneInput(event.currentTarget.value)
+              if (sanitized !== event.currentTarget.value) {
+                event.currentTarget.value = sanitized
+              }
+              const error = validateSriLankanPhone(sanitized)
+              setFieldErrors(error ? { phone: error } : {})
+            }}
             data-testid="phone-input"
           />
         </div>

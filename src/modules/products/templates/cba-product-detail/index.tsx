@@ -18,6 +18,7 @@ import { getProductPrice } from "@lib/util/get-product-price"
 import { hasPurchasablePrice, variantOptionsMap, visibleProductOptions } from "@lib/util/product-options"
 import { kokoInstallmentCardLabelFromAmount } from "@lib/util/koko-installments"
 import { convertToLocale } from "@lib/util/money"
+import { normalizeEmail, validateEmail } from "@lib/util/storefront-form-validation"
 import { openSideCart } from "@lib/util/side-cart-event"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
@@ -284,17 +285,16 @@ export default function CbaProductDetail({
   }
 
   function submitBackInStock() {
-    const email = waitlistEmail.trim()
-    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    const email = normalizeEmail(waitlistEmail)
+    const emailError = validateEmail(email)
 
     if (!selectedVariant?.id || !isValidVariant) {
       notify.error("Select the option you want.")
       setWaitlistState({ type: "error", message: "Select the option you want." })
       return
     }
-    if (!emailValid) {
-      notify.error("Enter a valid email address.")
-      setWaitlistState({ type: "error", message: "Enter a valid email address." })
+    if (emailError) {
+      setWaitlistState({ type: "error", message: emailError })
       return
     }
     if (!waitlistConsent) {
@@ -541,9 +541,27 @@ export default function CbaProductDetail({
                   <input
                     type="email"
                     value={waitlistEmail}
-                    onChange={(event) => setWaitlistEmail(event.target.value)}
+                    onChange={(event) => {
+                      setWaitlistEmail(event.target.value)
+                      const emailError = validateEmail(normalizeEmail(event.target.value))
+                      setWaitlistState(
+                        emailError
+                          ? { type: "error", message: emailError }
+                          : { type: null, message: "" }
+                      )
+                    }}
                     placeholder="Email address"
-                    className="h-11 w-full rounded-base border border-gray-200 px-3 text-sm outline-none focus:border-brand"
+                    aria-invalid={waitlistState.type === "error" || undefined}
+                    aria-describedby={
+                      waitlistState.type === "error"
+                        ? "back-in-stock-email-error"
+                        : undefined
+                    }
+                    className={`h-11 w-full rounded-base border px-3 text-sm outline-none focus:border-brand ${
+                      waitlistState.type === "error"
+                        ? "border-rose-300 bg-rose-50/40"
+                        : "border-gray-200"
+                    }`}
                     autoComplete="email"
                     disabled={isPending}
                   />
@@ -567,6 +585,11 @@ export default function CbaProductDetail({
                   </button>
                   {waitlistState.message && (
                     <p
+                      id={
+                        waitlistState.type === "error"
+                          ? "back-in-stock-email-error"
+                          : undefined
+                      }
                       className={
                         waitlistState.type === "success"
                           ? "text-xs text-green-700"

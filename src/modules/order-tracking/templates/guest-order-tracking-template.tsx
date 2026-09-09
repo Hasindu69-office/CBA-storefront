@@ -13,6 +13,14 @@ import {
   validateOtpClient,
 } from "../utils/format-tracking"
 import AccountOrderTrackingTemplate from "./account-order-tracking-template"
+import {
+  normalizeEmail,
+  sanitizeSriLankanPhoneInput,
+  SRI_LANKA_PHONE_EXAMPLE,
+  SRI_LANKA_PHONE_MAX_LENGTH,
+  validateEmail,
+  validateSriLankanPhone,
+} from "@lib/util/storefront-form-validation"
 
 type GuestOrderTrackingTemplateProps = {
   initialTracking?: CbaCustomerOrderTracking | null
@@ -184,7 +192,19 @@ export default function GuestOrderTrackingTemplate({
                 name="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setEmail(value)
+                  setFieldErrors((current) => {
+                    const next = { ...current }
+                    const emailError = value
+                      ? validateEmail(normalizeEmail(value))
+                      : null
+                    if (emailError) next.email = emailError
+                    else delete next.email
+                    return next
+                  })
+                }}
                 maxLength={254}
                 autoComplete="email"
                 className={inputClass}
@@ -200,10 +220,23 @@ export default function GuestOrderTrackingTemplate({
                 name="phone"
                 type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                maxLength={20}
+                onChange={(e) => {
+                  const value = sanitizeSriLankanPhoneInput(e.target.value)
+                  setPhone(value)
+                  setFieldErrors((current) => {
+                    const next = { ...current }
+                    const phoneError = validateSriLankanPhone(value, {
+                      required: false,
+                    })
+                    if (phoneError) next.phone = phoneError
+                    else delete next.phone
+                    return next
+                  })
+                }}
+                maxLength={SRI_LANKA_PHONE_MAX_LENGTH}
+                inputMode="tel"
                 autoComplete="tel"
-                placeholder="0771234567"
+                placeholder={SRI_LANKA_PHONE_EXAMPLE}
                 className={inputClass}
               />
             </Field>

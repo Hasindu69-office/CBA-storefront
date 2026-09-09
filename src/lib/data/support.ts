@@ -7,6 +7,8 @@ import type {
   SupportTicketDetail,
   SupportTicketListItem,
 } from "@modules/support/lib/types"
+import { SUPPORT_TICKET_CATEGORIES } from "@modules/support/lib/types"
+import { validateSafeMessageText } from "@lib/util/storefront-form-validation"
 
 type ListResponse = {
   success: boolean
@@ -76,6 +78,30 @@ export async function createSupportTicket(input: {
   source?: string
   client_message_id?: string
 }) {
+  const fieldErrors: Record<string, string> = {}
+  if (!SUPPORT_TICKET_CATEGORIES.includes(input.category)) {
+    fieldErrors.category = "Please select a category."
+  }
+  const subjectError = validateSafeMessageText(input.subject, "Subject", {
+    min: 5,
+    max: 120,
+  })
+  const messageError = validateSafeMessageText(input.message, "Message", {
+    min: 10,
+    max: 5000,
+  })
+  if (subjectError) fieldErrors.subject = subjectError
+  if (messageError) fieldErrors.message = messageError
+  if (Object.keys(fieldErrors).length) {
+    return {
+      success: false,
+      error: {
+        message: "Please check the highlighted fields and try again.",
+        fields: fieldErrors,
+      },
+    }
+  }
+
   const headers = await authHeaders()
   return sdk.client.fetch<ActionResponse>("/store/cba/v1/support/tickets", {
     method: "POST",

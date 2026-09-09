@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useEffect, useRef } from "react"
+import { useActionState, useEffect, useRef, useState } from "react"
 
 import {
   submitContactInquiry,
@@ -10,6 +10,17 @@ import {
   CONTACT_INQUIRY_CATEGORIES,
   PREFERRED_CONTACT_METHODS,
 } from "@modules/contact/lib/constants"
+import {
+  normalizeEmail,
+  sanitizePersonNameInput,
+  sanitizeSriLankanPhoneInput,
+  SRI_LANKA_PHONE_EXAMPLE,
+  SRI_LANKA_PHONE_MAX_LENGTH,
+  validateEmail,
+  validatePersonName,
+  validateSafeMessageText,
+  validateSriLankanPhone,
+} from "@lib/util/storefront-form-validation"
 
 type Props = {
   title: string
@@ -44,13 +55,43 @@ export default function ContactForm({ title, helper, successText }: Props) {
   )
   const formRef = useRef<HTMLFormElement>(null)
   const successRef = useRef<HTMLDivElement>(null)
+  const [clientErrors, setClientErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (state.status === "success") {
       formRef.current?.reset()
+      setClientErrors({})
       successRef.current?.focus()
     }
   }, [state.status])
+
+  function setFieldError(name: string, error: string | null) {
+    setClientErrors((current) => {
+      const next = { ...current }
+      if (error) next[name] = error
+      else delete next[name]
+      return next
+    })
+  }
+
+  function validateClient(event: React.FormEvent<HTMLFormElement>) {
+    const form = new FormData(event.currentTarget)
+    const next: Record<string, string> = {}
+    const nameError = validatePersonName(String(form.get("name") ?? ""), "Name", { max: 80 })
+    const emailError = validateEmail(normalizeEmail(form.get("email")))
+    const phoneError = validateSriLankanPhone(String(form.get("phone") ?? "").trim(), { required: false })
+    const subjectError = validateSafeMessageText(String(form.get("subject") ?? ""), "Subject", { min: 5, max: 120 })
+    const messageError = validateSafeMessageText(String(form.get("message") ?? ""), "Message", { min: 10, max: 2000 })
+    if (nameError) next.name = nameError
+    if (emailError) next.email = emailError
+    if (phoneError) next.phone = phoneError
+    if (subjectError) next.subject = subjectError
+    if (messageError) next.message = messageError
+    setClientErrors(next)
+    if (Object.keys(next).length) {
+      event.preventDefault()
+    }
+  }
 
   return (
     <section
@@ -88,6 +129,7 @@ export default function ContactForm({ title, helper, successText }: Props) {
       <form
         ref={formRef}
         action={formAction}
+        onSubmit={validateClient}
         className="mt-6 grid gap-4"
         noValidate
       >
@@ -109,8 +151,13 @@ export default function ContactForm({ title, helper, successText }: Props) {
             label="Full name"
             required
             disabled={isPending}
-            error={state.fieldErrors?.name}
+            error={clientErrors.name ?? state.fieldErrors?.name}
             autoComplete="name"
+            onChange={(event) => {
+              const sanitized = sanitizePersonNameInput(event.currentTarget.value)
+              if (sanitized !== event.currentTarget.value) event.currentTarget.value = sanitized
+              setFieldError("name", validatePersonName(sanitized, "Name", { max: 80 }))
+            }}
           />
           <Field
             id="contact-email"
@@ -119,8 +166,11 @@ export default function ContactForm({ title, helper, successText }: Props) {
             type="email"
             required
             disabled={isPending}
-            error={state.fieldErrors?.email}
+            error={clientErrors.email ?? state.fieldErrors?.email}
             autoComplete="email"
+            onChange={(event) =>
+              setFieldError("email", validateEmail(normalizeEmail(event.currentTarget.value)))
+            }
           />
         </div>
 
@@ -131,9 +181,16 @@ export default function ContactForm({ title, helper, successText }: Props) {
             label="Phone (optional)"
             type="tel"
             disabled={isPending}
-            error={state.fieldErrors?.phone}
+            error={clientErrors.phone ?? state.fieldErrors?.phone}
             autoComplete="tel"
-            placeholder="077 123 4567"
+            inputMode="tel"
+            maxLength={SRI_LANKA_PHONE_MAX_LENGTH}
+            placeholder={SRI_LANKA_PHONE_EXAMPLE}
+            onChange={(event) => {
+              const sanitized = sanitizeSriLankanPhoneInput(event.currentTarget.value)
+              if (sanitized !== event.currentTarget.value) event.currentTarget.value = sanitized
+              setFieldError("phone", validateSriLankanPhone(sanitized, { required: false }))
+            }}
           />
           <div>
             <label
@@ -174,7 +231,10 @@ export default function ContactForm({ title, helper, successText }: Props) {
           label="Subject"
           required
           disabled={isPending}
-          error={state.fieldErrors?.subject}
+          error={clientErrors.subject ?? state.fieldErrors?.subject}
+          onChange={(event) =>
+            setFieldError("subject", validateSafeMessageText(event.currentTarget.value, "Subject", { min: 5, max: 120 }))
+          }
         />
 
         <div>
@@ -190,15 +250,18 @@ export default function ContactForm({ title, helper, successText }: Props) {
             required
             rows={5}
             disabled={isPending}
-            aria-invalid={Boolean(state.fieldErrors?.message)}
+            aria-invalid={Boolean(clientErrors.message ?? state.fieldErrors?.message)}
             aria-describedby={
-              state.fieldErrors?.message ? "contact-message-error" : undefined
+              clientErrors.message || state.fieldErrors?.message ? "contact-message-error" : undefined
             }
-            className={`${inputClass(Boolean(state.fieldErrors?.message))} min-h-[140px] resize-y`}
+            onChange={(event) =>
+              setFieldError("message", validateSafeMessageText(event.currentTarget.value, "Message", { min: 10, max: 2000 }))
+            }
+            className={`${inputClass(Boolean(clientErrors.message ?? state.fieldErrors?.message))} min-h-[140px] resize-y`}
           />
-          {state.fieldErrors?.message && (
+          {(clientErrors.message ?? state.fieldErrors?.message) && (
             <p id="contact-message-error" className="mt-1 text-[12px] text-[#b71c1c]">
-              {state.fieldErrors.message}
+              {clientErrors.message ?? state.fieldErrors?.message}
             </p>
           )}
         </div>
@@ -267,6 +330,9 @@ function Field({
   error,
   autoComplete,
   placeholder,
+  onChange,
+  inputMode,
+  maxLength,
 }: {
   id: string
   name: string
@@ -277,6 +343,9 @@ function Field({
   error?: string
   autoComplete?: string
   placeholder?: string
+  onChange?: React.ChangeEventHandler<HTMLInputElement>
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"]
+  maxLength?: number
 }) {
   return (
     <div>
@@ -294,6 +363,9 @@ function Field({
         disabled={disabled}
         autoComplete={autoComplete}
         placeholder={placeholder}
+        inputMode={inputMode}
+        maxLength={maxLength}
+        onChange={onChange}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${id}-error` : undefined}
         className={inputClass(Boolean(error))}
