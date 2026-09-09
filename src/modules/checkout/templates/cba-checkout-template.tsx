@@ -228,6 +228,7 @@ export default function CbaCheckoutTemplate({
   const [cardComplete, setCardComplete] = useState(false)
   const addressFormRef = useRef<HTMLFormElement>(null)
   const [isSavingCheckoutDetails, setIsSavingCheckoutDetails] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const [addressFieldErrors, setAddressFieldErrors] =
     useState<CheckoutAddressFieldErrors>({})
   const [addressFormError, setAddressFormError] = useState<string | null>(null)
@@ -377,15 +378,30 @@ export default function CbaCheckoutTemplate({
             webxpayBranding={webxpayBranding}
             kokoBranding={kokoBranding}
           />
+          <div className="hidden small:block">
+            <PlaceOrderControl
+              cart={cart}
+              selectedPaymentMethod={selectedPaymentMethod}
+              cardComplete={cardComplete}
+              isSavingCheckoutDetails={isSavingCheckoutDetails}
+              saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+              termsAccepted={termsAccepted}
+              setTermsAccepted={setTermsAccepted}
+              webxpayBranding={webxpayBranding}
+              kokoBranding={kokoBranding}
+            />
+          </div>
         </section>
 
-        <aside className="flex flex-col gap-4">
+        <aside className="flex flex-col gap-4 small:sticky small:top-24 small:self-start">
           <CheckoutOrderSummary
             cart={cart as CbaCheckoutCart}
             cardComplete={cardComplete}
             selectedPaymentMethod={selectedPaymentMethod}
             isSavingCheckoutDetails={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+            termsAccepted={termsAccepted}
+            setTermsAccepted={setTermsAccepted}
             webxpayBranding={webxpayBranding}
             kokoBranding={kokoBranding}
           />
@@ -1231,6 +1247,8 @@ function CheckoutOrderSummary({
   cardComplete,
   isSavingCheckoutDetails,
   saveCurrentCheckoutDetails,
+  termsAccepted,
+  setTermsAccepted,
   webxpayBranding,
   kokoBranding,
 }: {
@@ -1239,12 +1257,13 @@ function CheckoutOrderSummary({
   cardComplete: boolean
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
+  termsAccepted: boolean
+  setTermsAccepted: (accepted: boolean) => void
   webxpayBranding?: WebxpayCheckoutBranding | null
   kokoBranding?: KokoCheckoutBranding | null
 }) {
   const router = useRouter()
   const [isRefreshingTotals, setIsRefreshingTotals] = useState(false)
-  const [termsAccepted, setTermsAccepted] = useState(false)
   const itemCount = cart.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
   const automaticPromotions = hasAutomaticPromotions(cart.promotions)
   const mapped = mapAuthoritativeTotals(cart, {
@@ -1383,17 +1402,19 @@ function CheckoutOrderSummary({
               </button>
             </div>
           )}
-          <PlaceOrderControl
-            cart={cart}
-            selectedPaymentMethod={selectedPaymentMethod}
-            cardComplete={cardComplete}
-            isSavingCheckoutDetails={isSavingCheckoutDetails}
-            saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
-            termsAccepted={termsAccepted}
-            setTermsAccepted={setTermsAccepted}
-            webxpayBranding={webxpayBranding}
-            kokoBranding={kokoBranding}
-          />
+          <div className="small:hidden">
+            <PlaceOrderControl
+              cart={cart}
+              selectedPaymentMethod={selectedPaymentMethod}
+              cardComplete={cardComplete}
+              isSavingCheckoutDetails={isSavingCheckoutDetails}
+              saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+              termsAccepted={termsAccepted}
+              setTermsAccepted={setTermsAccepted}
+              webxpayBranding={webxpayBranding}
+              kokoBranding={kokoBranding}
+            />
+          </div>
         </div>
       </section>
       <SecureCheckoutPanel />
