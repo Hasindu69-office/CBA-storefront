@@ -8,9 +8,19 @@ import { redirect } from "next/navigation"
 import { getStoreCountryCode, localizedPath } from "@lib/util/routes"
 import { listProductCardsByIds } from "@lib/data/tabbed-sale-products"
 import {
+  checkoutAddressValuesFromFormData,
+  validateCheckoutAddressFormData,
+  type CheckoutAddressFieldName,
+} from "@lib/util/checkout-address-validation"
+import {
   normalizePromotionCodes,
   safePromotionError,
 } from "@lib/util/promotions"
+import {
+  validateEmail,
+  validateSriLankanPhone,
+  validateSriLankanPostalCode,
+} from "@lib/util/storefront-form-validation"
 import {
   getAuthHeaders,
   getCacheOptions,
@@ -67,119 +77,37 @@ async function refreshCartAfterMutation(cartId: string) {
   return taxReadyCart
 }
 
-function stringField(formData: FormData, name: string) {
-  return String(formData.get(name) ?? "").trim()
-}
-
-function firstAvailableField(formData: FormData, names: string[]) {
-  for (const name of names) {
-    const value = stringField(formData, name)
-    if (value) {
-      return value
-    }
-  }
-  return ""
-}
-
-function splitFullName(fullName: string) {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean)
-  return {
-    first_name: parts[0] ?? "",
-    last_name: parts.slice(1).join(" ") || parts[0] || "",
-  }
-}
-
-function validateCheckoutAddressPayload(payload: {
-  first_name: string
-  last_name: string
-  email: string
-  phone: string
-  address_1: string
-  city: string
-  province: string
-  postal_code: string
-  country_code: string
-  delivery_instructions?: string
-}) {
-  for (const [field, value] of Object.entries(payload)) {
-    if (value.length > 160) {
-      return `${field.replace(/_/g, " ")} is too long.`
-    }
-  }
-  if (!payload.first_name || !payload.last_name) {
-    return "Full name is required."
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
-    return "Enter a valid email address."
-  }
-  if (!/^[0-9+\-\s()]{7,20}$/.test(payload.phone)) {
-    return "Enter a valid phone number."
-  }
-  if (!payload.address_1) {
-    return "Street address is required."
-  }
-  if (!payload.city) {
-    return "City is required."
-  }
-  if (!payload.province) {
-    return "District is required."
-  }
-  if (!/^[A-Za-z0-9\s-]{1,32}$/.test(payload.postal_code)) {
-    return "Enter a valid postal code."
-  }
-  if (!/^[A-Za-z0-9\s.,'()#\/-]{0,500}$/.test((payload as any).delivery_instructions ?? "")) {
-    return "Delivery instructions contain unsupported characters."
-  }
-  if (payload.country_code.toLowerCase() !== "lk") {
-    return "Delivery is currently available only in Sri Lanka."
-  }
-  return null
-}
-
 function checkoutAddressData(formData: FormData) {
-  const fullName = stringField(formData, "full_name")
-  const splitName = splitFullName(fullName)
-  const firstName =
-    firstAvailableField(formData, ["shipping_address.first_name"]) ||
-    splitName.first_name
-  const lastName =
-    firstAvailableField(formData, ["shipping_address.last_name"]) ||
-    splitName.last_name
+  const validation = validateCheckoutAddressFormData(formData)
 
+  if (!validation.ok) {
+    const error = new Error(validation.formError) as Error & {
+      fieldErrors?: Partial<Record<CheckoutAddressFieldName, string>>
+    }
+    error.fieldErrors = validation.fieldErrors
+    throw error
+  }
+
+  const values = checkoutAddressValuesFromFormData(formData)
   const payload = {
-    first_name: firstName,
-    last_name: lastName,
-    address_1: firstAvailableField(formData, ["shipping_address.address_1"]),
-    address_2: firstAvailableField(formData, ["shipping_address.address_2"]),
-    company: firstAvailableField(formData, ["shipping_address.company"]),
-    postal_code: firstAvailableField(formData, [
-      "shipping_address.postal_code",
-    ]),
-    city: firstAvailableField(formData, ["shipping_address.city"]),
-    country_code:
-      firstAvailableField(formData, ["shipping_address.country_code"]) || "lk",
-    province: firstAvailableField(formData, ["shipping_address.province"]),
-    phone: firstAvailableField(formData, ["shipping_address.phone"]),
+    first_name: values.first_name,
+    last_name: values.last_name,
+    address_1: values.address_1,
+    address_2: values.address_2,
+    company: values.company,
+    postal_code: values.postal_code,
+    city: values.city,
+    country_code: values.country_code.toLowerCase(),
+    province: values.province,
+    phone: values.phone,
   }
-  const email = firstAvailableField(formData, ["email"])
-  const deliveryInstructions = stringField(formData, "delivery_instructions")
-  const validationError = validateCheckoutAddressPayload({
-    ...payload,
-    email,
-    delivery_instructions: deliveryInstructions,
-  })
-
-  if (validationError) {
-    throw new Error(validationError)
-  }
-
   const cartData = {
     shipping_address: payload,
     billing_address: payload,
-    email,
-    metadata: deliveryInstructions
+    email: values.email,
+    metadata: values.delivery_instructions
       ? {
-          cba_delivery_instructions: deliveryInstructions.slice(0, 500),
+          cba_delivery_instructions: values.delivery_instructions.slice(0, 500),
         }
       : undefined,
   } as any
@@ -593,12 +521,37 @@ export async function saveCheckoutDetails(
   currentState: unknown,
   formData: FormData
 ) {
+  const result = await saveCheckoutDetailsDetailed(currentState, formData)
+  return result.success ? null : result.error
+}
+
+export type SaveCheckoutDetailsResult =
+  | { success: true; error: null; fieldErrors: Record<string, never> }
+  | {
+      success: false
+      error: string
+      fieldErrors?: Partial<Record<CheckoutAddressFieldName, string>>
+    }
+
+export async function saveCheckoutDetailsDetailed(
+  currentState: unknown,
+  formData: FormData
+): Promise<SaveCheckoutDetailsResult> {
+  void currentState
   try {
     const cart = await updateCart(checkoutAddressData(formData))
     await calculateCartTaxesWhenReady(cart)
-    return null
+    return { success: true, error: null, fieldErrors: {} }
   } catch (e: any) {
-    return e.message
+    const fieldErrors =
+      e && typeof e === "object" && "fieldErrors" in e
+        ? (e.fieldErrors as Partial<Record<CheckoutAddressFieldName, string>>)
+        : undefined
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : "Could not save delivery details.",
+      fieldErrors,
+    }
   }
 }
 
@@ -835,7 +788,7 @@ function assertCheckoutReady(cart: HttpTypes.StoreCart) {
   if (!cart.items?.length) {
     throw new Error("Your cart is empty.")
   }
-  if (!cart.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cart.email) || cart.email.length > 254) {
+  if (validateEmail(cart.email ?? "")) {
     throw new Error("Enter a valid email address before placing the order.")
   }
   if (cart.currency_code?.toLowerCase() !== "lkr") {
@@ -851,6 +804,12 @@ function assertCheckoutReady(cart: HttpTypes.StoreCart) {
   }
   if (!cart.billing_address) {
     throw new Error("Billing address is required before placing the order.")
+  }
+  if (validateSriLankanPhone(cart.shipping_address?.phone ?? "")) {
+    throw new Error("Enter a valid Sri Lankan phone number before placing the order.")
+  }
+  if (validateSriLankanPostalCode(cart.shipping_address?.postal_code ?? "")) {
+    throw new Error("Enter a valid Sri Lankan postal code before placing the order.")
   }
   if (!cart.shipping_methods?.length) {
     throw new Error("Select a delivery method before placing the order.")

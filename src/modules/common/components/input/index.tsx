@@ -13,13 +13,17 @@ type InputProps = Omit<
   touched?: Record<string, unknown>
   name: string
   topLabel?: string
+  placeholder?: string
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ type, name, label, touched, required, topLabel, ...props }, ref) => {
+  ({ type, name, label, touched, errors, required, topLabel, className, placeholder, ...props }, ref) => {
     const inputRef = React.useRef<HTMLInputElement>(null)
     const [showPassword, setShowPassword] = useState(false)
     const [inputType, setInputType] = useState(type)
+    const error = errors?.[name]
+    const showError = Boolean(error) && (!touched || Boolean(touched[name]))
+    const errorId = `${name.replace(/[^A-Za-z0-9_-]+/g, "-")}-error`
 
     useEffect(() => {
       if (type === "password" && showPassword) {
@@ -42,9 +46,19 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             type={inputType}
             name={name}
-            placeholder=" "
+            placeholder={placeholder ?? " "}
             required={required}
-            className="pt-4 pb-1 block w-full h-11 px-4 mt-0 bg-ui-bg-field border rounded-md appearance-none focus:outline-none focus:ring-0 focus:shadow-borders-interactive-with-active border-ui-border-base hover:bg-ui-bg-field-hover"
+            aria-invalid={showError || undefined}
+            aria-describedby={showError ? errorId : undefined}
+            className={[
+              "pt-4 pb-1 block w-full h-11 px-4 mt-0 bg-ui-bg-field border rounded-md appearance-none focus:outline-none focus:ring-0 hover:bg-ui-bg-field-hover",
+              showError
+                ? "border-rose-400 focus:shadow-borders-error"
+                : "border-ui-border-base focus:shadow-borders-interactive-with-active",
+              className,
+            ]
+              .filter(Boolean)
+              .join(" ")}
             {...props}
             ref={inputRef}
           />
@@ -66,6 +80,11 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             </button>
           )}
         </div>
+        {showError && (
+          <p id={errorId} className="mt-1 text-[12px] font-medium text-rose-600">
+            {String(error)}
+          </p>
+        )}
       </div>
     )
   }

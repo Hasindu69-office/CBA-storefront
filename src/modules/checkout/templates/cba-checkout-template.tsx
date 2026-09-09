@@ -5,7 +5,7 @@ import {
   applyPromotionsSafe,
   calculateCartTaxes,
   placeOrder,
-  saveCheckoutDetails,
+  saveCheckoutDetailsDetailed,
   setShippingMethod,
 } from "@lib/data/cart"
 import {
@@ -29,7 +29,21 @@ import type { WebxpayCheckoutBranding } from "@lib/data/webxpay-branding"
 import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
-import { focusCheckoutValidationField } from "@lib/util/checkout-validation-focus"
+import {
+  firstCheckoutAddressErrorField,
+  validateCheckoutAddressFormData,
+  type CheckoutAddressFieldName,
+} from "@lib/util/checkout-address-validation"
+import {
+  sanitizePersonNameInput,
+  sanitizePlaceNameInput,
+  sanitizeSriLankanPhoneInput,
+  SRI_LANKA_PHONE_EXAMPLE,
+  SRI_LANKA_PHONE_MAX_LENGTH,
+  validateEmail,
+  validateSriLankanPhone,
+  validateSriLankanPostalCode,
+} from "@lib/util/storefront-form-validation"
 import { getStoreCountryCode, localizedPath } from "@lib/util/routes"
 import { HttpTypes } from "@medusajs/types"
 import {
@@ -82,6 +96,10 @@ type CbaCheckoutCart = HttpTypes.StoreCart & {
   metadata?: Record<string, unknown> | null
   promotions?: HttpTypes.StorePromotion[]
 }
+
+type CheckoutAddressFieldErrors = Partial<
+  Record<CheckoutAddressFieldName, string>
+>
 
 function money(amount: number | null | undefined, currencyCode: string) {
   return convertToLocale({
@@ -175,22 +193,23 @@ function selectedCheckoutPaymentMethod(
   cart: CbaCheckoutCart | HttpTypes.StoreCart,
   paymentMethods: HttpTypes.StorePaymentProvider[]
 ) {
+  void paymentMethods
   const activeSession = selectedPaymentSession(cart as HttpTypes.StoreCart)
   if (isWebxpay(activeSession?.provider_id) && selectedInstallmentPlanId(cart)) {
     return CBA_INSTALLMENT_METHOD_ID
   }
-  return activeSession?.provider_id ?? paymentMethods[0]?.id ?? ""
+  return activeSession?.provider_id ?? ""
 }
 
 function hasAddress(cart: HttpTypes.StoreCart) {
   return Boolean(
-    cart.email &&
+    !validateEmail(cart.email ?? "") &&
       cart.shipping_address?.first_name &&
       cart.shipping_address?.last_name &&
       cart.shipping_address?.address_1 &&
       cart.shipping_address?.city &&
-      cart.shipping_address?.postal_code &&
-      cart.shipping_address?.phone
+      !validateSriLankanPostalCode(cart.shipping_address?.postal_code ?? "") &&
+      !validateSriLankanPhone(cart.shipping_address?.phone ?? "")
   )
 }
 
@@ -209,6 +228,53 @@ export default function CbaCheckoutTemplate({
   const [cardComplete, setCardComplete] = useState(false)
   const addressFormRef = useRef<HTMLFormElement>(null)
   const [isSavingCheckoutDetails, setIsSavingCheckoutDetails] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [addressFieldErrors, setAddressFieldErrors] =
+    useState<CheckoutAddressFieldErrors>({})
+  const [addressFormError, setAddressFormError] = useState<string | null>(null)
+
+  const validateAddressField = useCallback(
+    (field: CheckoutAddressFieldName, event?: FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const form = addressFormRef.current
+      if (!form) return
+
+      if (event?.currentTarget) {
+        const input = event.currentTarget
+        const sanitized = sanitizeCheckoutInput(field, input.value)
+        if (sanitized !== input.value) {
+          input.value = sanitized
+        }
+      }
+
+      const validation = validateCheckoutAddressFormData(new FormData(form))
+      const fieldError = validation.ok ? null : validation.fieldErrors[field] ?? null
+
+      setAddressFieldErrors((current) => {
+        const next = { ...current }
+        if (fieldError) {
+          next[field] = fieldError
+        } else {
+          delete next[field]
+        }
+
+        if (Object.keys(next).length === 0) {
+          setAddressFormError(null)
+        }
+
+        return next
+      })
+    },
+    []
+  )
+
+  const focusAddressField = useCallback((field: CheckoutAddressFieldName | null) => {
+    if (!field) return
+    const element = addressFormRef.current?.elements.namedItem(field)
+    if (element instanceof HTMLElement) {
+      element.focus()
+      element.scrollIntoView({ block: "center", behavior: "smooth" })
+    }
+  }, [])
 
   const saveCurrentCheckoutDetails = useCallback(async () => {
     const form = addressFormRef.current
@@ -218,29 +284,49 @@ export default function CbaCheckoutTemplate({
       return message
     }
 
+    const clientValidation = validateCheckoutAddressFormData(new FormData(form))
+    if (!clientValidation.ok) {
+      setAddressFieldErrors(clientValidation.fieldErrors)
+      setAddressFormError(clientValidation.formError)
+      focusAddressField(firstCheckoutAddressErrorField(clientValidation.fieldErrors))
+      return clientValidation.formError
+    }
+
+    setAddressFieldErrors({})
+    setAddressFormError(null)
     setIsSavingCheckoutDetails(true)
 
-    let result: string | null = null
+    let result: Awaited<ReturnType<typeof saveCheckoutDetailsDetailed>>
     try {
-      result = await saveCheckoutDetails(null, new FormData(form))
+      result = await saveCheckoutDetailsDetailed(null, new FormData(form))
     } catch (err) {
-      result =
-        err instanceof Error ? err.message : "Could not save delivery details."
+      result = {
+        success: false,
+        error:
+          err instanceof Error ? err.message : "Could not save delivery details.",
+      }
     } finally {
       setIsSavingCheckoutDetails(false)
     }
 
-    if (result) {
-      notify.error(result, "Could not save delivery details.", {
-        id: "checkout-details",
-      })
-      focusCheckoutValidationField(form, result)
-      return result
+    if (!result.success) {
+      if (result.fieldErrors && Object.keys(result.fieldErrors).length) {
+        setAddressFieldErrors(result.fieldErrors)
+        setAddressFormError(result.error)
+        focusAddressField(firstCheckoutAddressErrorField(result.fieldErrors))
+      } else {
+        notify.error(result.error, "Could not save delivery details.", {
+          id: "checkout-details",
+        })
+      }
+      return result.error
     }
 
+    setAddressFieldErrors({})
+    setAddressFormError(null)
     notify.dismiss("checkout-details")
     return null
-  }, [])
+  }, [focusAddressField])
 
   useEffect(() => {
     if (activeSession?.provider_id) {
@@ -271,6 +357,9 @@ export default function CbaCheckoutTemplate({
             formRef={addressFormRef}
             isSaving={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+            fieldErrors={addressFieldErrors}
+            formError={addressFormError}
+            onFieldChange={validateAddressField}
           />
           <DeliveryMethodSelector
             cart={cart}
@@ -289,15 +378,30 @@ export default function CbaCheckoutTemplate({
             webxpayBranding={webxpayBranding}
             kokoBranding={kokoBranding}
           />
+          <div className="hidden small:block">
+            <PlaceOrderControl
+              cart={cart}
+              selectedPaymentMethod={selectedPaymentMethod}
+              cardComplete={cardComplete}
+              isSavingCheckoutDetails={isSavingCheckoutDetails}
+              saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+              termsAccepted={termsAccepted}
+              setTermsAccepted={setTermsAccepted}
+              webxpayBranding={webxpayBranding}
+              kokoBranding={kokoBranding}
+            />
+          </div>
         </section>
 
-        <aside className="flex flex-col gap-4">
+        <aside className="flex flex-col gap-4 small:sticky small:top-24 small:self-start">
           <CheckoutOrderSummary
             cart={cart as CbaCheckoutCart}
             cardComplete={cardComplete}
             selectedPaymentMethod={selectedPaymentMethod}
             isSavingCheckoutDetails={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+            termsAccepted={termsAccepted}
+            setTermsAccepted={setTermsAccepted}
             webxpayBranding={webxpayBranding}
             kokoBranding={kokoBranding}
           />
@@ -313,12 +417,21 @@ function ShippingInformationForm({
   formRef,
   isSaving,
   saveCurrentCheckoutDetails,
+  fieldErrors,
+  formError,
+  onFieldChange,
 }: {
   cart: HttpTypes.StoreCart
   customer: HttpTypes.StoreCustomer | null
   formRef: RefObject<HTMLFormElement | null>
   isSaving: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
+  fieldErrors: CheckoutAddressFieldErrors
+  formError: string | null
+  onFieldChange: (
+    field: CheckoutAddressFieldName,
+    event?: FormEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => void
 }) {
   const initialFullName = [
     cart.shipping_address?.first_name,
@@ -346,6 +459,14 @@ function ShippingInformationForm({
         title="Shipping Information"
         subtitle="Enter your delivery details"
       />
+      {formError && (
+        <p
+          role="alert"
+          className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] font-semibold text-rose-700"
+        >
+          {formError}
+        </p>
+      )}
       <input type="hidden" name="shipping_address.country_code" value="lk" />
       <div className="mt-4 grid grid-cols-1 gap-4 medium:grid-cols-2">
         <Field
@@ -354,13 +475,22 @@ function ShippingInformationForm({
           placeholder="Enter your full name"
           defaultValue={initialFullName || customer?.first_name || ""}
           required
+          error={fieldErrors.full_name}
+          onChange={(event) => onFieldChange("full_name", event)}
+          onBlur={(event) => onFieldChange("full_name", event)}
         />
         <Field
           label="Phone Number"
           name="shipping_address.phone"
-          placeholder="Enter your phone number"
+          type="tel"
+          placeholder={SRI_LANKA_PHONE_EXAMPLE}
           defaultValue={cart.shipping_address?.phone ?? ""}
           required
+          maxLength={SRI_LANKA_PHONE_MAX_LENGTH}
+          inputMode="tel"
+          error={fieldErrors["shipping_address.phone"]}
+          onChange={(event) => onFieldChange("shipping_address.phone", event)}
+          onBlur={(event) => onFieldChange("shipping_address.phone", event)}
         />
         <Field
           label="Email Address"
@@ -371,6 +501,9 @@ function ShippingInformationForm({
           required
           className="medium:col-span-2"
           icon={<Envelope />}
+          error={fieldErrors.email}
+          onChange={(event) => onFieldChange("email", event)}
+          onBlur={(event) => onFieldChange("email", event)}
         />
         <Field
           label="Street Address"
@@ -379,6 +512,11 @@ function ShippingInformationForm({
           defaultValue={cart.shipping_address?.address_1 ?? ""}
           required
           className="medium:col-span-2"
+          error={fieldErrors["shipping_address.address_1"]}
+          onChange={(event) =>
+            onFieldChange("shipping_address.address_1", event)
+          }
+          onBlur={(event) => onFieldChange("shipping_address.address_1", event)}
         />
         <Field
           label="Apartment, suite, unit, etc. (optional)"
@@ -393,6 +531,9 @@ function ShippingInformationForm({
           placeholder="Select city"
           defaultValue={cart.shipping_address?.city ?? ""}
           required
+          error={fieldErrors["shipping_address.city"]}
+          onChange={(event) => onFieldChange("shipping_address.city", event)}
+          onBlur={(event) => onFieldChange("shipping_address.city", event)}
         />
         <Field
           label="District"
@@ -400,6 +541,11 @@ function ShippingInformationForm({
           placeholder="Select district"
           defaultValue={cart.shipping_address?.province ?? ""}
           required
+          error={fieldErrors["shipping_address.province"]}
+          onChange={(event) =>
+            onFieldChange("shipping_address.province", event)
+          }
+          onBlur={(event) => onFieldChange("shipping_address.province", event)}
         />
         <Field
           label="Postal Code"
@@ -407,6 +553,15 @@ function ShippingInformationForm({
           placeholder="Enter postal code"
           defaultValue={cart.shipping_address?.postal_code ?? ""}
           required
+          maxLength={5}
+          inputMode="numeric"
+          error={fieldErrors["shipping_address.postal_code"]}
+          onChange={(event) =>
+            onFieldChange("shipping_address.postal_code", event)
+          }
+          onBlur={(event) =>
+            onFieldChange("shipping_address.postal_code", event)
+          }
         />
         <label className="flex flex-col gap-1.5 medium:col-span-2">
           <span className="text-[12px] font-semibold text-[#252a33]">
@@ -421,8 +576,28 @@ function ShippingInformationForm({
             rows={3}
             maxLength={500}
             placeholder="Add delivery notes (e.g. gate code, landmark, preferred time)"
-            className="min-h-[64px] rounded-md border border-gray-200 px-4 py-3 text-[13px] outline-none transition placeholder:text-[#9aa1af] focus:border-brand"
+            aria-invalid={Boolean(fieldErrors.delivery_instructions)}
+            aria-describedby={
+              fieldErrors.delivery_instructions
+                ? "delivery_instructions-error"
+                : undefined
+            }
+            onChange={(event) => onFieldChange("delivery_instructions", event)}
+            onBlur={(event) => onFieldChange("delivery_instructions", event)}
+            className={`min-h-[64px] rounded-md border px-4 py-3 text-[13px] outline-none transition placeholder:text-[#9aa1af] focus:border-brand ${
+              fieldErrors.delivery_instructions
+                ? "border-rose-300 bg-rose-50/40"
+                : "border-gray-200"
+            }`}
           />
+          {fieldErrors.delivery_instructions && (
+            <span
+              id="delivery_instructions-error"
+              className="text-[12px] font-medium text-rose-600"
+            >
+              {fieldErrors.delivery_instructions}
+            </span>
+          )}
         </label>
       </div>
       <div className="mt-4 flex flex-col gap-3 small:flex-row small:items-center small:justify-between">
@@ -453,6 +628,11 @@ function Field({
   required,
   className = "",
   icon,
+  error,
+  onChange,
+  onBlur,
+  maxLength,
+  inputMode,
 }: {
   label: string
   name: string
@@ -462,7 +642,13 @@ function Field({
   required?: boolean
   className?: string
   icon?: ReactNode
+  error?: string
+  onChange?: (event: FormEvent<HTMLInputElement>) => void
+  onBlur?: (event: FormEvent<HTMLInputElement>) => void
+  maxLength?: number
+  inputMode?: "none" | "text" | "tel" | "url" | "email" | "numeric" | "decimal" | "search"
 }) {
+  const errorId = `${name.replace(/[^A-Za-z0-9_-]+/g, "-")}-error`
   return (
     <label className={`flex flex-col gap-1.5 ${className}`}>
       <span className="text-[12px] font-semibold text-[#252a33]">
@@ -480,13 +666,40 @@ function Field({
           defaultValue={defaultValue}
           required={required}
           placeholder={placeholder}
-          className={`h-10 w-full rounded-md border border-gray-200 px-4 text-[13px] outline-none transition placeholder:text-[#9aa1af] focus:border-brand ${
+          maxLength={maxLength}
+          inputMode={inputMode}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
+          onChange={onChange}
+          onBlur={onBlur}
+          className={`h-10 w-full rounded-md border px-4 text-[13px] outline-none transition placeholder:text-[#9aa1af] focus:border-brand ${
             icon ? "pl-10" : ""
+          } ${
+            error ? "border-rose-300 bg-rose-50/40" : "border-gray-200"
           }`}
         />
       </span>
+      {error && (
+        <span id={errorId} className="text-[12px] font-medium text-rose-600">
+          {error}
+        </span>
+      )}
     </label>
   )
+}
+
+function sanitizeCheckoutInput(field: CheckoutAddressFieldName, value: string) {
+  if (field === "full_name") return sanitizePersonNameInput(value)
+  if (field === "shipping_address.city" || field === "shipping_address.province") {
+    return sanitizePlaceNameInput(value)
+  }
+  if (field === "shipping_address.phone") {
+    return sanitizeSriLankanPhoneInput(value)
+  }
+  if (field === "shipping_address.postal_code") {
+    return value.replace(/\D/g, "").slice(0, 5)
+  }
+  return value
 }
 
 function DeliveryMethodSelector({
@@ -505,6 +718,7 @@ function DeliveryMethodSelector({
   const [selected, setSelected] = useState(
     cart.shipping_methods?.at(-1)?.shipping_option_id ?? ""
   )
+  const [actionError, setActionError] = useState<string | null>(null)
   const [calculatedPrices, setCalculatedPrices] = useState<Record<string, number>>(
     {}
   )
@@ -515,6 +729,10 @@ function DeliveryMethodSelector({
       ),
     [shippingMethods]
   )
+
+  useEffect(() => {
+    setSelected(cart.shipping_methods?.at(-1)?.shipping_option_id ?? "")
+  }, [cart.shipping_methods])
 
   useEffect(() => {
     const calculatedMethods = deliveryMethods.filter(
@@ -550,19 +768,21 @@ function DeliveryMethodSelector({
   }, [cart.id, deliveryMethods])
 
   const selectMethod = (methodId: string) => {
-    setSelected(methodId)
+    setActionError(null)
     startTransition(async () => {
       try {
         const checkoutDetailsError = await saveCurrentCheckoutDetails()
         if (checkoutDetailsError) {
-          setSelected(cart.shipping_methods?.at(-1)?.shipping_option_id ?? "")
+          setActionError("Complete the highlighted delivery details first.")
           return
         }
 
         await setShippingMethod({ cartId: cart.id, shippingMethodId: methodId })
+        setSelected(methodId)
         router.refresh()
       } catch (err) {
         setSelected(cart.shipping_methods?.at(-1)?.shipping_option_id ?? "")
+        setActionError("Could not set delivery method. Please try again.")
         notify.error(
           err,
           "Could not set delivery method.",
@@ -640,6 +860,15 @@ function DeliveryMethodSelector({
           )
         })}
       </div>
+      {actionError && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] font-semibold text-rose-700"
+        >
+          {actionError}
+        </p>
+      )}
     </div>
   )
 }
@@ -671,12 +900,15 @@ function PaymentMethodSelector({
   const [installmentPlans, setInstallmentPlans] = useState<StoreInstallmentPlan[]>([])
   const [installmentEligible, setInstallmentEligible] = useState(false)
   const [installmentLoadError, setInstallmentLoadError] = useState("")
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [cardError, setCardError] = useState<string | null>(null)
   const [selectedPlanId, setSelectedPlanId] = useState(
     selectedInstallmentPlanId(cart)
   )
   const webxpayMethod = paymentMethods.find((method) => isWebxpay(method.id))
   const showInstallments =
     Boolean(webxpayMethod) && installmentEligible && installmentPlans.length > 0
+  const hasSelectedDelivery = (cart.shipping_methods?.length ?? 0) > 0
 
   useEffect(() => {
     let alive = true
@@ -711,22 +943,26 @@ function PaymentMethodSelector({
   }, [cart])
 
   const selectPayment = (providerId: string) => {
-    const previousPaymentMethod = selectedPaymentMethod
-    setSelectedPaymentMethod(providerId)
+    setActionError(null)
     setCardComplete(false)
     startTransition(async () => {
       try {
         const checkoutDetailsError = await saveCurrentCheckoutDetails()
         if (checkoutDetailsError) {
-          setSelectedPaymentMethod(previousPaymentMethod)
+          setActionError("Complete the highlighted delivery details first.")
+          return
+        }
+        if (!hasSelectedDelivery) {
+          setActionError("Select a delivery method before choosing payment.")
           return
         }
 
         await clearInstallmentPlan(cart.id)
         await initiatePaymentSession(cart, { provider_id: providerId })
+        setSelectedPaymentMethod(providerId)
         router.refresh()
       } catch (err) {
-        setSelectedPaymentMethod(previousPaymentMethod)
+        setActionError("Could not set payment method. Please try again.")
         notify.error(err, "Could not set payment method.", {
           id: "checkout-payment",
         })
@@ -735,22 +971,26 @@ function PaymentMethodSelector({
   }
 
   const selectInstallmentPayment = () => {
-    const previousPaymentMethod = selectedPaymentMethod
-    setSelectedPaymentMethod(CBA_INSTALLMENT_METHOD_ID)
+    setActionError(null)
     setCardComplete(false)
     startTransition(async () => {
       try {
         const checkoutDetailsError = await saveCurrentCheckoutDetails()
         if (checkoutDetailsError) {
-          setSelectedPaymentMethod(previousPaymentMethod)
+          setActionError("Complete the highlighted delivery details first.")
+          return
+        }
+        if (!hasSelectedDelivery) {
+          setActionError("Select a delivery method before choosing payment.")
           return
         }
 
         if (webxpayMethod && !isWebxpay(activeSession?.provider_id)) {
           await initiatePaymentSession(cart, { provider_id: webxpayMethod.id })
         }
+        setSelectedPaymentMethod(CBA_INSTALLMENT_METHOD_ID)
       } catch (err) {
-        setSelectedPaymentMethod(previousPaymentMethod)
+        setActionError("Could not set installment payment. Please try again.")
         notify.error(err, "Could not set installment payment.", {
           id: "checkout-payment",
         })
@@ -760,13 +1000,17 @@ function PaymentMethodSelector({
 
   const selectPlan = (planId: string) => {
     const previousPlanId = selectedPlanId
-    setSelectedPlanId(planId)
-    setSelectedPaymentMethod(CBA_INSTALLMENT_METHOD_ID)
+    setActionError(null)
     startTransition(async () => {
       try {
         const checkoutDetailsError = await saveCurrentCheckoutDetails()
         if (checkoutDetailsError) {
           setSelectedPlanId(previousPlanId)
+          setActionError("Complete the highlighted delivery details first.")
+          return
+        }
+        if (!hasSelectedDelivery) {
+          setActionError("Select a delivery method before choosing an installment plan.")
           return
         }
 
@@ -774,9 +1018,12 @@ function PaymentMethodSelector({
           await initiatePaymentSession(cart, { provider_id: webxpayMethod.id })
         }
         await selectInstallmentPlan(cart.id, planId)
+        setSelectedPlanId(planId)
+        setSelectedPaymentMethod(CBA_INSTALLMENT_METHOD_ID)
         router.refresh()
       } catch (err) {
         setSelectedPlanId(previousPlanId)
+        setActionError("Could not select installment plan. Please try again.")
         notify.error(err, "Could not select installment plan.", {
           id: "checkout-payment",
         })
@@ -853,14 +1100,21 @@ function PaymentMethodSelector({
                     onChange={(event) => {
                       setCardComplete(event.complete)
                       if (event.error?.message) {
-                        notify.error(event.error.message, "Card details are invalid.", {
-                          id: "checkout-payment",
-                        })
+                        setCardError(event.error.message)
                       } else {
-                        notify.dismiss("checkout-payment")
+                        setCardError(null)
                       }
                     }}
                   />
+                  {cardError && (
+                    <p
+                      role="status"
+                      aria-live="polite"
+                      className="mt-2 text-[12px] font-medium text-rose-600"
+                    >
+                      {cardError}
+                    </p>
+                  )}
                 </div>
               )}
               {isWebxpay(method.id) && showInstallments && (
@@ -883,6 +1137,15 @@ function PaymentMethodSelector({
           </div>
         ) : null}
       </div>
+      {actionError && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] font-semibold text-rose-700"
+        >
+          {actionError}
+        </p>
+      )}
     </div>
   )
 }
@@ -984,6 +1247,8 @@ function CheckoutOrderSummary({
   cardComplete,
   isSavingCheckoutDetails,
   saveCurrentCheckoutDetails,
+  termsAccepted,
+  setTermsAccepted,
   webxpayBranding,
   kokoBranding,
 }: {
@@ -992,12 +1257,13 @@ function CheckoutOrderSummary({
   cardComplete: boolean
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
+  termsAccepted: boolean
+  setTermsAccepted: (accepted: boolean) => void
   webxpayBranding?: WebxpayCheckoutBranding | null
   kokoBranding?: KokoCheckoutBranding | null
 }) {
   const router = useRouter()
   const [isRefreshingTotals, setIsRefreshingTotals] = useState(false)
-  const [termsAccepted, setTermsAccepted] = useState(false)
   const itemCount = cart.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
   const automaticPromotions = hasAutomaticPromotions(cart.promotions)
   const mapped = mapAuthoritativeTotals(cart, {
@@ -1136,17 +1402,19 @@ function CheckoutOrderSummary({
               </button>
             </div>
           )}
-          <PlaceOrderControl
-            cart={cart}
-            selectedPaymentMethod={selectedPaymentMethod}
-            cardComplete={cardComplete}
-            isSavingCheckoutDetails={isSavingCheckoutDetails}
-            saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
-            termsAccepted={termsAccepted}
-            setTermsAccepted={setTermsAccepted}
-            webxpayBranding={webxpayBranding}
-            kokoBranding={kokoBranding}
-          />
+          <div className="small:hidden">
+            <PlaceOrderControl
+              cart={cart}
+              selectedPaymentMethod={selectedPaymentMethod}
+              cardComplete={cardComplete}
+              isSavingCheckoutDetails={isSavingCheckoutDetails}
+              saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
+              termsAccepted={termsAccepted}
+              setTermsAccepted={setTermsAccepted}
+              webxpayBranding={webxpayBranding}
+              kokoBranding={kokoBranding}
+            />
+          </div>
         </div>
       </section>
       <SecureCheckoutPanel />

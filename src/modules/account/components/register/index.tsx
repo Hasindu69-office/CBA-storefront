@@ -11,6 +11,16 @@ import { signup } from "@lib/data/customer"
 import { AuthField, SocialSection } from "@modules/account/components/login"
 import { startOAuthLogin } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
+import {
+  normalizeEmail,
+  sanitizePersonNameInput,
+  sanitizeSriLankanPhoneInput,
+  SRI_LANKA_PHONE_EXAMPLE,
+  SRI_LANKA_PHONE_MAX_LENGTH,
+  validateEmail,
+  validatePersonName,
+  validateSriLankanPhone,
+} from "@lib/util/storefront-form-validation"
 
 type Props = {
   setCurrentView: (view: LOGIN_VIEW) => void
@@ -22,6 +32,7 @@ const Register = ({ setCurrentView, settings, countryCode }: Props) => {
   const [message, formAction] = useActionState(signup, null)
   const [socialMessage, socialAction] = useActionState(startOAuthLogin, null)
   const [clientError, setClientError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (typeof message === "string" && message) {
@@ -43,35 +54,47 @@ const Register = ({ setCurrentView, settings, countryCode }: Props) => {
     const form = new FormData(event.currentTarget)
     const firstName = String(form.get("first_name") ?? "").trim()
     const lastName = String(form.get("last_name") ?? "").trim()
-    const email = String(form.get("email") ?? "").trim()
+    const email = normalizeEmail(form.get("email"))
     const phone = String(form.get("phone") ?? "").trim()
     const password = String(form.get("password") ?? "")
     const confirm = String(form.get("confirm_password") ?? "")
 
-    const error =
-      !firstName || !lastName
-        ? "First name and last name are required."
-        : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-          ? "Enter a valid email address."
-          : phone && !/^[+()\d\s-]{7,24}$/.test(phone)
-            ? "Enter a valid phone number."
-            : password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)
-              ? "Password must be at least 8 characters and include letters and numbers."
-              : password !== confirm
-                ? "Passwords do not match."
-                : form.get("terms") !== "on"
-                  ? "You must agree to the terms and privacy policy."
-                  : null
+    const nextErrors: Record<string, string> = {}
+    const firstNameError = validatePersonName(firstName, "First name")
+    const lastNameError = validatePersonName(lastName, "Last name")
+    const emailError = validateEmail(email)
+    const phoneError = validateSriLankanPhone(phone, { required: false })
+    if (firstNameError) nextErrors.first_name = firstNameError
+    if (lastNameError) nextErrors.last_name = lastNameError
+    if (emailError) nextErrors.email = emailError
+    if (phoneError) nextErrors.phone = phoneError
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      nextErrors.password = "Password must be at least 8 characters and include letters and numbers."
+    }
+    if (password !== confirm) {
+      nextErrors.confirm_password = "Passwords do not match."
+    }
+    if (form.get("terms") !== "on") {
+      nextErrors.terms = "You must agree to the terms and privacy policy."
+    }
 
-    if (error) {
+    if (Object.keys(nextErrors).length) {
       event.preventDefault()
-      setClientError(error)
-      notify.error(error, "Please check your account details.", {
-        id: "register-validation",
-      })
+      setFieldErrors(nextErrors)
+      setClientError("Please check the highlighted account details.")
       return
     }
+    setFieldErrors({})
     setClientError(null)
+  }
+
+  function updateField(name: string, error: string | null) {
+    setFieldErrors((current) => {
+      const next = { ...current }
+      if (error) next[name] = error
+      else delete next[name]
+      return next
+    })
   }
 
   return (
@@ -85,20 +108,34 @@ const Register = ({ setCurrentView, settings, countryCode }: Props) => {
 
       <form className="mt-7 w-full" action={formAction} onSubmit={validate} noValidate>
         <div className="grid gap-4 sm:grid-cols-2">
-          <AuthField label="First Name" name="first_name" autoComplete="given-name" placeholder="Enter your first name" icon="user" />
-          <AuthField label="Last Name" name="last_name" autoComplete="family-name" placeholder="Enter your last name" icon="user" />
+          <AuthField label="First Name" name="first_name" autoComplete="given-name" placeholder="Enter your first name" icon="user" error={fieldErrors.first_name} onChange={(event) => {
+            const sanitized = sanitizePersonNameInput(event.currentTarget.value)
+            if (sanitized !== event.currentTarget.value) event.currentTarget.value = sanitized
+            updateField("first_name", validatePersonName(sanitized, "First name"))
+          }} />
+          <AuthField label="Last Name" name="last_name" autoComplete="family-name" placeholder="Enter your last name" icon="user" error={fieldErrors.last_name} onChange={(event) => {
+            const sanitized = sanitizePersonNameInput(event.currentTarget.value)
+            if (sanitized !== event.currentTarget.value) event.currentTarget.value = sanitized
+            updateField("last_name", validatePersonName(sanitized, "Last name"))
+          }} />
         </div>
         <div className="mt-4 flex flex-col gap-4">
-          <AuthField label="Email Address" name="email" type="email" autoComplete="email" placeholder="Enter your email address" icon="email" />
-          <AuthField label="Phone Number" name="phone" type="tel" autoComplete="tel" placeholder="Enter your phone number" icon="phone" />
-          <AuthField label="Password" name="password" type="password" autoComplete="new-password" placeholder="Create a password" icon="lock" />
-          <AuthField label="Confirm Password" name="confirm_password" type="password" autoComplete="new-password" placeholder="Confirm your password" icon="lock" />
+          <AuthField label="Email Address" name="email" type="email" autoComplete="email" placeholder="Enter your email address" icon="email" error={fieldErrors.email} onChange={(event) => updateField("email", validateEmail(normalizeEmail(event.currentTarget.value)))} />
+          <AuthField label="Phone Number" name="phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={SRI_LANKA_PHONE_MAX_LENGTH} placeholder={SRI_LANKA_PHONE_EXAMPLE} icon="phone" error={fieldErrors.phone} onChange={(event) => {
+            const sanitized = sanitizeSriLankanPhoneInput(event.currentTarget.value)
+            if (sanitized !== event.currentTarget.value) event.currentTarget.value = sanitized
+            updateField("phone", validateSriLankanPhone(sanitized, { required: false }))
+          }} />
+          <AuthField label="Password" name="password" type="password" autoComplete="new-password" placeholder="Create a password" icon="lock" error={fieldErrors.password} onChange={(event) => updateField("password", event.currentTarget.value.length < 8 || !/[A-Za-z]/.test(event.currentTarget.value) || !/\d/.test(event.currentTarget.value) ? "Password must be at least 8 characters and include letters and numbers." : null)} />
+          <AuthField label="Confirm Password" name="confirm_password" type="password" autoComplete="new-password" placeholder="Confirm your password" icon="lock" error={fieldErrors.confirm_password} />
         </div>
         <label className="mt-5 flex items-start gap-3 text-[14px] font-medium leading-6 text-[#333333]">
           <input
             type="checkbox"
             name="terms"
+            aria-invalid={Boolean(fieldErrors.terms)}
             className="mt-1 h-5 w-5 rounded border border-[#d7d7d7] text-[#ff5c0e] focus:ring-[#ff5c0e]"
+            onChange={() => updateField("terms", null)}
           />
           <span>
             I agree to the{" "}
@@ -111,6 +148,11 @@ const Register = ({ setCurrentView, settings, countryCode }: Props) => {
             </LocalizedClientLink>
           </span>
         </label>
+        {fieldErrors.terms && (
+          <p className="mt-1 text-[12px] font-medium text-rose-600">
+            {fieldErrors.terms}
+          </p>
+        )}
         <ErrorMessage
           error={clientError ?? (typeof message === "string" ? message : null)}
           data-testid="register-error"

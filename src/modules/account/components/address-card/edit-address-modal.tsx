@@ -16,6 +16,10 @@ import {
   updateCustomerAddress,
 } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
+import {
+  SRI_LANKA_PHONE_EXAMPLE,
+  SRI_LANKA_PHONE_MAX_LENGTH,
+} from "@lib/util/storefront-form-validation"
 
 type EditAddressProps = {
   region: HttpTypes.StoreRegion
@@ -154,6 +158,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
                   required
                   autoComplete="given-name"
                   defaultValue={address.first_name || undefined}
+                  errors={formState.fieldErrors}
                   data-testid="first-name-input"
                 />
                 <Input
@@ -162,6 +167,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
                   required
                   autoComplete="family-name"
                   defaultValue={address.last_name || undefined}
+                  errors={formState.fieldErrors}
                   data-testid="last-name-input"
                 />
               </div>
@@ -178,6 +184,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
                 required
                 autoComplete="address-line1"
                 defaultValue={address.address_1 || undefined}
+                errors={formState.fieldErrors}
                 data-testid="address-1-input"
               />
               <Input
@@ -194,6 +201,9 @@ const EditAddress: React.FC<EditAddressProps> = ({
                   required
                   autoComplete="postal-code"
                   defaultValue={address.postal_code || undefined}
+                  inputMode="numeric"
+                  maxLength={5}
+                  errors={formState.fieldErrors}
                   data-testid="postal-code-input"
                 />
                 <Input
@@ -202,6 +212,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
                   required
                   autoComplete="locality"
                   defaultValue={address.city || undefined}
+                  errors={formState.fieldErrors}
                   data-testid="city-input"
                 />
               </div>
@@ -210,6 +221,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
                 name="province"
                 autoComplete="address-level1"
                 defaultValue={address.province || undefined}
+                errors={formState.fieldErrors}
                 data-testid="state-input"
               />
               <CountrySelect
@@ -223,8 +235,13 @@ const EditAddress: React.FC<EditAddressProps> = ({
               <Input
                 label="Phone"
                 name="phone"
-                autoComplete="phone"
+                type="tel"
+                autoComplete="tel"
+                inputMode="tel"
+                maxLength={SRI_LANKA_PHONE_MAX_LENGTH}
+                placeholder={SRI_LANKA_PHONE_EXAMPLE}
                 defaultValue={address.phone || undefined}
+                errors={formState.fieldErrors}
                 data-testid="phone-input"
               />
             </div>

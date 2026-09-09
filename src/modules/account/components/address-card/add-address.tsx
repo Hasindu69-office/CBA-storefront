@@ -12,6 +12,10 @@ import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { HttpTypes } from "@medusajs/types"
 import { addCustomerAddress } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
+import {
+  SRI_LANKA_PHONE_EXAMPLE,
+  SRI_LANKA_PHONE_MAX_LENGTH,
+} from "@lib/util/storefront-form-validation"
 
 const AddAddress = ({
   region,
@@ -76,6 +80,7 @@ const AddAddress = ({
                   name="first_name"
                   required
                   autoComplete="given-name"
+                  errors={formState.fieldErrors}
                   data-testid="first-name-input"
                 />
                 <Input
@@ -83,6 +88,7 @@ const AddAddress = ({
                   name="last_name"
                   required
                   autoComplete="family-name"
+                  errors={formState.fieldErrors}
                   data-testid="last-name-input"
                 />
               </div>
@@ -97,6 +103,7 @@ const AddAddress = ({
                 name="address_1"
                 required
                 autoComplete="address-line1"
+                errors={formState.fieldErrors}
                 data-testid="address-1-input"
               />
               <Input
@@ -111,6 +118,9 @@ const AddAddress = ({
                   name="postal_code"
                   required
                   autoComplete="postal-code"
+                  inputMode="numeric"
+                  maxLength={5}
+                  errors={formState.fieldErrors}
                   data-testid="postal-code-input"
                 />
                 <Input
@@ -118,6 +128,7 @@ const AddAddress = ({
                   name="city"
                   required
                   autoComplete="locality"
+                  errors={formState.fieldErrors}
                   data-testid="city-input"
                 />
               </div>
@@ -125,6 +136,7 @@ const AddAddress = ({
                 label="Province / State"
                 name="province"
                 autoComplete="address-level1"
+                errors={formState.fieldErrors}
                 data-testid="state-input"
               />
               <CountrySelect
@@ -137,7 +149,12 @@ const AddAddress = ({
               <Input
                 label="Phone"
                 name="phone"
-                autoComplete="phone"
+                type="tel"
+                autoComplete="tel"
+                inputMode="tel"
+                maxLength={SRI_LANKA_PHONE_MAX_LENGTH}
+                placeholder={SRI_LANKA_PHONE_EXAMPLE}
+                errors={formState.fieldErrors}
                 data-testid="phone-input"
               />
             </div>

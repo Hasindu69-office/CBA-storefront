@@ -9,6 +9,10 @@ import AccountInfo from "../account-info"
 import { HttpTypes } from "@medusajs/types"
 import { addCustomerAddress, updateCustomerAddress } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
+import {
+  SRI_LANKA_PHONE_EXAMPLE,
+  SRI_LANKA_PHONE_MAX_LENGTH,
+} from "@lib/util/storefront-form-validation"
 
 type MyInformationProps = {
   customer: HttpTypes.StoreCustomer
@@ -115,6 +119,7 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
               name="first_name"
               defaultValue={billingAddress?.first_name || undefined}
               required
+              errors={state.fieldErrors}
               data-testid="billing-first-name-input"
             />
             <Input
@@ -122,6 +127,7 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
               name="last_name"
               defaultValue={billingAddress?.last_name || undefined}
               required
+              errors={state.fieldErrors}
               data-testid="billing-last-name-input"
             />
           </div>
@@ -134,10 +140,14 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
           <Input
             label="Phone"
             name="phone"
-            type="phone"
-            autoComplete="phone"
+            type="tel"
+            autoComplete="tel"
+            inputMode="tel"
+            maxLength={SRI_LANKA_PHONE_MAX_LENGTH}
+            placeholder={SRI_LANKA_PHONE_EXAMPLE}
             required
             defaultValue={billingAddress?.phone ?? customer?.phone ?? ""}
+            errors={state.fieldErrors}
             data-testid="billing-phone-input"
           />
           <Input
@@ -145,6 +155,7 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
             name="address_1"
             defaultValue={billingAddress?.address_1 || undefined}
             required
+            errors={state.fieldErrors}
             data-testid="billing-address-1-input"
           />
           <Input
@@ -159,6 +170,9 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
               name="postal_code"
               defaultValue={billingAddress?.postal_code || undefined}
               required
+              inputMode="numeric"
+              maxLength={5}
+              errors={state.fieldErrors}
               data-testid="billing-postcal-code-input"
             />
             <Input
@@ -166,6 +180,7 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
               name="city"
               defaultValue={billingAddress?.city || undefined}
               required
+              errors={state.fieldErrors}
               data-testid="billing-city-input"
             />
           </div>
@@ -173,6 +188,7 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
             label="Province"
             name="province"
             defaultValue={billingAddress?.province || undefined}
+            errors={state.fieldErrors}
             data-testid="billing-province-input"
           />
           <NativeSelect
