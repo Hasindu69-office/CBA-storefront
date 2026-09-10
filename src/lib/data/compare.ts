@@ -21,7 +21,11 @@ export type CompareSpecRow = {
   id: string
   compare_group_id: string
   label: string
-  source_type: "specification" | "native" | "catalog_profile"
+  source_type:
+    | "specification"
+    | "native_price"
+    | "native_inventory"
+    | "catalog_profile"
   specification_definition_id?: string | null
   native_field_key?: string | null
   catalog_profile_field_key?: string | null
@@ -42,6 +46,7 @@ export type ComparePageData = {
   maxProducts: number
   rows: CompareTableRow[]
   warnings: string[]
+  rejectedIds: string[]
 }
 
 type SuccessEnvelope<T> = { success: true; data: T }
@@ -59,6 +64,31 @@ type CompareSearchEnvelope =
   | SuccessEnvelope<{ products: FeaturedProductCard[] }>
   | ErrorEnvelope
 
+type CompareValidationEnvelope =
+  | SuccessEnvelope<{
+      compare_group: CompareGroup | null
+      approved_ids: string[]
+      rejected_ids: string[]
+    }>
+  | ErrorEnvelope
+
+async function validateCompareProducts(ids: string[]) {
+  const payload = await sdk.client.fetch<CompareValidationEnvelope>(
+    "/store/cba/v1/compare/validate",
+    {
+      method: "POST",
+      cache: "no-store",
+      body: { ids },
+    }
+  )
+
+  if (!payload.success) {
+    throw new Error(payload.error?.message ?? "Compare validation failed.")
+  }
+
+  return payload.data
+}
+
 export async function getComparePageData({
   ids,
   countryCode,
@@ -72,7 +102,18 @@ export async function getComparePageData({
   }
 
   const warnings: string[] = []
-  const products = await getCompareProductCards(requestedIds, countryCode).catch(
+  let validation: Awaited<ReturnType<typeof validateCompareProducts>>
+  try {
+    validation = await validateCompareProducts(requestedIds)
+  } catch (error) {
+    return {
+      ...emptyComparePageData(requestedIds),
+      rejectedIds: requestedIds,
+      warnings: [safeErrorMessage(error, "Comparison could not be validated.")],
+    }
+  }
+
+  const products = await getCompareProductCards(validation.approved_ids, countryCode).catch(
     (error) => {
       warnings.push(safeErrorMessage(error, "Products could not be loaded."))
       return []
@@ -82,36 +123,45 @@ export async function getComparePageData({
   if (!productIds.length) {
     return {
       ...emptyComparePageData(requestedIds),
+      rejectedIds: requestedIds,
       warnings: warnings.length ? warnings : ["Selected products are unavailable."],
     }
   }
 
   const specs = await Promise.all(
-    productIds.map((productId) =>
-      getProductCompareSpecifications(productId).catch(() => {
+    productIds.map(async (productId) => {
+      try {
+        return await getProductCompareSpecifications(productId)
+      } catch (error) {
+        warnings.push("Some selected product comparison data is unavailable.")
         return emptyProductCompareSpecifications(productId)
-      })
-    )
+      }
+    })
   )
 
-  const compareGroup = specs.find((item) => item.compareGroup)?.compareGroup ?? null
+  const compareGroup = validation.compare_group
+  const compareGroupCode = compareGroup?.code ?? null
   const maxProducts = clampCompareLimit(
     Number(compareGroup?.max_compare_products ?? DEFAULT_COMPARE_LIMIT)
   )
   const compatibleSpecs = compareGroup
     ? specs.filter((item) => item.compareGroup?.id === compareGroup.id)
-    : specs
-  const compatibleProductIds = new Set(
-    compareGroup ? compatibleSpecs.map((item) => item.productId) : productIds
-  )
+    : []
+  const compatibleProductIds = new Set(products.map((product) => product.id))
   const visibleProducts = products
     .filter((product) => compatibleProductIds.has(product.id))
     .slice(0, maxProducts)
   const visibleIds = new Set(visibleProducts.map((product) => product.id))
   const visibleSpecs = compatibleSpecs.filter((item) => visibleIds.has(item.productId))
+  const rejectedIds = Array.from(
+    new Set([
+      ...validation.rejected_ids,
+      ...validation.approved_ids.filter((productId) => !visibleIds.has(productId)),
+    ])
+  )
 
-  if (visibleProducts.length < products.length) {
-    warnings.push("Some selected products were hidden because they are not compatible.")
+  if (rejectedIds.length) {
+    warnings.push("Some selected products were removed because they are not eligible for this comparison.")
   }
 
   return {
@@ -121,6 +171,7 @@ export async function getComparePageData({
     maxProducts,
     rows: buildCompareRows(visibleProducts, visibleSpecs),
     warnings: uniqueWarnings(warnings),
+    rejectedIds,
   }
 }
 
@@ -331,6 +382,7 @@ function emptyComparePageData(requestedIds: string[]): ComparePageData {
     maxProducts: DEFAULT_COMPARE_LIMIT,
     rows: [],
     warnings: [],
+    rejectedIds: [],
   }
 }
 
