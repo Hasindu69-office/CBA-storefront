@@ -21,6 +21,7 @@ NODE_ENV=production
 PORT=8000
 HOSTNAME=0.0.0.0
 MEDUSA_BACKEND_URL=https://your-backend-domain
+NEXT_PUBLIC_MEDUSA_BACKEND_URL=https://your-backend-domain
 MEDUSA_FILE_BACKEND_URL=https://your-backend-domain/static
 NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=replace-with-publishable-key
 NEXT_PUBLIC_BASE_URL=https://your-storefront-domain
@@ -46,7 +47,7 @@ CART_COOKIE_NAME=_cba_cart_id
 CACHE_COOKIE_NAME=_cba_cache_id
 ```
 
-Use the public Coolify/backend URL for `MEDUSA_BACKEND_URL`, not `localhost`, because middleware and server-side rendering run inside the container. If you override `MEDUSA_FILE_BACKEND_URL`, use the public URL that serves uploaded Medusa files.
+Use the public Coolify/backend URL for both `MEDUSA_BACKEND_URL` and `NEXT_PUBLIC_MEDUSA_BACKEND_URL`, not `localhost`. The `NEXT_PUBLIC_*` value is embedded into the browser bundle and is required for browser API requests. If you override `MEDUSA_FILE_BACKEND_URL`, use the public URL that serves uploaded Medusa files.
 
 The backend WEBXPAY callback also needs the public storefront origin in `STOREFRONT_URL`. Do not set it to the container bind address. For this server it should match the storefront public origin:
 
