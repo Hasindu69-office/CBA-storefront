@@ -177,13 +177,9 @@ export async function requestPasswordReset(_currentState: unknown, formData: For
 }
 
 export async function resetPassword(_currentState: unknown, formData: FormData) {
-  const email = normalizeEmail(formData.get("email"))
   const token = text(formData.get("token"))
   const password = text(formData.get("password"))
   const confirmPassword = text(formData.get("confirm_password"))
-  if (validateEmail(email)) {
-    return "Enter a valid email address."
-  }
   if (!/^[A-Za-z0-9._-]{20,2048}$/.test(token)) {
     return "This password reset link is invalid."
   }
@@ -197,7 +193,7 @@ export async function resetPassword(_currentState: unknown, formData: FormData) 
     await sdk.client.fetch("/auth/customer/emailpass/update", {
       method: "POST",
       headers: { authorization: `Bearer ${token}` },
-      body: { email, password },
+      body: { password },
       cache: "no-store",
     })
     return "Password updated. You can sign in with your new password."
