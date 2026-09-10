@@ -59,6 +59,12 @@ export type ProductDetailRelatedProduct = {
 export type ProductDetailResponse = {
   product_id: string
   variant_id: string | null
+  compare_group: {
+    id: string
+    name: string
+    code: string
+    max_compare_products?: number | null
+  } | null
   brand: ProductDetailBrand | null
   catalog_profile: {
     short_description?: string | null
@@ -256,6 +262,7 @@ function emptyProductDetail(
   return {
     product_id: productId,
     variant_id: variantId ?? null,
+    compare_group: null,
     brand: null,
     catalog_profile: null,
     badges: [],

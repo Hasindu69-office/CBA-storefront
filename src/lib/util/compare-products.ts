@@ -90,6 +90,7 @@ export function addProductToCompareStorage(
   product: CompareProductHint,
   options: {
     limit?: number
+    ignoreStoredHints?: boolean
   } = {}
 ): CompareUpdateResult {
   const currentIds = readStoredCompareIds()
@@ -121,6 +122,7 @@ export function addProductToCompareStorage(
   const hints = readCompareHints()
   const existingGroupKeys = currentIds.flatMap((id) => hints[id] ?? [])
   if (
+    !options.ignoreStoredHints &&
     existingGroupKeys.length &&
     product.compareGroupKeys?.length &&
     !product.compareGroupKeys.some((key) => existingGroupKeys.includes(key))
@@ -147,6 +149,28 @@ export function removeProductFromCompareStorage(productId: string) {
   writeStoredCompareIds(nextIds)
   removeCompareHint(productId)
   return nextIds
+}
+
+export function replaceCompareStorage(product: CompareProductHint) {
+  if (typeof window === "undefined" || !isSafeCompareProductId(product.id)) {
+    return {
+      success: false as const,
+      ids: [],
+      message: "Select a valid product to compare.",
+    }
+  }
+
+  const keys = (product.compareGroupKeys ?? [])
+    .map((key) => key.trim())
+    .filter(Boolean)
+    .slice(0, 6)
+  const ids = [product.id]
+  window.localStorage.setItem(COMPARE_STORAGE_KEY, JSON.stringify(ids))
+  window.localStorage.setItem(
+    COMPARE_HINTS_STORAGE_KEY,
+    JSON.stringify(keys.length ? { [product.id]: keys } : {})
+  )
+  return { success: true as const, ids, message: "Comparison replaced." }
 }
 
 export function compareIdsQuery(ids: string[]) {

@@ -2,6 +2,7 @@
 
 import { addToCart } from "@lib/data/cart"
 import { requestBackInStock } from "@lib/data/back-in-stock"
+import { sdk } from "@lib/config"
 import {
   listInstallmentPlans,
   type StoreInstallmentPlan,
@@ -20,6 +21,13 @@ import { kokoInstallmentCardLabelFromAmount } from "@lib/util/koko-installments"
 import { convertToLocale } from "@lib/util/money"
 import { normalizeEmail, validateEmail } from "@lib/util/storefront-form-validation"
 import { openSideCart } from "@lib/util/side-cart-event"
+import {
+  addProductToCompareStorage,
+  DEFAULT_COMPARE_LIMIT,
+  readStoredCompareIds,
+  replaceCompareStorage,
+  writeStoredCompareIds,
+} from "@lib/util/compare-products"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import KokoInstallmentLine from "@modules/common/components/koko-installment-line"
@@ -35,9 +43,11 @@ import {
 } from "@modules/wishlist/components/wishlist-product-button"
 import { isEqual } from "lodash"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
 } from "react"
@@ -130,7 +140,23 @@ export default function CbaProductDetail({
   })
   const [installmentPlans, setInstallmentPlans] = useState<StoreInstallmentPlan[]>([])
   const [isPending, startTransition] = useTransition()
+  const [isComparePending, setIsComparePending] = useState(false)
+  const [showCompareReplacement, setShowCompareReplacement] = useState(false)
+  const compareButtonRef = useRef<HTMLButtonElement>(null)
+  const compareCancelRef = useRef<HTMLButtonElement>(null)
+  const router = useRouter()
   const { isWishlisted } = useWishlistProduct(product.id)
+
+  useEffect(() => {
+    if (!showCompareReplacement) {
+      return
+    }
+    const previousFocus = document.activeElement as HTMLElement | null
+    compareCancelRef.current?.focus()
+    return () => {
+      ;(previousFocus ?? compareButtonRef.current)?.focus()
+    }
+  }, [showCompareReplacement])
 
   const selectedVariant = useMemo(() => {
     if (!product.variants?.length) return undefined
@@ -282,6 +308,101 @@ export default function CbaProductDetail({
         })
       }
     })
+  }
+
+  async function addCurrentProductToCompare() {
+    if (isComparePending) return
+    const currentIds = readStoredCompareIds()
+    if (currentIds.includes(product.id)) {
+      notify.info("Product is already in comparison.")
+      router.push(`/compare?ids=${currentIds.join(",")}`)
+      return
+    }
+    setIsComparePending(true)
+    try {
+      const group = detail?.compare_group
+      if (!group) {
+        notify.warning("This product is not eligible for comparison.")
+        return
+      }
+      const maxProducts = Number(group.max_compare_products ?? DEFAULT_COMPARE_LIMIT)
+      if (currentIds.length >= maxProducts) {
+        notify.warning(`Comparison supports up to ${maxProducts} products.`)
+        return
+      }
+
+      const validation = await sdk.client.fetch<CompareValidationResponse>(
+        "/store/cba/v1/compare/validate",
+        {
+          method: "POST",
+          cache: "no-store",
+          body: { ids: [...currentIds, product.id] },
+        }
+      )
+      if (!validation.success) {
+        notify.error(validation.error?.message ?? "We could not verify this comparison.")
+        return
+      }
+      if (!validation.data.approved_ids.includes(product.id)) {
+        if (currentIds.length && validation.data.rejected_ids.includes(product.id)) {
+          setShowCompareReplacement(true)
+        } else {
+          notify.warning("This product is not eligible for comparison.")
+        }
+        return
+      }
+
+      const result = addProductToCompareStorage(
+        { id: product.id, compareGroupKeys: [group.code] },
+        { limit: maxProducts, ignoreStoredHints: true }
+      )
+      if (!result.success) {
+        notify.warning(result.message)
+        return
+      }
+      writeStoredCompareIds(validation.data.approved_ids)
+      notify.success("Added to comparison.")
+      router.push(`/compare?ids=${validation.data.approved_ids.join(",")}`)
+    } catch (error) {
+      notify.error(error, "We could not verify this product for comparison.")
+    } finally {
+      setIsComparePending(false)
+    }
+  }
+
+  async function confirmCompareReplacement() {
+    if (isComparePending) return
+    setIsComparePending(true)
+    try {
+      const validation = await sdk.client.fetch<CompareValidationResponse>(
+        "/store/cba/v1/compare/validate",
+        {
+          method: "POST",
+          cache: "no-store",
+          body: { ids: [product.id] },
+        }
+      )
+      if (!validation.success || !validation.data.approved_ids.includes(product.id)) {
+        notify.warning("This product is no longer eligible for comparison.")
+        setShowCompareReplacement(false)
+        return
+      }
+      const result = replaceCompareStorage({
+        id: product.id,
+        compareGroupKeys: [detail?.compare_group?.code ?? ""],
+      })
+      if (!result.success) {
+        notify.warning(result.message)
+        return
+      }
+      setShowCompareReplacement(false)
+      notify.success("Started a new comparison with this product.")
+      router.push(`/compare?ids=${product.id}`)
+    } catch (error) {
+      notify.error(error, "We could not start a new comparison.")
+    } finally {
+      setIsComparePending(false)
+    }
   }
 
   function submitBackInStock() {
@@ -622,13 +743,17 @@ export default function CbaProductDetail({
                 {isWishlisted ? "Wishlist added" : "Wishlist"}
               </WishlistProductButton>
               <span className="text-gray-300">|</span>
-              <LocalizedClientLink
-                href="/compare"
+              <button
+                type="button"
+                ref={compareButtonRef}
+                onClick={addCurrentProductToCompare}
+                disabled={isPending || isComparePending}
+                aria-label={`Add ${product.title} to comparison`}
                 className="flex items-center gap-2 hover:text-brand"
               >
                 <ScaleIcon size={15} className="text-gray-500" />
                 Compare
-              </LocalizedClientLink>
+              </button>
             </div>
             {detail?.warranty?.summary && (
               <p className="mt-5 border-t border-gray-200 pt-4 text-xs text-gray-600">
@@ -696,10 +821,64 @@ export default function CbaProductDetail({
           kokoBranding={kokoBranding}
           kokoAvailable={kokoAvailable}
         />
+
+        {showCompareReplacement && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setShowCompareReplacement(false)
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="compare-replacement-title"
+              aria-describedby="compare-replacement-description"
+              className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl"
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setShowCompareReplacement(false)
+              }}
+            >
+              <h2 id="compare-replacement-title" className="text-lg font-bold text-gray-900">
+                Start a new comparison?
+              </h2>
+              <p id="compare-replacement-description" className="mt-2 text-sm leading-6 text-gray-600">
+                This product belongs to a different category. Starting a new comparison will remove the products currently selected.
+              </p>
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  ref={compareCancelRef}
+                  type="button"
+                  onClick={() => setShowCompareReplacement(false)}
+                  disabled={isComparePending}
+                  className="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmCompareReplacement}
+                  disabled={isComparePending}
+                  className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-50"
+                >
+                  {isComparePending ? "Checking…" : "Start new comparison"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   )
 }
+
+type CompareValidationResponse =
+  | {
+      success: true
+      data: { approved_ids: string[]; rejected_ids: string[] }
+    }
+  | { success: false; error?: { message?: string } }
 
 function PdpInstallmentPreview({
   plans,
