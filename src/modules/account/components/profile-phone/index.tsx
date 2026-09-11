@@ -2,16 +2,13 @@
 
 import React, { useEffect, useActionState } from "react";
 
-import Input from "@modules/common/components/input"
+import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
 
 import AccountInfo from "../account-info"
 import { HttpTypes } from "@medusajs/types"
 import { updateCustomer } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
 import {
-  sanitizeSriLankanPhoneInput,
-  SRI_LANKA_PHONE_EXAMPLE,
-  SRI_LANKA_PHONE_MAX_LENGTH,
   validateSriLankanPhone,
 } from "@lib/util/storefront-form-validation"
 
@@ -80,23 +77,14 @@ const ProfileEmail: React.FC<MyInformationProps> = ({ customer }) => {
         data-testid="account-phone-editor"
       >
         <div className="grid grid-cols-1 gap-y-2">
-          <Input
+          <SriLankanPhoneInput
             label="Phone"
             name="phone"
-            type="tel"
-            autoComplete="tel"
-            inputMode="tel"
-            maxLength={SRI_LANKA_PHONE_MAX_LENGTH}
-            placeholder={SRI_LANKA_PHONE_EXAMPLE}
             required
-            errors={fieldErrors}
+            error={fieldErrors.phone}
             defaultValue={customer.phone ?? ""}
-            onChange={(event) => {
-              const sanitized = sanitizeSriLankanPhoneInput(event.currentTarget.value)
-              if (sanitized !== event.currentTarget.value) {
-                event.currentTarget.value = sanitized
-              }
-              const error = validateSriLankanPhone(sanitized)
+            onValueChange={(internationalValue) => {
+              const error = validateSriLankanPhone(internationalValue)
               setFieldErrors(error ? { phone: error } : {})
             }}
             data-testid="phone-input"

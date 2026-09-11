@@ -3,16 +3,13 @@
 import React, { useEffect, useMemo, useActionState } from "react"
 
 import Input from "@modules/common/components/input"
+import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
 import NativeSelect from "@modules/common/components/native-select"
 
 import AccountInfo from "../account-info"
 import { HttpTypes } from "@medusajs/types"
 import { addCustomerAddress, updateCustomerAddress } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
-import {
-  SRI_LANKA_PHONE_EXAMPLE,
-  SRI_LANKA_PHONE_MAX_LENGTH,
-} from "@lib/util/storefront-form-validation"
 
 type MyInformationProps = {
   customer: HttpTypes.StoreCustomer
@@ -137,17 +134,12 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
             defaultValue={billingAddress?.company || undefined}
             data-testid="billing-company-input"
           />
-          <Input
+          <SriLankanPhoneInput
             label="Phone"
             name="phone"
-            type="tel"
-            autoComplete="tel"
-            inputMode="tel"
-            maxLength={SRI_LANKA_PHONE_MAX_LENGTH}
-            placeholder={SRI_LANKA_PHONE_EXAMPLE}
             required
             defaultValue={billingAddress?.phone ?? customer?.phone ?? ""}
-            errors={state.fieldErrors}
+            error={state.fieldErrors?.phone}
             data-testid="billing-phone-input"
           />
           <Input

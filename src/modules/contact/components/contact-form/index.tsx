@@ -13,14 +13,12 @@ import {
 import {
   normalizeEmail,
   sanitizePersonNameInput,
-  sanitizeSriLankanPhoneInput,
-  SRI_LANKA_PHONE_EXAMPLE,
-  SRI_LANKA_PHONE_MAX_LENGTH,
   validateEmail,
   validatePersonName,
   validateSafeMessageText,
   validateSriLankanPhone,
 } from "@lib/util/storefront-form-validation"
+import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
 
 type Props = {
   title: string
@@ -175,22 +173,16 @@ export default function ContactForm({ title, helper, successText }: Props) {
         </div>
 
         <div className="grid gap-4 small:grid-cols-2">
-          <Field
+          <SriLankanPhoneInput
+            key={state.status}
             id="contact-phone"
             name="phone"
             label="Phone (optional)"
-            type="tel"
             disabled={isPending}
             error={clientErrors.phone ?? state.fieldErrors?.phone}
-            autoComplete="tel"
-            inputMode="tel"
-            maxLength={SRI_LANKA_PHONE_MAX_LENGTH}
-            placeholder={SRI_LANKA_PHONE_EXAMPLE}
-            onChange={(event) => {
-              const sanitized = sanitizeSriLankanPhoneInput(event.currentTarget.value)
-              if (sanitized !== event.currentTarget.value) event.currentTarget.value = sanitized
-              setFieldError("phone", validateSriLankanPhone(sanitized, { required: false }))
-            }}
+            onValueChange={(internationalValue) =>
+              setFieldError("phone", validateSriLankanPhone(internationalValue, { required: false }))
+            }
           />
           <div>
             <label
