@@ -600,7 +600,38 @@ export default async function OrderCompletedTemplate({
                 Order Summary
               </h2>
 
-              <div className="mt-7 space-y-5">
+              <div className="mt-7 divide-y divide-[#eceef0]">
+                {items.length > 0 && (
+                  <div className="space-y-4 pb-5" data-testid="summary-items">
+                    {items.map((item) => {
+                      const quantity = item.quantity ?? 0
+                      const lineTotal = item.total ?? 0
+                      const unitPrice = quantity > 0 ? lineTotal / quantity : lineTotal
+
+                      return (
+                        <div
+                          className="flex items-start justify-between gap-4"
+                          key={`summary-${item.id}`}
+                          data-testid="summary-item"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-[14px] font-semibold text-[#1c222c]">
+                              {item.product_title ?? "Product"}
+                            </p>
+                            <p className="mt-1 text-[13px] text-[#69717d]">
+                              {quantity} × {formatAmount(order, unitPrice)}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-[14px] font-semibold text-[#1c222c]">
+                            {formatAmount(order, lineTotal)}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                <div className="space-y-4 pt-5">
                 {mappedTotals.rows
                   .filter((row) => row.key !== "tax" || row.amount > 0)
                   .map((row) => (
@@ -625,6 +656,7 @@ export default async function OrderCompletedTemplate({
                     value={formatPaymentAmount(order, installmentPayment.feeAmount)}
                   />
                 ) : null}
+                </div>
               </div>
 
               <div className="my-7 h-px bg-[#dfe3e6]" />
