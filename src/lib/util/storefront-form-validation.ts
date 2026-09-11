@@ -1,9 +1,11 @@
 export const EMAIL_MAX_LENGTH = 254
-export const SRI_LANKA_PHONE_EXAMPLE = "+94768545236"
-export const SRI_LANKA_LANDLINE_PHONE_EXAMPLE = "+94112365869"
+export const SRI_LANKA_PHONE_EXAMPLE = "+94762345678"
+export const SRI_LANKA_PHONE_NATIONAL_EXAMPLE = "762345678"
+export const SRI_LANKA_LANDLINE_PHONE_EXAMPLE = "+94112345678"
 export const SRI_LANKA_PHONE_FORMAT_EXAMPLES =
   `${SRI_LANKA_PHONE_EXAMPLE} or ${SRI_LANKA_LANDLINE_PHONE_EXAMPLE}`
 export const SRI_LANKA_PHONE_MAX_LENGTH = 12
+export const SRI_LANKA_PHONE_NATIONAL_MAX_LENGTH = 9
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const SRI_LANKA_MOBILE_PATTERN = /^\+947\d{8}$/
@@ -66,6 +68,22 @@ export function sanitizeSriLankanPhoneInput(value: string) {
   let next = value.replace(/[^\d+]/g, "")
   next = next.replace(/(?!^)\+/g, "")
   return next.slice(0, SRI_LANKA_PHONE_MAX_LENGTH)
+}
+
+export function sanitizeSriLankanPhoneNationalInput(value: string) {
+  return value.replace(/\D/g, "").replace(/^94/, "").replace(/^0(?=\d{9}$)/, "").slice(0, SRI_LANKA_PHONE_NATIONAL_MAX_LENGTH)
+}
+
+export function toSriLankanPhoneNational(value: string | null | undefined) {
+  const compact = String(value ?? "").replace(/\D/g, "")
+  if (compact.startsWith("94")) return compact.slice(2).slice(0, SRI_LANKA_PHONE_NATIONAL_MAX_LENGTH)
+  if (compact.length === 10 && compact.startsWith("0")) return compact.slice(1)
+  return compact.slice(0, SRI_LANKA_PHONE_NATIONAL_MAX_LENGTH)
+}
+
+export function normalizeSriLankanPhone(value: string | null | undefined) {
+  const national = toSriLankanPhoneNational(value)
+  return national ? `+94${national}` : ""
 }
 
 export function validateEmail(value: string, label = "email address") {

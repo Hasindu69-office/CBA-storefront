@@ -7,15 +7,12 @@ import { useEffect, useState, useActionState } from "react"
 import useToggleState from "@lib/hooks/use-toggle-state"
 import CountrySelect from "@modules/checkout/components/country-select"
 import Input from "@modules/common/components/input"
+import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
 import Modal from "@modules/common/components/modal"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { HttpTypes } from "@medusajs/types"
 import { addCustomerAddress } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
-import {
-  SRI_LANKA_PHONE_EXAMPLE,
-  SRI_LANKA_PHONE_MAX_LENGTH,
-} from "@lib/util/storefront-form-validation"
 
 const AddAddress = ({
   region,
@@ -146,15 +143,10 @@ const AddAddress = ({
                 autoComplete="country"
                 data-testid="country-select"
               />
-              <Input
+              <SriLankanPhoneInput
                 label="Phone"
                 name="phone"
-                type="tel"
-                autoComplete="tel"
-                inputMode="tel"
-                maxLength={SRI_LANKA_PHONE_MAX_LENGTH}
-                placeholder={SRI_LANKA_PHONE_EXAMPLE}
-                errors={formState.fieldErrors}
+                error={formState.fieldErrors?.phone}
                 data-testid="phone-input"
               />
             </div>

@@ -9,14 +9,12 @@ import { SubmitButton } from "@modules/checkout/components/submit-button"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { signup } from "@lib/data/customer"
 import { AuthField, SocialSection } from "@modules/account/components/login"
+import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
 import { startOAuthLogin } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
 import {
   normalizeEmail,
   sanitizePersonNameInput,
-  sanitizeSriLankanPhoneInput,
-  SRI_LANKA_PHONE_EXAMPLE,
-  SRI_LANKA_PHONE_MAX_LENGTH,
   validateEmail,
   validatePersonName,
   validateSriLankanPhone,
@@ -121,11 +119,14 @@ const Register = ({ setCurrentView, settings, countryCode }: Props) => {
         </div>
         <div className="mt-4 flex flex-col gap-4">
           <AuthField label="Email Address" name="email" type="email" autoComplete="email" placeholder="Enter your email address" icon="email" error={fieldErrors.email} onChange={(event) => updateField("email", validateEmail(normalizeEmail(event.currentTarget.value)))} />
-          <AuthField label="Phone Number" name="phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={SRI_LANKA_PHONE_MAX_LENGTH} placeholder={SRI_LANKA_PHONE_EXAMPLE} icon="phone" error={fieldErrors.phone} onChange={(event) => {
-            const sanitized = sanitizeSriLankanPhoneInput(event.currentTarget.value)
-            if (sanitized !== event.currentTarget.value) event.currentTarget.value = sanitized
-            updateField("phone", validateSriLankanPhone(sanitized, { required: false }))
-          }} />
+          <SriLankanPhoneInput
+            label="Phone Number"
+            name="phone"
+            error={fieldErrors.phone}
+            onValueChange={(internationalValue) =>
+              updateField("phone", validateSriLankanPhone(internationalValue, { required: false }))
+            }
+          />
           <AuthField label="Password" name="password" type="password" autoComplete="new-password" placeholder="Create a password" icon="lock" error={fieldErrors.password} onChange={(event) => updateField("password", event.currentTarget.value.length < 8 || !/[A-Za-z]/.test(event.currentTarget.value) || !/\d/.test(event.currentTarget.value) ? "Password must be at least 8 characters and include letters and numbers." : null)} />
           <AuthField label="Confirm Password" name="confirm_password" type="password" autoComplete="new-password" placeholder="Confirm your password" icon="lock" error={fieldErrors.confirm_password} />
         </div>

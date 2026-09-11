@@ -3,7 +3,10 @@ import { describe, it } from "node:test"
 import { validateCheckoutAddressFormData } from "../checkout-address-validation"
 import { resolveCheckoutValidationFieldName } from "../checkout-validation-focus"
 import {
+  normalizeSriLankanPhone,
   sanitizeSriLankanPhoneInput,
+  sanitizeSriLankanPhoneNationalInput,
+  toSriLankanPhoneNational,
   validateSriLankanPhone,
 } from "../storefront-form-validation"
 
@@ -166,6 +169,17 @@ describe("validateSriLankanPhone", () => {
     assert.equal(sanitizeSriLankanPhoneInput("+94 11 236 5869"), "+94112365869")
     assert.equal(sanitizeSriLankanPhoneInput("0112365869"), "0112365869")
     assert.equal(sanitizeSriLankanPhoneInput("94112365869"), "94112365869")
+  })
+
+  it("converts between the displayed national number and the stored international number", () => {
+    assert.equal(toSriLankanPhoneNational("+94768545236"), "768545236")
+    assert.equal(toSriLankanPhoneNational("0768545236"), "768545236")
+    assert.equal(normalizeSriLankanPhone("768545236"), "+94768545236")
+    assert.equal(normalizeSriLankanPhone("+94768545236"), "+94768545236")
+    assert.equal(
+      sanitizeSriLankanPhoneNationalInput("+94 768-545-236"),
+      "768545236"
+    )
   })
 })
 

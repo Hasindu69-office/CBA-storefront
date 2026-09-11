@@ -15,12 +15,10 @@ import {
 import AccountOrderTrackingTemplate from "./account-order-tracking-template"
 import {
   normalizeEmail,
-  sanitizeSriLankanPhoneInput,
-  SRI_LANKA_PHONE_EXAMPLE,
-  SRI_LANKA_PHONE_MAX_LENGTH,
   validateEmail,
   validateSriLankanPhone,
 } from "@lib/util/storefront-form-validation"
+import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
 
 type GuestOrderTrackingTemplateProps = {
   initialTracking?: CbaCustomerOrderTracking | null
@@ -210,36 +208,25 @@ export default function GuestOrderTrackingTemplate({
                 className={inputClass}
               />
             </Field>
-            <Field
+            <SriLankanPhoneInput
               label="Phone (optional if email provided)"
-              htmlFor="phone"
+              name="phone"
+              value={phone}
               error={fieldErrors.phone}
-            >
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => {
-                  const value = sanitizeSriLankanPhoneInput(e.target.value)
-                  setPhone(value)
-                  setFieldErrors((current) => {
-                    const next = { ...current }
-                    const phoneError = validateSriLankanPhone(value, {
-                      required: false,
-                    })
-                    if (phoneError) next.phone = phoneError
-                    else delete next.phone
-                    return next
+              onValueChange={(internationalValue) => {
+                setPhone(internationalValue)
+                setFieldErrors((current) => {
+                  const next = { ...current }
+                  const phoneError = validateSriLankanPhone(internationalValue, {
+                    required: false,
                   })
-                }}
-                maxLength={SRI_LANKA_PHONE_MAX_LENGTH}
-                inputMode="tel"
-                autoComplete="tel"
-                placeholder={SRI_LANKA_PHONE_EXAMPLE}
-                className={inputClass}
-              />
-            </Field>
+                  if (phoneError) next.phone = phoneError
+                  else delete next.phone
+                  return next
+                })
+              }}
+              inputClassName={inputClass}
+            />
             {error && <p className="text-[13px] text-rose-600">{error}</p>}
             <button
               type="submit"

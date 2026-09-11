@@ -38,8 +38,6 @@ import {
   sanitizePersonNameInput,
   sanitizePlaceNameInput,
   sanitizeSriLankanPhoneInput,
-  SRI_LANKA_PHONE_EXAMPLE,
-  SRI_LANKA_PHONE_MAX_LENGTH,
   validateEmail,
   validateSriLankanPhone,
   validateSriLankanPostalCode,
@@ -60,6 +58,7 @@ import {
   ShoppingBag,
 } from "@medusajs/icons"
 import PlaceholderImage from "@modules/common/icons/placeholder-image"
+import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
 import Radio from "@modules/common/components/radio"
 import { CardElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import Image from "next/image"
@@ -269,7 +268,9 @@ export default function CbaCheckoutTemplate({
 
   const focusAddressField = useCallback((field: CheckoutAddressFieldName | null) => {
     if (!field) return
-    const element = addressFormRef.current?.elements.namedItem(field)
+    const element = addressFormRef.current?.querySelector<HTMLElement>(
+      `[data-phone-input-for="${field}"], [name="${field}"]`
+    )
     if (element instanceof HTMLElement) {
       element.focus()
       element.scrollIntoView({ block: "center", behavior: "smooth" })
@@ -479,18 +480,24 @@ function ShippingInformationForm({
           onChange={(event) => onFieldChange("full_name", event)}
           onBlur={(event) => onFieldChange("full_name", event)}
         />
-        <Field
+        <SriLankanPhoneInput
           label="Phone Number"
           name="shipping_address.phone"
-          type="tel"
-          placeholder={SRI_LANKA_PHONE_EXAMPLE}
           defaultValue={cart.shipping_address?.phone ?? ""}
           required
-          maxLength={SRI_LANKA_PHONE_MAX_LENGTH}
-          inputMode="tel"
           error={fieldErrors["shipping_address.phone"]}
-          onChange={(event) => onFieldChange("shipping_address.phone", event)}
-          onBlur={(event) => onFieldChange("shipping_address.phone", event)}
+          onValueChange={(internationalValue) =>
+            onFieldChange(
+              "shipping_address.phone",
+              { currentTarget: { value: internationalValue } } as FormEvent<HTMLInputElement>
+            )
+          }
+          onValueBlur={(internationalValue) =>
+            onFieldChange(
+              "shipping_address.phone",
+              { currentTarget: { value: internationalValue } } as FormEvent<HTMLInputElement>
+            )
+          }
         />
         <Field
           label="Email Address"
