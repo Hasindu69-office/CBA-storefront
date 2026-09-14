@@ -55,7 +55,7 @@ const BestSellingProductsSection = async ({
           <div className="relative left-1/2 aspect-[326.5/569.13] w-screen max-w-[100vw] -translate-x-1/2 md:aspect-[1728/1500] small:left-auto small:mx-auto small:aspect-[1728/830] small:w-full small:max-w-full small:translate-x-0 small:max-[1279px]:aspect-[1728/1200]">
             <MaskedBackground
               className="md:hidden"
-              maskImage="/images/Asset 2.svg"
+              maskImage="/images/Asset 2_updated.svg"
               backgroundPosition="center"
             />
             <MaskedBackground
