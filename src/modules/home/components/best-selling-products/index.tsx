@@ -10,6 +10,7 @@ type BestSellingProductsSectionProps = {
 }
 
 const BEST_SELLING_PLACEMENT = "homepage_best_selling_products"
+const BACKGROUND_FALLBACK_URL = "/images/bestsellingbackground.png"
 const FALLBACK_TITLE = "Best Selling Products"
 const FALLBACK_DESCRIPTION =
   "Most Popular products chosen by business like you."
@@ -44,6 +45,9 @@ const BestSellingProductsSection = async ({
   const title = section.title?.trim() || FALLBACK_TITLE
   const description =
     stringConfig(section.config?.description) || FALLBACK_DESCRIPTION
+  const backgroundImageUrl = safeBackgroundImageUrl(
+    section.config?.background_image_url
+  )
 
   return (
     <section
@@ -55,12 +59,14 @@ const BestSellingProductsSection = async ({
           <div className="relative left-1/2 aspect-[326.5/569.13] w-screen max-w-[100vw] -translate-x-1/2 md:aspect-[1728/1500] small:left-auto small:mx-auto small:aspect-[1728/830] small:w-full small:max-w-full small:translate-x-0 small:max-[1279px]:aspect-[1728/1200]">
             <MaskedBackground
               className="md:hidden"
-              maskImage="/images/Asset 2.svg"
+              maskImage="/images/Asset 2_updated.svg"
+              backgroundImageUrl={backgroundImageUrl}
               backgroundPosition="center"
             />
             <MaskedBackground
               className="hidden md:block"
               maskImage="/images/svgviewer-output.svg"
+              backgroundImageUrl={backgroundImageUrl}
               backgroundPosition="center"
             />
 
@@ -93,10 +99,12 @@ const BestSellingProductsSection = async ({
 function MaskedBackground({
   className,
   maskImage,
+  backgroundImageUrl,
   backgroundPosition,
 }: {
   className: string
   maskImage: string
+  backgroundImageUrl: string
   backgroundPosition: string
 }) {
   return (
@@ -116,13 +124,47 @@ function MaskedBackground({
       <div
         className="absolute inset-0"
         style={{
-          backgroundImage: 'url("/images/bestsellingbackground.png")',
+          backgroundImage: `url("${backgroundImageUrl}")`,
           backgroundSize: "cover",
           backgroundPosition,
         }}
       />
     </div>
   )
+}
+
+function safeBackgroundImageUrl(value: unknown) {
+  if (typeof value !== "string") {
+    return BACKGROUND_FALLBACK_URL
+  }
+
+  const url = value.trim()
+  if (
+    !url ||
+    url.startsWith("//") ||
+    url.includes("\\") ||
+    url.includes("..") ||
+    /[\u0000-\u001F\u007F]/.test(url)
+  ) {
+    return BACKGROUND_FALLBACK_URL
+  }
+  if (url.startsWith("/")) {
+    return url
+  }
+
+  try {
+    const parsed = new URL(url)
+    if (
+      (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+      !parsed.username &&
+      !parsed.password
+    ) {
+      return url
+    }
+  } catch {
+    return BACKGROUND_FALLBACK_URL
+  }
+  return BACKGROUND_FALLBACK_URL
 }
 
 function isBestSellingSection(section: HomepageCmsSection) {
