@@ -2,12 +2,15 @@
 
 import React, { useEffect, useActionState } from "react";
 
-import Input from "@modules/common/components/input"
+import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
 
 import AccountInfo from "../account-info"
 import { HttpTypes } from "@medusajs/types"
 import { updateCustomer } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
+import {
+  validateSriLankanPhone,
+} from "@lib/util/storefront-form-validation"
 
 type MyInformationProps = {
   customer: HttpTypes.StoreCustomer
@@ -15,6 +18,7 @@ type MyInformationProps = {
 
 const ProfileEmail: React.FC<MyInformationProps> = ({ customer }) => {
   const [successState, setSuccessState] = React.useState(false)
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({})
 
   const updateCustomerPhone = async (
     _currentState: Record<string, unknown>,
@@ -52,8 +56,17 @@ const ProfileEmail: React.FC<MyInformationProps> = ({ customer }) => {
     }
   }, [state])
 
+  function validate(event: React.FormEvent<HTMLFormElement>) {
+    const phone = String(new FormData(event.currentTarget).get("phone") ?? "")
+    const error = validateSriLankanPhone(phone)
+    setFieldErrors(error ? { phone: error } : {})
+    if (error) {
+      event.preventDefault()
+    }
+  }
+
   return (
-    <form action={formAction} className="w-full">
+    <form action={formAction} onSubmit={validate} className="w-full" noValidate>
       <AccountInfo
         label="Phone"
         currentInfo={`${customer.phone}`}
@@ -64,13 +77,16 @@ const ProfileEmail: React.FC<MyInformationProps> = ({ customer }) => {
         data-testid="account-phone-editor"
       >
         <div className="grid grid-cols-1 gap-y-2">
-          <Input
+          <SriLankanPhoneInput
             label="Phone"
             name="phone"
-            type="phone"
-            autoComplete="phone"
             required
+            error={fieldErrors.phone}
             defaultValue={customer.phone ?? ""}
+            onValueChange={(internationalValue) => {
+              const error = validateSriLankanPhone(internationalValue)
+              setFieldErrors(error ? { phone: error } : {})
+            }}
             data-testid="phone-input"
           />
         </div>

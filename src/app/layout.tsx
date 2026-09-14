@@ -2,6 +2,7 @@ import { getBaseURL } from "@lib/util/env"
 import { Metadata } from "next"
 import Script from "next/script"
 import NotificationProvider from "@modules/common/components/notification-provider"
+import HomeNavigationLoader from "@modules/common/components/home-navigation-loader"
 import RouteScrollRestoration from "@modules/layout/components/route-scroll-restoration"
 import "styles/globals.css"
 
@@ -49,6 +50,7 @@ export default function RootLayout(props: { children: React.ReactNode }) {
           />
         </noscript>
         <main className="relative w-full min-h-screen bg-white">{props.children}</main>
+        <HomeNavigationLoader />
         <RouteScrollRestoration />
         <NotificationProvider />
       </body>

@@ -96,7 +96,9 @@ const FeaturedProductSlider = ({
     : "bg-white pt-8 pb-12 sm:pt-9 sm:pb-14 md:pb-16 small:py-14"
   const resolvedSectionClassName = sectionClassName ?? baseSectionClassName
   const scrollerClassName = embedded
-    ? "no-scrollbar grid auto-cols-[minmax(210px,calc((100%_-_20px)_/_2))] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
+    ? mobileCompactCards
+      ? "no-scrollbar grid auto-cols-[calc((100%_-_12px)_/_2)] grid-flow-col gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 small:auto-cols-[calc((100%_-_12px)_/_2)] medium:auto-cols-[calc((100%_-_64px)_/_5)] medium:gap-4 medium:pr-1"
+      : "no-scrollbar grid auto-cols-[minmax(210px,calc((100%_-_20px)_/_2))] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
     : mobileCompactCards
       ? "no-scrollbar grid auto-cols-[calc((100%_-_12px)_/_2)] grid-flow-col gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 small:auto-cols-[calc((100%_-_12px)_/_2)] medium:auto-cols-[calc((100%_-_64px)_/_5)] medium:gap-4 medium:pr-1"
       : "no-scrollbar grid auto-cols-[minmax(260px,82vw)] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 pr-4 xsmall:auto-cols-[minmax(280px,76vw)] sm:auto-cols-[minmax(300px,52vw)] md:auto-cols-[calc((100%_-_16px)_/_2)] md:pr-1 small:auto-cols-[calc((100%_-_32px)_/_3)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"

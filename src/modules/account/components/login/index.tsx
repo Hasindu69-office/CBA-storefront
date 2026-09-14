@@ -7,6 +7,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { notify } from "@lib/notifications"
+import { normalizeEmail, validateEmail } from "@lib/util/storefront-form-validation"
 import Image from "next/image"
 import type React from "react"
 import { useActionState, useEffect, useState } from "react"
@@ -21,6 +22,7 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
   const [message, formAction] = useActionState(login, null)
   const [socialMessage, socialAction] = useActionState(startOAuthLogin, null)
   const [clientError, setClientError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (message) {
@@ -38,25 +40,34 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
 
   function validate(event: React.FormEvent<HTMLFormElement>) {
     const form = new FormData(event.currentTarget)
-    const email = String(form.get("email") ?? "").trim()
+    const email = normalizeEmail(form.get("email"))
     const password = String(form.get("password") ?? "")
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      event.preventDefault()
-      setClientError("Enter a valid email address.")
-      notify.error("Enter a valid email address.", "Enter a valid email address.", {
-        id: "login-validation",
-      })
-      return
+    const nextErrors: Record<string, string> = {}
+    const emailError = validateEmail(email)
+    if (emailError) {
+      nextErrors.email = emailError
     }
     if (!password) {
+      nextErrors.password = "Password is required."
+    }
+
+    if (Object.keys(nextErrors).length) {
       event.preventDefault()
-      setClientError("Password is required.")
-      notify.error("Password is required.", "Password is required.", {
-        id: "login-validation",
-      })
+      setFieldErrors(nextErrors)
+      setClientError("Please check the highlighted sign-in details.")
       return
     }
+    setFieldErrors({})
     setClientError(null)
+  }
+
+  function updateField(name: string, error: string | null) {
+    setFieldErrors((current) => {
+      const next = { ...current }
+      if (error) next[name] = error
+      else delete next[name]
+      return next
+    })
   }
 
   return (
@@ -77,6 +88,10 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
             autoComplete="email"
             placeholder="Enter your email address"
             icon="email"
+            error={fieldErrors.email}
+            onChange={(event) =>
+              updateField("email", validateEmail(normalizeEmail(event.currentTarget.value)))
+            }
           />
           <AuthField
             label="Password"
@@ -85,6 +100,13 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
             autoComplete="current-password"
             placeholder="Enter your password"
             icon="lock"
+            error={fieldErrors.password}
+            onChange={(event) =>
+              updateField(
+                "password",
+                event.currentTarget.value ? null : "Password is required."
+              )
+            }
             aside={
               <LocalizedClientLink href="/account/forgot-password" className="text-[13px] font-semibold text-[#ff5c0e]">
                 Forgot Password?
@@ -138,6 +160,11 @@ export function AuthField({
   autoComplete,
   icon,
   aside,
+  error,
+  onChange,
+  onBlur,
+  maxLength,
+  inputMode,
 }: {
   label: string
   name: string
@@ -146,9 +173,15 @@ export function AuthField({
   autoComplete?: string
   icon: "email" | "lock" | "user" | "phone"
   aside?: React.ReactNode
+  error?: string
+  onChange?: React.ChangeEventHandler<HTMLInputElement>
+  onBlur?: React.FocusEventHandler<HTMLInputElement>
+  maxLength?: number
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"]
 }) {
   const [show, setShow] = useState(false)
   const isPassword = type === "password"
+  const errorId = `${name}-error`
 
   return (
     <div>
@@ -168,7 +201,15 @@ export function AuthField({
           type={isPassword && show ? "text" : type}
           autoComplete={autoComplete}
           placeholder={placeholder}
-          className="h-[52px] w-full rounded-md border border-[#dddddd] bg-white pl-12 pr-12 text-[15px] text-[#151515] outline-none transition placeholder:text-[#9b9b9b] focus:border-[#ff5c0e] focus:ring-2 focus:ring-[#ff5c0e]/15"
+          maxLength={maxLength}
+          inputMode={inputMode}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
+          onChange={onChange}
+          onBlur={onBlur}
+          className={`h-[52px] w-full rounded-md border bg-white pl-12 pr-12 text-[15px] text-[#151515] outline-none transition placeholder:text-[#9b9b9b] focus:border-[#ff5c0e] focus:ring-2 focus:ring-[#ff5c0e]/15 ${
+            error ? "border-rose-300 bg-rose-50/40" : "border-[#dddddd]"
+          }`}
         />
         {isPassword && (
           <button
@@ -181,6 +222,11 @@ export function AuthField({
           </button>
         )}
       </div>
+      {error && (
+        <p id={errorId} className="mt-1 text-[12px] font-medium text-rose-600">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

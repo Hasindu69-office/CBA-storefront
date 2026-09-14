@@ -2,17 +2,16 @@
 
 import { sdk } from "@lib/config"
 import { getLocale } from "@lib/data/locale-actions"
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+import { normalizeEmail, normalizeText, validateEmail } from "@lib/util/storefront-form-validation"
 
 export async function requestBackInStock(
   _prevState: { status?: string; message?: string } | null,
   formData: FormData
 ) {
-  const email = String(formData.get("email") ?? "").trim()
-  const productId = String(formData.get("product_id") ?? "").trim()
-  const variantId = String(formData.get("variant_id") ?? "").trim()
-  if (!EMAIL_PATTERN.test(email)) {
+  const email = normalizeEmail(formData.get("email"))
+  const productId = normalizeText(formData.get("product_id"))
+  const variantId = normalizeText(formData.get("variant_id"))
+  if (validateEmail(email)) {
     return { status: "error", message: "Enter a valid email address." }
   }
   if (!/^prod_[A-Za-z0-9_-]+$/.test(productId)) {

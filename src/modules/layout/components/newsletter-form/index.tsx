@@ -2,7 +2,8 @@
 
 import { subscribeToNewsletter } from "@lib/data/newsletter"
 import { notify } from "@lib/notifications"
-import { useActionState, useEffect, useRef } from "react"
+import { normalizeEmail, validateEmail } from "@lib/util/storefront-form-validation"
+import { useActionState, useEffect, useRef, useState } from "react"
 
 const initialState = {
   status: "idle" as const,
@@ -15,6 +16,7 @@ export default function NewsletterForm() {
   )
   const formRef = useRef<HTMLFormElement>(null)
   const lastNotifiedKeyRef = useRef<string | null>(null)
+  const [clientError, setClientError] = useState<string | null>(null)
 
   useEffect(() => {
     if (state.status === "idle") {
@@ -29,6 +31,7 @@ export default function NewsletterForm() {
 
     if (state.status === "success") {
       formRef.current?.reset()
+      setClientError(null)
       notify.success(state.message ?? "Newsletter subscription submitted.", {
         id: "newsletter-subscribe",
       })
@@ -36,9 +39,6 @@ export default function NewsletterForm() {
     }
 
     if (state.status === "error") {
-      notify.error(state.error, "We could not submit your subscription.", {
-        id: "newsletter-subscribe",
-      })
       const emailInput = formRef.current?.elements.namedItem("email")
       if (emailInput instanceof HTMLElement && "focus" in emailInput) {
         emailInput.focus()
@@ -46,12 +46,23 @@ export default function NewsletterForm() {
     }
   }, [state.status, state.message, state.error])
 
+  function validate(event: React.FormEvent<HTMLFormElement>) {
+    const email = normalizeEmail(new FormData(event.currentTarget).get("email"))
+    const error = validateEmail(email)
+    setClientError(error)
+    if (error) {
+      event.preventDefault()
+    }
+  }
+
   return (
     <div className="w-full max-w-[444px] mx-auto">
       <form
         ref={formRef}
         action={formAction}
+        onSubmit={validate}
         className="flex flex-col gap-4 medium:relative medium:flex-row medium:items-center medium:gap-0"
+        noValidate
       >
         <label htmlFor="newsletter-email" className="sr-only">
           Email address
@@ -66,8 +77,20 @@ export default function NewsletterForm() {
           required
           placeholder="Email address"
           disabled={isPending}
-          aria-invalid={state.status === "error"}
-          className="w-full rounded-[10px] border border-gray-200 px-7 py-3.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 medium:px-6 medium:py-3 medium:pr-40 medium:text-[14px]"
+          aria-invalid={Boolean(clientError || state.status === "error")}
+          aria-describedby={
+            clientError || state.status === "error"
+              ? "newsletter-email-error"
+              : undefined
+          }
+          onChange={(event) =>
+            setClientError(validateEmail(normalizeEmail(event.currentTarget.value)))
+          }
+          className={`w-full rounded-[10px] border px-7 py-3.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 medium:px-6 medium:py-3 medium:pr-40 medium:text-[14px] ${
+            clientError || state.status === "error"
+              ? "border-rose-300 bg-rose-50/40"
+              : "border-gray-200"
+          }`}
         />
         <button
           type="submit"
@@ -78,6 +101,11 @@ export default function NewsletterForm() {
           {isPending ? "Subscribing..." : "Subscribe"}
         </button>
       </form>
+      {(clientError || state.status === "error") && (
+        <p id="newsletter-email-error" className="mt-2 text-[12px] font-medium text-rose-600">
+          {clientError ?? state.error}
+        </p>
+      )}
     </div>
   )
 }

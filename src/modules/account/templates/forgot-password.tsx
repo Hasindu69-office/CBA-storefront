@@ -2,6 +2,7 @@
 
 import { requestPasswordReset } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
+import { normalizeEmail, validateEmail } from "@lib/util/storefront-form-validation"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import type React from "react"
 import { useActionState, useEffect, useState } from "react"
@@ -18,13 +19,11 @@ export default function ForgotPasswordForm({ countryCode }: { countryCode: strin
   }, [message])
 
   function validate(event: React.FormEvent<HTMLFormElement>) {
-    const email = String(new FormData(event.currentTarget).get("email") ?? "").trim()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    const email = normalizeEmail(new FormData(event.currentTarget).get("email"))
+    const error = validateEmail(email)
+    if (error) {
       event.preventDefault()
-      setClientError("Enter a valid email address.")
-      notify.error("Enter a valid email address.", "Enter a valid email address.", {
-        id: "forgot-password-validation",
-      })
+      setClientError(error)
       return
     }
     setClientError(null)
@@ -39,9 +38,9 @@ export default function ForgotPasswordForm({ countryCode }: { countryCode: strin
         </p>
         <form className="mt-6" action={formAction} onSubmit={validate} noValidate>
           <label className="text-sm font-semibold text-gray-900" htmlFor="email">Email address</label>
-          <input id="email" name="email" type="email" autoComplete="email" className="mt-2 h-12 w-full rounded border border-gray-300 px-3 text-sm outline-none focus:border-brand" />
+          <input id="email" name="email" type="email" autoComplete="email" aria-invalid={Boolean(clientError)} aria-describedby={clientError ? "forgot-password-email-error" : undefined} onChange={(event) => setClientError(validateEmail(normalizeEmail(event.currentTarget.value)))} className={`mt-2 h-12 w-full rounded border px-3 text-sm outline-none focus:border-brand ${clientError ? "border-rose-300 bg-rose-50/40" : "border-gray-300"}`} />
           {(clientError || message) && (
-            <p className={clientError ? "mt-3 text-sm text-red-600" : "mt-3 text-sm text-green-700"}>{clientError ?? message}</p>
+            <p id={clientError ? "forgot-password-email-error" : undefined} className={clientError ? "mt-3 text-sm text-red-600" : "mt-3 text-sm text-green-700"}>{clientError ?? message}</p>
           )}
           <button className="mt-5 h-12 w-full rounded bg-brand text-sm font-bold text-white" type="submit">Send reset link</button>
         </form>

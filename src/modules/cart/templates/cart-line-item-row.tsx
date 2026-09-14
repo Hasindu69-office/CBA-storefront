@@ -9,6 +9,7 @@ import LineItemUnitPrice from "@modules/common/components/line-item-unit-price"
 import Thumbnail from "@modules/products/components/thumbnail"
 import Spinner from "@modules/common/icons/spinner"
 import { useState } from "react"
+import { visibleVariantTitle } from "@lib/util/product-options"
 
 type CartLineItemRowProps = {
   item: HttpTypes.StoreCartLineItem
@@ -31,11 +32,7 @@ export default function CartLineItemRow({
   const [error, setError] = useState<string | null>(null)
   const productSubtitle = item.product_subtitle || item.variant?.product?.subtitle
   const variantTitle =
-    item.variant_title && item.variant_title !== "Default variant"
-      ? item.variant_title
-      : item.variant?.title && item.variant.title !== "Default variant"
-      ? item.variant.title
-      : null
+    visibleVariantTitle(item.variant_title ?? item.variant?.title)
 
   const handleDelete = async () => {
     setError(null)

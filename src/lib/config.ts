@@ -1,12 +1,13 @@
 import { getLocaleHeader } from "@lib/util/get-locale-header"
 import Medusa, { FetchArgs, FetchInput } from "@medusajs/js-sdk"
 
-// Defaults to standard port for Medusa server
-export let MEDUSA_BACKEND_URL = "http://localhost:9000"
-
-if (process.env.MEDUSA_BACKEND_URL) {
-  MEDUSA_BACKEND_URL = process.env.MEDUSA_BACKEND_URL
-}
+// The public value is required for browser requests. Next.js does not expose
+// non-NEXT_PUBLIC variables in the client bundle, so using only
+// MEDUSA_BACKEND_URL here silently falls back to localhost after deployment.
+export let MEDUSA_BACKEND_URL =
+  process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ||
+  process.env.MEDUSA_BACKEND_URL ||
+  "http://localhost:9000"
 
 export const sdk = new Medusa({
   baseUrl: MEDUSA_BACKEND_URL,

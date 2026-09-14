@@ -12,6 +12,7 @@ import {
   SUPPORT_TICKET_CATEGORIES,
   type SupportTicketCategory,
 } from "@modules/support/lib/types"
+import { validateSafeMessageText } from "@lib/util/storefront-form-validation"
 
 type Props = {
   orders: HttpTypes.StoreOrder[]
@@ -54,12 +55,16 @@ export default function SupportNewTicketForm({ orders }: Props) {
 
   function validate() {
     const next: Record<string, string> = {}
-    if (subject.trim().length < 5 || subject.trim().length > 120) {
-      next.subject = "Subject must be between 5 and 120 characters."
-    }
-    if (message.trim().length < 10 || message.trim().length > 5000) {
-      next.message = "Message must be between 10 and 5000 characters."
-    }
+    const subjectError = validateSafeMessageText(subject, "Subject", {
+      min: 5,
+      max: 120,
+    })
+    const messageError = validateSafeMessageText(message, "Message", {
+      min: 10,
+      max: 5000,
+    })
+    if (subjectError) next.subject = subjectError
+    if (messageError) next.message = messageError
     if (!SUPPORT_TICKET_CATEGORIES.includes(category)) {
       next.category = "Please select a category."
     }
@@ -147,9 +152,14 @@ export default function SupportNewTicketForm({ orders }: Props) {
               id="support-category"
               value={category}
               disabled={pending}
-              onChange={(event) =>
+              onChange={(event) => {
                 setCategory(event.target.value as SupportTicketCategory)
-              }
+                setFieldErrors((current) => {
+                  const next = { ...current }
+                  delete next.category
+                  return next
+                })
+              }}
               className={fieldClass(Boolean(fieldErrors.category))}
             >
               {SUPPORT_TICKET_CATEGORIES.map((item) => (
@@ -197,7 +207,20 @@ export default function SupportNewTicketForm({ orders }: Props) {
               id="support-subject"
               value={subject}
               disabled={pending}
-              onChange={(event) => setSubject(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value
+                setSubject(value)
+                const subjectError = validateSafeMessageText(value, "Subject", {
+                  min: 5,
+                  max: 120,
+                })
+                setFieldErrors((current) => {
+                  const next = { ...current }
+                  if (subjectError) next.subject = subjectError
+                  else delete next.subject
+                  return next
+                })
+              }}
               className={fieldClass(Boolean(fieldErrors.subject))}
             />
             {fieldErrors.subject && (
@@ -217,7 +240,20 @@ export default function SupportNewTicketForm({ orders }: Props) {
               rows={6}
               value={message}
               disabled={pending}
-              onChange={(event) => setMessage(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value
+                setMessage(value)
+                const messageError = validateSafeMessageText(value, "Message", {
+                  min: 10,
+                  max: 5000,
+                })
+                setFieldErrors((current) => {
+                  const next = { ...current }
+                  if (messageError) next.message = messageError
+                  else delete next.message
+                  return next
+                })
+              }}
               className={`${fieldClass(Boolean(fieldErrors.message))} min-h-[150px] resize-y`}
             />
             {fieldErrors.message && (

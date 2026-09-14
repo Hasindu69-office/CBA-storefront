@@ -29,6 +29,7 @@ import type {
 } from "@lib/data/account-dashboard"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import { subscribeToNewsletter } from "@lib/data/newsletter"
+import { normalizeEmail, validateEmail } from "@lib/util/storefront-form-validation"
 import { convertToLocale } from "@lib/util/money"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import Thumbnail from "@modules/products/components/thumbnail"
@@ -440,11 +441,13 @@ const NewsletterPanel = () => {
         action={formAction}
         className="mt-5 flex flex-col gap-3 small:flex-row medium:flex-col"
         onSubmit={(event) => {
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+          const error = validateEmail(normalizeEmail(email))
+          if (error) {
             event.preventDefault()
-            setClientError("Enter a valid email address.")
+            setClientError(error)
           }
         }}
+        noValidate
       >
         <label htmlFor="account-newsletter-email" className="sr-only">
           Email address
@@ -458,11 +461,15 @@ const NewsletterPanel = () => {
           value={email}
           onChange={(event) => {
             setEmail(event.target.value)
-            setClientError("")
+            setClientError(validateEmail(normalizeEmail(event.target.value)) ?? "")
           }}
           placeholder="Enter your email"
           disabled={isPending}
-          className="min-h-11 min-w-0 flex-1 rounded-md border border-gray-200 px-3 text-small-regular text-gray-950 outline-none focus:border-[#ff5c0e] disabled:opacity-60"
+          aria-invalid={Boolean(clientError)}
+          aria-describedby={clientError ? "account-newsletter-email-error" : undefined}
+          className={`min-h-11 min-w-0 flex-1 rounded-md border px-3 text-small-regular text-gray-950 outline-none focus:border-[#ff5c0e] disabled:opacity-60 ${
+            clientError ? "border-rose-300 bg-rose-50/40" : "border-gray-200"
+          }`}
         />
         <button
           type="submit"
@@ -473,7 +480,7 @@ const NewsletterPanel = () => {
         </button>
       </form>
       {(clientError || state.status === "error") && (
-        <p className="mt-2 text-small-regular text-red-600" role="alert">
+        <p id="account-newsletter-email-error" className="mt-2 text-small-regular text-red-600" role="alert">
           {clientError || state.error}
         </p>
       )}

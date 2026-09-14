@@ -1,5 +1,6 @@
 import { HttpTypes } from "@medusajs/types"
 import Input from "@modules/common/components/input"
+import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
 import React, { useState } from "react"
 import CountrySelect from "../country-select"
 
@@ -98,12 +99,16 @@ const BillingAddress = ({ cart }: { cart: HttpTypes.StoreCart | null }) => {
           onChange={handleChange}
           data-testid="billing-province-input"
         />
-        <Input
+        <SriLankanPhoneInput
           label="Phone"
           name="billing_address.phone"
-          autoComplete="tel"
           value={formData["billing_address.phone"]}
-          onChange={handleChange}
+          onValueChange={(internationalValue) =>
+            setFormData((current: any) => ({
+              ...current,
+              "billing_address.phone": internationalValue,
+            }))
+          }
           data-testid="billing-phone-input"
         />
       </div>

@@ -5,7 +5,6 @@ import {
   retrieveCmsLayout,
 } from "@lib/data/cms-layout"
 import { retrieveContactDetails } from "@lib/data/contact"
-import { PhoneIcon } from "@modules/layout/components/cba-icons"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import NewsletterForm from "@modules/layout/components/newsletter-form"
@@ -226,14 +225,7 @@ export default async function Footer() {
     categories,
     fallbackColumns
   )
-  const contactRows = [
-    {
-      label: contactDetails.phone_label,
-      value: contactDetails.phone,
-      href: phoneNumberToTelHref(contactDetails.phone),
-      icon: <PhoneIcon size={14} aria-hidden="true" />,
-    },
-  ].filter((item) => item.value && item.href)
+  const phoneHref = phoneNumberToTelHref(contactDetails.phone)
 
   return (
     <footer className="w-full relative isolate mt-20 pt-14 pb-[calc(80px+env(safe-area-inset-bottom))] small:mt-24 small:pt-20 small:pb-0 medium:mt-20 medium:pt-10">
@@ -298,9 +290,9 @@ export default async function Footer() {
               <Image
                 src={cmsLayout.footer.company.logo_url}
                 alt={cmsLayout.footer.company.logo_alt_text}
-                width={80}
-                height={80}
-                className="h-16 w-16 flex-shrink-0 object-contain small:h-20 small:w-20"
+                width={112}
+                height={112}
+                className="h-24 w-24 flex-shrink-0 object-contain small:h-24 small:w-24 medium:h-28 medium:w-28"
               />
               <div className="min-w-0">
                 <h3 className="text-lg font-bold uppercase leading-tight tracking-wider small:text-xl medium:text-[17px]">
@@ -310,7 +302,7 @@ export default async function Footer() {
                     </span>
                   ))}
                 </h3>
-                <p className="mt-1.5 text-[11px] uppercase leading-4 text-gray-400 small:mt-2 small:text-xs medium:mt-1">
+                <div className="mt-1.5 text-[11px] uppercase leading-4 text-gray-400 small:mt-2 small:text-xs medium:mt-1">
                   {companyAddressLines(cmsLayout.footer.company.address).map(
                     (line) => (
                       <span key={line} className="block whitespace-nowrap">
@@ -318,29 +310,16 @@ export default async function Footer() {
                       </span>
                     )
                   )}
-                </p>
-                {contactRows.length > 0 && (
-                  <div className="mt-2.5 flex flex-col items-center gap-2 text-xs text-gray-300 small:mt-3 medium:items-start">
-                    {contactRows.map((item) => (
-                      <a
-                        key={item.label}
-                        href={item.href}
-                        className="group inline-flex min-w-0 items-center gap-2 transition-colors hover:text-orange-500 focus:outline-none focus-visible:text-orange-500"
-                        aria-label={`${item.label}: ${item.value}`}
-                      >
-                        <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-orange-500/50 text-orange-500 transition-colors group-hover:border-orange-500 group-hover:bg-orange-500 group-hover:text-white">
-                          {item.icon}
-                        </span>
-                        <span className="min-w-0 text-left normal-case">
-                          <span className="sr-only">{item.label}: </span>
-                          <span className="block truncate font-medium text-gray-200 group-hover:text-orange-500">
-                            {item.value}
-                          </span>
-                        </span>
-                      </a>
-                    ))}
-                  </div>
-                )}
+                  {contactDetails.phone && phoneHref && (
+                    <a
+                      href={phoneHref}
+                      className="mt-1 block font-semibold text-gray-200 transition-colors hover:text-orange-500 focus:outline-none focus-visible:text-orange-500"
+                      aria-label={`Call ${contactDetails.phone}`}
+                    >
+                      {contactDetails.phone}
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
             <p className="mx-auto max-w-[330px] text-sm leading-6 text-gray-300 small:max-w-[520px] small:text-base small:leading-7 medium:max-w-none medium:text-sm medium:text-gray-400 medium:leading-relaxed">
@@ -378,8 +357,8 @@ export default async function Footer() {
       </div>
 
       <div className="relative z-10">
-        <div className="content-container flex flex-col items-center justify-between gap-3 py-4 text-center small:gap-4 small:py-6 medium:flex-row medium:text-left">
-          <p className="text-xs text-gray-400">
+        <div className="content-container grid grid-cols-1 justify-items-center gap-3 py-4 text-center small:gap-4 small:py-6 medium:grid-cols-[1fr_auto_1fr] medium:items-center">
+          <p className="text-xs text-gray-400 medium:col-start-2">
             Copyright &copy; {new Date().getFullYear()}{" "}
             {cmsLayout.footer.copyright.text}
           </p>
@@ -388,7 +367,7 @@ export default async function Footer() {
             alt={cmsLayout.footer.payment.image_alt_text}
             width={384}
             height={36}
-            className="h-auto w-full max-w-[192px] sm:max-w-[240px] object-contain"
+            className="h-auto w-full max-w-[192px] object-contain sm:max-w-[240px] medium:col-start-3 medium:justify-self-end"
           />
         </div>
       </div>

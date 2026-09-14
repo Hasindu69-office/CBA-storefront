@@ -33,6 +33,20 @@ test("validates guest lookup and OTP client-side", () => {
   })
   assert.equal(ok.ok, true)
 
+  const fixedLine = validateGuestLookupClient({
+    order_reference: "CBA-1001",
+    email: "",
+    phone: "+94112365869",
+  })
+  assert.equal(fixedLine.ok, true)
+
+  const localPhone = validateGuestLookupClient({
+    order_reference: "CBA-1001",
+    email: "",
+    phone: "0112365869",
+  })
+  assert.equal(localPhone.ok, false)
+
   assert.equal(validateOtpClient("123").ok, false)
   assert.equal(validateOtpClient("123456").ok, true)
 })

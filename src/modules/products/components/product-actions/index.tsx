@@ -9,6 +9,7 @@ import { Button } from "@medusajs/ui"
 import Divider from "@modules/common/components/divider"
 import OptionSelect from "@modules/products/components/product-actions/option-select"
 import { isEqual } from "lodash"
+import { hasPurchasablePrice, variantOptionsMap, visibleProductOptions } from "@lib/util/product-options"
 import { useParams, usePathname, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
 import ProductPrice from "../product-price"
@@ -24,10 +25,7 @@ type ProductActionsProps = {
 const optionsAsKeymap = (
   variantOptions: HttpTypes.StoreProductVariant["options"]
 ) => {
-  return variantOptions?.reduce((acc: Record<string, string>, varopt: any) => {
-    acc[varopt.option_id] = varopt.value
-    return acc
-  }, {})
+  return variantOptionsMap(variantOptions)
 }
 
 export default function ProductActions({
@@ -124,7 +122,7 @@ export default function ProductActions({
 
   // add the selected variant to the cart
   const handleAddToCart = async () => {
-    if (!selectedVariant?.id) return null
+    if (!selectedVariant?.id || !hasPurchasablePrice(selectedVariant) || !inStock || !isValidVariant || isAdding) return null
 
     const toastId = `add-to-cart:${selectedVariant.id}`
     notify.loading("Adding item to cart...", { id: toastId })
@@ -152,9 +150,9 @@ export default function ProductActions({
     <>
       <div className="flex flex-col gap-y-2" ref={actionsRef}>
         <div>
-          {(product.variants?.length ?? 0) > 1 && (
+          {visibleProductOptions(product.options).length > 0 && (
             <div className="flex flex-col gap-y-4">
-              {(product.options || []).map((option) => {
+              {visibleProductOptions(product.options).map((option) => {
                 return (
                   <div key={option.id}>
                     <OptionSelect
@@ -182,7 +180,7 @@ export default function ProductActions({
             !selectedVariant ||
             !!disabled ||
             isAdding ||
-            !isValidVariant
+            !isValidVariant || !hasPurchasablePrice(selectedVariant)
           }
           variant="primary"
           className="w-full h-10"

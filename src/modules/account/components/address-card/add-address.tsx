@@ -7,6 +7,7 @@ import { useEffect, useState, useActionState } from "react"
 import useToggleState from "@lib/hooks/use-toggle-state"
 import CountrySelect from "@modules/checkout/components/country-select"
 import Input from "@modules/common/components/input"
+import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
 import Modal from "@modules/common/components/modal"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { HttpTypes } from "@medusajs/types"
@@ -76,6 +77,7 @@ const AddAddress = ({
                   name="first_name"
                   required
                   autoComplete="given-name"
+                  errors={formState.fieldErrors}
                   data-testid="first-name-input"
                 />
                 <Input
@@ -83,6 +85,7 @@ const AddAddress = ({
                   name="last_name"
                   required
                   autoComplete="family-name"
+                  errors={formState.fieldErrors}
                   data-testid="last-name-input"
                 />
               </div>
@@ -97,6 +100,7 @@ const AddAddress = ({
                 name="address_1"
                 required
                 autoComplete="address-line1"
+                errors={formState.fieldErrors}
                 data-testid="address-1-input"
               />
               <Input
@@ -111,6 +115,9 @@ const AddAddress = ({
                   name="postal_code"
                   required
                   autoComplete="postal-code"
+                  inputMode="numeric"
+                  maxLength={5}
+                  errors={formState.fieldErrors}
                   data-testid="postal-code-input"
                 />
                 <Input
@@ -118,6 +125,7 @@ const AddAddress = ({
                   name="city"
                   required
                   autoComplete="locality"
+                  errors={formState.fieldErrors}
                   data-testid="city-input"
                 />
               </div>
@@ -125,6 +133,7 @@ const AddAddress = ({
                 label="Province / State"
                 name="province"
                 autoComplete="address-level1"
+                errors={formState.fieldErrors}
                 data-testid="state-input"
               />
               <CountrySelect
@@ -134,10 +143,10 @@ const AddAddress = ({
                 autoComplete="country"
                 data-testid="country-select"
               />
-              <Input
+              <SriLankanPhoneInput
                 label="Phone"
                 name="phone"
-                autoComplete="phone"
+                error={formState.fieldErrors?.phone}
                 data-testid="phone-input"
               />
             </div>

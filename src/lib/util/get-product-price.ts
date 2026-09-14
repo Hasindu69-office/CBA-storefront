@@ -3,7 +3,9 @@ import { getPercentageDiff } from "./get-percentage-diff"
 import { convertToLocale } from "./money"
 
 export const getPricesForVariant = (variant: any) => {
-  if (!variant?.calculated_price?.calculated_amount) {
+  if (typeof variant?.calculated_price?.calculated_amount !== "number" ||
+      !Number.isFinite(variant.calculated_price.calculated_amount) ||
+      variant.calculated_price.calculated_amount < 0) {
     return null
   }
 
@@ -19,7 +21,7 @@ export const getPricesForVariant = (variant: any) => {
       currency_code: variant.calculated_price.currency_code,
     }),
     currency_code: variant.calculated_price.currency_code,
-    price_type: variant.calculated_price.calculated_price.price_list_type,
+    price_type: variant.calculated_price.calculated_price?.price_list_type,
     percentage_diff: getPercentageDiff(
       variant.calculated_price.original_amount,
       variant.calculated_price.calculated_amount

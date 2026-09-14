@@ -22,6 +22,8 @@ export default function RelatedProductsSection({
       ctaHref={null}
       titleId="related-products-title"
       embedded
+      mobileCompactCards
+      sectionClassName="mt-12 border-t border-gray-200 pt-10 pb-10 max-[399px]:pb-10 small:pb-0"
       kokoBranding={kokoBranding}
       kokoAvailable={kokoAvailable}
     />

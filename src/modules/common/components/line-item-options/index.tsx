@@ -1,5 +1,6 @@
 import { HttpTypes } from "@medusajs/types"
 import { Text } from "@medusajs/ui"
+import { visibleVariantTitle } from "@lib/util/product-options"
 
 type LineItemOptionsProps = {
   variant: HttpTypes.StoreProductVariant | undefined
@@ -12,8 +13,8 @@ const LineItemOptions = ({
   "data-testid": dataTestid,
   "data-value": dataValue,
 }: LineItemOptionsProps) => {
-  const title = variant?.title?.trim()
-  if (!title || title === "Default variant") {
+  const title = visibleVariantTitle(variant?.title)
+  if (!title) {
     return null
   }
 

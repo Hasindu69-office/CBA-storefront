@@ -7,6 +7,7 @@ import { Button, Heading, Text, clx } from "@medusajs/ui"
 import useToggleState from "@lib/hooks/use-toggle-state"
 import CountrySelect from "@modules/checkout/components/country-select"
 import Input from "@modules/common/components/input"
+import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
 import Modal from "@modules/common/components/modal"
 import Spinner from "@modules/common/icons/spinner"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
@@ -154,6 +155,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
                   required
                   autoComplete="given-name"
                   defaultValue={address.first_name || undefined}
+                  errors={formState.fieldErrors}
                   data-testid="first-name-input"
                 />
                 <Input
@@ -162,6 +164,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
                   required
                   autoComplete="family-name"
                   defaultValue={address.last_name || undefined}
+                  errors={formState.fieldErrors}
                   data-testid="last-name-input"
                 />
               </div>
@@ -178,6 +181,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
                 required
                 autoComplete="address-line1"
                 defaultValue={address.address_1 || undefined}
+                errors={formState.fieldErrors}
                 data-testid="address-1-input"
               />
               <Input
@@ -194,6 +198,9 @@ const EditAddress: React.FC<EditAddressProps> = ({
                   required
                   autoComplete="postal-code"
                   defaultValue={address.postal_code || undefined}
+                  inputMode="numeric"
+                  maxLength={5}
+                  errors={formState.fieldErrors}
                   data-testid="postal-code-input"
                 />
                 <Input
@@ -202,6 +209,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
                   required
                   autoComplete="locality"
                   defaultValue={address.city || undefined}
+                  errors={formState.fieldErrors}
                   data-testid="city-input"
                 />
               </div>
@@ -210,6 +218,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
                 name="province"
                 autoComplete="address-level1"
                 defaultValue={address.province || undefined}
+                errors={formState.fieldErrors}
                 data-testid="state-input"
               />
               <CountrySelect
@@ -220,11 +229,11 @@ const EditAddress: React.FC<EditAddressProps> = ({
                 defaultValue={address.country_code || undefined}
                 data-testid="country-select"
               />
-              <Input
+              <SriLankanPhoneInput
                 label="Phone"
                 name="phone"
-                autoComplete="phone"
                 defaultValue={address.phone || undefined}
+                error={formState.fieldErrors?.phone}
                 data-testid="phone-input"
               />
             </div>

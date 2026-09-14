@@ -4,6 +4,8 @@ import {
   searchCompareProducts,
   type ComparePageData,
 } from "@lib/data/compare"
+import { sdk } from "@lib/config"
+import { notify } from "@lib/notifications"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import { convertToLocale } from "@lib/util/money"
 import {
@@ -18,13 +20,20 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import PlaceholderImage from "@modules/common/icons/placeholder-image"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 
 type CompareTemplateProps = {
   countryCode: string
   data: ComparePageData
   initialIds: string[]
 }
+
+type CompareValidationResponse =
+  | {
+      success: true
+      data: { approved_ids: string[]; rejected_ids: string[] }
+    }
+  | { success: false; error?: { message?: string } }
 
 export default function CompareTemplate({
   countryCode,
@@ -34,8 +43,8 @@ export default function CompareTemplate({
   const router = useRouter()
   const pathname = usePathname()
   const [selectedIds, setSelectedIds] = useState(initialIds)
-  const [status, setStatus] = useState("")
   const [isPending, startTransition] = useTransition()
+  const lastRejectionNotice = useRef("")
 
   const visibleIds = useMemo(
     () => data.products.map((product) => product.id),
@@ -43,11 +52,26 @@ export default function CompareTemplate({
   )
 
   useEffect(() => {
-    setSelectedIds(initialIds)
-  }, [initialIds.join(",")])
+    const rejected = new Set(data.rejectedIds)
+    const validIds = data.products.map((product) => product.id)
+    const ids = initialIds.filter((id) => !rejected.has(id))
+    setSelectedIds(ids)
+
+    if (rejected.size) {
+      writeStoredCompareIds(validIds)
+      const noticeKey = data.rejectedIds.join(",")
+      if (lastRejectionNotice.current !== noticeKey) {
+        lastRejectionNotice.current = noticeKey
+        notify.warning(
+          `${rejected.size} product${rejected.size === 1 ? " was" : "s were"} removed because it cannot be compared with the selected category.`
+        )
+      }
+      updateRoute(validIds)
+    }
+  }, [initialIds.join(","), data.rejectedIds.join(","), data.products])
 
   useEffect(() => {
-    if (initialIds.length) {
+    if (initialIds.length && !data.rejectedIds.length) {
       writeStoredCompareIds(initialIds)
       return
     }
@@ -56,7 +80,7 @@ export default function CompareTemplate({
     if (storedIds.length) {
       updateRoute(storedIds, { optimistic: false })
     }
-  }, [])
+  }, [initialIds.join(","), data.rejectedIds.length])
 
   function updateRoute(ids: string[], options: { optimistic?: boolean } = {}) {
     const query = compareIdsQuery(ids)
@@ -73,7 +97,7 @@ export default function CompareTemplate({
 
   function removeProduct(productId: string) {
     const nextIds = removeProductFromCompareStorage(productId)
-    setStatus("Product removed from compare.")
+    notify.success("Product removed from comparison.")
     updateRoute(nextIds)
   }
 
@@ -89,62 +113,74 @@ export default function CompareTemplate({
           text: "Compare these products on Ebiz.",
           url,
         })
-        setStatus("Comparison shared.")
+        notify.success("Comparison shared.")
         return
       }
       await navigator.clipboard.writeText(url)
-      setStatus("Comparison link copied.")
+      notify.success("Comparison link copied.")
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         return
       }
       try {
         await navigator.clipboard.writeText(url)
-        setStatus("Comparison link copied.")
+        notify.success("Comparison link copied.")
       } catch {
-        setStatus("Could not share this comparison.")
+        notify.error("Could not share this comparison.")
       }
     }
   }
 
   const productCount = data.products.length
   const maxProducts = data.maxProducts || DEFAULT_COMPARE_LIMIT
-  const currentGroupKeys = useMemo(
-    () => data.products.flatMap((product) => product.compare_group_keys ?? []),
-    [data.products]
-  )
+  const currentGroupCode = data.compareGroup?.code ?? ""
 
-  function addProduct(product: FeaturedProductCard) {
+  async function addProduct(product: FeaturedProductCard) {
     if (visibleIds.includes(product.id)) {
-      setStatus("Product is already in compare.")
+      notify.info("Product is already in comparison.")
       return
     }
 
     if (visibleIds.length >= maxProducts) {
-      setStatus(`Compare supports up to ${maxProducts} products.`)
+      notify.warning(`Comparison supports up to ${maxProducts} products.`)
       return
     }
 
     if (
-      currentGroupKeys.length &&
-      product.compare_group_keys.length &&
-      !product.compare_group_keys.some((key) => currentGroupKeys.includes(key))
+      !product.compare_group_keys.length ||
+      (currentGroupCode && !product.compare_group_keys.includes(currentGroupCode))
     ) {
-      setStatus("This product belongs to a different compare group.")
+      notify.warning("Choose a product from the same category to compare.")
+      return
+    }
+
+    const validation = await sdk.client.fetch<CompareValidationResponse>(
+      "/store/cba/v1/compare/validate",
+      {
+        method: "POST",
+        cache: "no-store",
+        body: { ids: [...visibleIds, product.id] },
+      }
+    )
+    if (!validation.success || !validation.data.approved_ids.includes(product.id)) {
+      notify.warning(
+        validation.success
+          ? "Choose a product from the same category to compare."
+          : validation.error?.message ?? "We could not verify this comparison."
+      )
       return
     }
 
     const result = addProductToCompareStorage(
-      {
-        id: product.id,
-        compareGroupKeys: product.compare_group_keys,
-      },
-      { limit: maxProducts }
+      { id: product.id, compareGroupKeys: product.compare_group_keys },
+      { limit: maxProducts, ignoreStoredHints: true }
     )
-    setStatus(result.message)
-    if (result.success) {
-      updateRoute(result.ids)
+    if (!result.success) {
+      notify.warning(result.message)
+      return
     }
+    notify.success("Added to comparison.")
+    updateRoute(validation.data.approved_ids)
   }
 
   return (
@@ -178,15 +214,13 @@ export default function CompareTemplate({
           maxProducts={maxProducts}
           onAddProduct={addProduct}
           selectedIds={visibleIds}
+          compareGroupCode={currentGroupCode}
         />
 
-        {(status || data.warnings.length > 0) && (
+        {data.warnings.length > 0 && (
           <div className="mt-5 space-y-2" aria-live="polite">
-            {status && <p className="text-sm text-[#3f6f28]">{status}</p>}
             {data.warnings.map((warning) => (
-              <p key={warning} className="text-sm text-[#b45309]">
-                {warning}
-              </p>
+              <p key={warning} className="text-sm text-[#b45309]">{warning}</p>
             ))}
           </div>
         )}
@@ -257,12 +291,14 @@ function CompareProductSearch({
   maxProducts,
   onAddProduct,
   selectedIds,
+  compareGroupCode,
 }: {
   countryCode: string
   disabled: boolean
   maxProducts: number
-  onAddProduct: (product: FeaturedProductCard) => void
+  onAddProduct: (product: FeaturedProductCard) => void | Promise<void>
   selectedIds: string[]
+  compareGroupCode: string
 }) {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<FeaturedProductCard[]>([])
@@ -288,8 +324,13 @@ function CompareProductSearch({
       })
         .then((products) => {
           if (!active) return
-          setResults(products.filter((product) => !selectedIds.includes(product.id)))
-          setMessage(products.length ? "" : "No matching products found.")
+          const compatible = products.filter(
+            (product) =>
+              !selectedIds.includes(product.id) &&
+              (!compareGroupCode || product.compare_group_keys.includes(compareGroupCode))
+          )
+          setResults(compatible)
+          setMessage(compatible.length ? "" : "No compatible products found.")
         })
         .catch(() => {
           if (!active) return
@@ -307,7 +348,7 @@ function CompareProductSearch({
       active = false
       window.clearTimeout(timer)
     }
-  }, [query, countryCode, disabled, selectedIds.join(",")])
+  }, [query, countryCode, disabled, compareGroupCode, selectedIds.join(",")])
 
   function selectProduct(product: FeaturedProductCard) {
     onAddProduct(product)

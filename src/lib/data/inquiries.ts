@@ -1,6 +1,14 @@
 "use server"
 
 import { sdk } from "@lib/config"
+import {
+  normalizeEmail,
+  normalizeText,
+  validateEmail,
+  validatePersonName,
+  validateSafeMessageText,
+  validateSriLankanPhone,
+} from "@lib/util/storefront-form-validation"
 
 export type ContactInquiryFormState = {
   status: "idle" | "success" | "error"
@@ -45,9 +53,6 @@ const PREFERRED_CONTACT_METHODS = [
   "none",
 ] as const
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const PHONE_PATTERN = /^(\+94|0)?7\d{8}$/
-
 const CATEGORY_SET = new Set<string>(CONTACT_INQUIRY_CATEGORIES)
 const METHOD_SET = new Set<string>(PREFERRED_CONTACT_METHODS)
 
@@ -56,17 +61,17 @@ export async function submitContactInquiry(
   formData: FormData
 ): Promise<ContactInquiryFormState> {
   const values = {
-    name: String(formData.get("name") ?? "").trim(),
-    email: String(formData.get("email") ?? "").trim().toLowerCase(),
-    phone: String(formData.get("phone") ?? "").trim(),
-    category: String(formData.get("category") ?? "").trim(),
-    subject: String(formData.get("subject") ?? "").trim(),
-    message: String(formData.get("message") ?? "").trim(),
-    preferred_contact_method: String(
+    name: normalizeText(formData.get("name")),
+    email: normalizeEmail(formData.get("email")),
+    phone: normalizeText(formData.get("phone")),
+    category: normalizeText(formData.get("category")),
+    subject: normalizeText(formData.get("subject")),
+    message: normalizeText(formData.get("message")),
+    preferred_contact_method: normalizeText(
       formData.get("preferred_contact_method") ?? "email"
-    ).trim(),
+    ),
     marketing_opt_in: formData.get("marketing_opt_in") === "on",
-    honeypot: String(formData.get("company_website") ?? "").trim(),
+    honeypot: normalizeText(formData.get("company_website")),
   }
 
   const fieldErrors = validateContactInquiry(values)
@@ -142,41 +147,30 @@ function validateContactInquiry(values: {
 }): Record<string, string> {
   const errors: Record<string, string> = {}
 
-  if (values.name.length < 2 || values.name.length > 80) {
-    errors.name = "Name must be between 2 and 80 characters."
-  }
-  if (/[<>]/.test(values.name)) {
-    errors.name = "Name contains invalid characters."
-  }
+  const nameError = validatePersonName(values.name, "Name", { max: 80 })
+  if (nameError) errors.name = nameError
 
-  if (!EMAIL_PATTERN.test(values.email) || values.email.length > 254) {
-    errors.email = "Please enter a valid email address."
-  }
+  const emailError = validateEmail(values.email)
+  if (emailError) errors.email = emailError
 
-  if (values.phone) {
-    const digits = values.phone.replace(/[\s()-]/g, "")
-    if (!PHONE_PATTERN.test(digits)) {
-      errors.phone = "Please enter a valid Sri Lankan mobile number."
-    }
-  }
+  const phoneError = validateSriLankanPhone(values.phone, { required: false })
+  if (phoneError) errors.phone = phoneError
 
   if (!CATEGORY_SET.has(values.category)) {
     errors.category = "Please select a category."
   }
 
-  if (values.subject.length < 5 || values.subject.length > 120) {
-    errors.subject = "Subject must be between 5 and 120 characters."
-  }
-  if (/[<>]/.test(values.subject)) {
-    errors.subject = "Subject contains invalid characters."
-  }
+  const subjectError = validateSafeMessageText(values.subject, "Subject", {
+    min: 5,
+    max: 120,
+  })
+  if (subjectError) errors.subject = subjectError
 
-  if (values.message.length < 10 || values.message.length > 2000) {
-    errors.message = "Message must be between 10 and 2000 characters."
-  }
-  if (/[<>]/.test(values.message)) {
-    errors.message = "Message contains invalid characters."
-  }
+  const messageError = validateSafeMessageText(values.message, "Message", {
+    min: 10,
+    max: 2000,
+  })
+  if (messageError) errors.message = messageError
 
   if (!METHOD_SET.has(values.preferred_contact_method)) {
     errors.preferred_contact_method = "Please select a preferred contact method."

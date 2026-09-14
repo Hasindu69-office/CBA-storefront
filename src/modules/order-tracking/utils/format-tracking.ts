@@ -1,3 +1,10 @@
+import {
+  normalizeEmail,
+  normalizeText,
+  validateEmail,
+  validateSriLankanPhone,
+} from "@lib/util/storefront-form-validation"
+
 export function formatOrderNumber(displayId: number | string | null | undefined) {
   if (displayId === null || displayId === undefined || displayId === "") {
     return "Order"
@@ -217,9 +224,9 @@ export function validateGuestLookupClient(input: {
   email: string
   phone: string
 }) {
-  const order_reference = input.order_reference.trim().slice(0, 64)
-  const email = input.email.trim().toLowerCase().slice(0, 254)
-  const phone = input.phone.trim().slice(0, 20)
+  const order_reference = normalizeText(input.order_reference).slice(0, 64)
+  const email = normalizeEmail(input.email).slice(0, 254)
+  const phone = normalizeText(input.phone).slice(0, 20)
   const errors: Record<string, string> = {}
 
   if (!order_reference) {
@@ -231,12 +238,10 @@ export function validateGuestLookupClient(input: {
   if (!email && !phone) {
     errors.email = "Enter the email or phone used on the order."
   }
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    errors.email = "Enter a valid email address."
-  }
-  if (phone && phone.replace(/\D/g, "").length < 9) {
-    errors.phone = "Enter a valid phone number."
-  }
+  const emailError = email ? validateEmail(email) : null
+  if (emailError) errors.email = emailError
+  const phoneError = validateSriLankanPhone(phone, { required: false })
+  if (phoneError) errors.phone = phoneError
 
   return {
     ok: Object.keys(errors).length === 0,

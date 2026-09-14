@@ -14,6 +14,12 @@ import type {
   CbaCustomerOrderTracking,
 } from "types/order-tracking"
 import type { CbaReturnEligibility } from "types/return-intake"
+import {
+  normalizeEmail,
+  normalizeText,
+  validateEmail,
+  validateSriLankanPhone,
+} from "@lib/util/storefront-form-validation"
 
 const GENERIC_LOOKUP_MESSAGE =
   "If the order details match, a verification code has been sent."
@@ -88,14 +94,27 @@ export async function guestTrackingLookup(input: {
   email?: string
   phone?: string
 }) {
-  const order_reference = input.order_reference.trim().slice(0, 64)
-  const email = input.email?.trim().toLowerCase().slice(0, 254)
-  const phone = input.phone?.trim().slice(0, 20)
+  const order_reference = normalizeText(input.order_reference).slice(0, 64)
+  const email = input.email ? normalizeEmail(input.email).slice(0, 254) : ""
+  const phone = input.phone ? normalizeText(input.phone).slice(0, 20) : ""
 
   if (!order_reference || (!email && !phone)) {
     return {
       ok: false as const,
       error: "Enter your order number and email or phone.",
+    }
+  }
+  if (email && validateEmail(email)) {
+    return {
+      ok: false as const,
+      error: "Enter a valid email address.",
+    }
+  }
+  const phoneError = validateSriLankanPhone(phone, { required: false })
+  if (phoneError) {
+    return {
+      ok: false as const,
+      error: phoneError,
     }
   }
 
@@ -294,7 +313,6 @@ export async function establishGuestSessionFromConfirmationDetailed(
     }
     await clearGuestTrackingSessionToken()
   }
-
   const confirmationToken = await getOrderConfirmationToken(orderId)
   if (!confirmationToken) {
     return {

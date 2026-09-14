@@ -2,6 +2,7 @@ import { HttpTypes } from "@medusajs/types"
 import { Container } from "@medusajs/ui"
 import Checkbox from "@modules/common/components/checkbox"
 import Input from "@modules/common/components/input"
+import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
 import { mapKeys } from "lodash"
 import React, { useEffect, useMemo, useState } from "react"
 import AddressSelect from "../address-select"
@@ -203,12 +204,16 @@ const ShippingAddress = ({
           required
           data-testid="shipping-email-input"
         />
-        <Input
+        <SriLankanPhoneInput
           label="Phone"
           name="shipping_address.phone"
-          autoComplete="tel"
           value={formData["shipping_address.phone"]}
-          onChange={handleChange}
+          onValueChange={(internationalValue) =>
+            setFormData((current: Record<string, any>) => ({
+              ...current,
+              "shipping_address.phone": internationalValue,
+            }))
+          }
           data-testid="shipping-phone-input"
         />
       </div>

@@ -2,6 +2,7 @@
 
 import { sdk } from "@lib/config"
 import { getLocale } from "@lib/data/locale-actions"
+import { normalizeEmail, validateEmail } from "@lib/util/storefront-form-validation"
 
 export type NewsletterFormState = {
   status: "idle" | "success" | "error"
@@ -17,19 +18,15 @@ type NewsletterResponse = {
   }
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const MAX_EMAIL_LENGTH = 254
 const CONSENT_VERSION = "2026-07-cba-marketing-v1"
 
 export async function subscribeToNewsletter(
   _prevState: NewsletterFormState,
   formData: FormData
 ): Promise<NewsletterFormState> {
-  const email = String(formData.get("email") ?? "")
-    .trim()
-    .toLowerCase()
+  const email = normalizeEmail(formData.get("email"))
 
-  if (email.length > MAX_EMAIL_LENGTH || !EMAIL_PATTERN.test(email)) {
+  if (validateEmail(email)) {
     return {
       status: "error",
       error: "Please enter a valid email address.",
