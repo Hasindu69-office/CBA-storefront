@@ -9,7 +9,7 @@ import { useActionState, useEffect, useState } from "react"
 
 export default function ForgotPasswordForm({ countryCode }: { countryCode: string }) {
   void countryCode
-  const [message, formAction] = useActionState(requestPasswordReset, null)
+  const [message, formAction, isPending] = useActionState(requestPasswordReset, null)
   const [clientError, setClientError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -42,7 +42,9 @@ export default function ForgotPasswordForm({ countryCode }: { countryCode: strin
           {(clientError || message) && (
             <p id={clientError ? "forgot-password-email-error" : undefined} className={clientError ? "mt-3 text-sm text-red-600" : "mt-3 text-sm text-green-700"}>{clientError ?? message}</p>
           )}
-          <button className="mt-5 h-12 w-full rounded bg-brand text-sm font-bold text-white" type="submit">Send reset link</button>
+          <button className="mt-5 h-12 w-full rounded bg-brand text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={isPending} aria-busy={isPending}>
+            {isPending ? "Sending reset link..." : "Send reset link"}
+          </button>
         </form>
         <LocalizedClientLink href="/account" className="mt-5 block text-sm font-semibold text-brand">
           Back to sign in

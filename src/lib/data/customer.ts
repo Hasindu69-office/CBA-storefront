@@ -151,6 +151,9 @@ export async function login(_currentState: unknown, formData: FormData) {
         revalidateTag(customerCacheTag)
       })
   } catch (error: any) {
+    if (isAuthRateLimited(error)) {
+      return "Too many sign-in attempts. Please wait and try again later."
+    }
     return authErrorMessage(error)
   }
 
@@ -171,6 +174,12 @@ export async function requestPasswordReset(_currentState: unknown, formData: For
       cache: "no-store",
     })
   } catch (error) {
+    if (isAuthRateLimited(error)) {
+      return "Too many password reset requests. Please wait and try again later."
+    }
+    if (isAuthServiceUnavailable(error)) {
+      return "The account service is temporarily unavailable. Please try again later."
+    }
     console.error("Password reset request failed.", safeServerError(error))
   }
   return "If an account exists for this email address, a password reset link will be sent."
@@ -198,6 +207,12 @@ export async function resetPassword(_currentState: unknown, formData: FormData) 
     })
     return "Password updated. You can sign in with your new password."
   } catch (error) {
+    if (isAuthRateLimited(error)) {
+      return "Too many password reset attempts. Please wait and try again later."
+    }
+    if (isAuthServiceUnavailable(error)) {
+      return "The account service is temporarily unavailable. Please try again later."
+    }
     console.error("Password reset update failed.", safeServerError(error))
     return "We could not update the password. Request a new reset link and try again."
   }
@@ -590,6 +605,9 @@ function isStrongPassword(value: string) {
 
 function authErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? "")
+  if (isAuthRateLimited(error)) {
+    return "Too many sign-in attempts. Please wait and try again later."
+  }
   if (/email.*exist|already.*email|duplicate/i.test(message)) {
     return "An account already exists with this email address."
   }
@@ -603,6 +621,49 @@ function authErrorMessage(error: unknown) {
     return "We could not reach the account service. Please try again."
   }
   return "We could not complete the request. Please try again."
+}
+
+function isAuthRateLimited(error: unknown) {
+  const status = errorStatus(error)
+  const message = errorMessage(error)
+  return status === 429 || /rate.?limit|too many attempts|too many authentication/i.test(message)
+}
+
+function isAuthServiceUnavailable(error: unknown) {
+  const status = errorStatus(error)
+  const message = errorMessage(error)
+  return status === 503 || /authentication protection|service temporarily unavailable/i.test(message)
+}
+
+function errorStatus(error: unknown) {
+  if (!error || typeof error !== "object") return undefined
+  const value = error as Record<string, unknown>
+  const response = value.response
+  if (response && typeof response === "object") {
+    const responseStatus = (response as Record<string, unknown>).status
+    if (typeof responseStatus === "number") return responseStatus
+  }
+  for (const key of ["status", "statusCode"]) {
+    if (typeof value[key] === "number") return value[key] as number
+  }
+  return undefined
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  if (error && typeof error === "object") {
+    const value = error as Record<string, unknown>
+    if (typeof value.message === "string") return value.message
+    const response = value.response
+    if (response && typeof response === "object") {
+      const data = (response as Record<string, unknown>).data
+      if (data && typeof data === "object" && typeof (data as Record<string, unknown>).message === "string") {
+        return (data as Record<string, unknown>).message as string
+      }
+    }
+  }
+  return ""
 }
 
 function safeServerError(error: unknown) {
