@@ -136,6 +136,56 @@
   }
 }
 
+@keyframes cba-chatbot-panel-enter {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes cba-chatbot-backdrop-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cba-chatbot-message-enter {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cba-chatbot-dot {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+
+.cba-chatbot-panel {
+  animation: cba-chatbot-panel-enter 220ms cubic-bezier(.2,.8,.2,1) both;
+  transform-origin: bottom right;
+}
+
+.cba-chatbot-backdrop { animation: cba-chatbot-backdrop-enter 180ms ease-out both; }
+.cba-chatbot-message { animation: cba-chatbot-message-enter 200ms ease-out both; }
+.cba-chatbot-chip { animation: cba-chatbot-message-enter 220ms ease-out both; }
+.cba-chatbot-dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #9ca3af;
+  animation: cba-chatbot-dot 1.1s ease-in-out infinite;
+}
+.cba-chatbot-dot:nth-child(2) { animation-delay: 120ms; }
+.cba-chatbot-dot:nth-child(3) { animation-delay: 240ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cba-chatbot-panel,
+  .cba-chatbot-backdrop,
+  .cba-chatbot-message,
+  .cba-chatbot-chip,
+  .cba-chatbot-dot {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 .pdp-rich-description .pdp-image-grid {
   display: grid;
   gap: 1rem;
