@@ -25,7 +25,10 @@ NEXT_PUBLIC_MEDUSA_BACKEND_URL=https://your-backend-domain
 MEDUSA_FILE_BACKEND_URL=https://your-backend-domain/static
 NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=replace-with-publishable-key
 NEXT_PUBLIC_BASE_URL=https://your-storefront-domain
+CBA_CHATBOT_BFF_SHARED_SECRET=replace-with-the-same-random-32-plus-character-secret-used-by-the-backend
 ```
+
+`CBA_CHATBOT_BFF_SHARED_SECRET` is server-only and must never use a `NEXT_PUBLIC_` prefix. The backend rejects direct chatbot API calls unless this value matches its own setting.
 
 For the deployed CBA test server, `NEXT_PUBLIC_BASE_URL` should be the public browser URL, for example:
 

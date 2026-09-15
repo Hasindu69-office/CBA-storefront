@@ -5,7 +5,7 @@ const COOKIE="_cba_chatbot_session"
 const backend=(process.env.MEDUSA_BACKEND_URL||process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL||"http://localhost:9000").replace(/\/$/,"")
 export async function proxy(req:NextRequest,path:string,method="POST"){
   if(method!=="GET"&&!req.headers.get("content-type")?.includes("application/json"))return NextResponse.json({error:{message:"JSON content type is required."}},{status:415})
-  const hs=await headers();const cs=await cookies();const token=cs.get(COOKIE)?.value;const secret=process.env.CBA_CHATBOT_BFF_SHARED_SECRET||""
+  const hs=await headers();const cs=await cookies();const token=cs.get(COOKIE)?.value;const secret=process.env.CBA_CHATBOT_BFF_SHARED_SECRET||(process.env.NODE_ENV!=="production"?"cba-local-development-bff-only-2026":"")
   const publishableKey=process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY||""
   const ip=hs.get("x-forwarded-for")?.split(",")[0]?.trim()||"unknown";const ipHash=crypto.createHmac("sha256",secret||"development").update(ip).digest("hex")
   const body=method==="GET"?undefined:await req.text();if(body&&body.length>10000)return NextResponse.json({error:{message:"Request is too large."}},{status:413})

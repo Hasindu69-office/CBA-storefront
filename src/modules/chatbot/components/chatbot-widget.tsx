@@ -39,7 +39,7 @@ export default function ChatbotWidget() {
         if (!response.ok) return
         const payload = await response.json() as CurrentChatbotResponse
         if (controller.signal.aborted) return
-        setMessages(payload.messages.map((item) => ({ id: item.id, role: item.role, message: item.content.message, actions: item.content.actions, createdAt: item.created_at ? new Date(item.created_at) : new Date() })))
+        setMessages(payload.messages.map((item) => ({ id: item.id, role: item.role, message: item.content.message, actions: item.content.actions, follow_up:item.content.follow_up, solution:item.content.solution, createdAt: item.created_at ? new Date(item.created_at) : new Date() })))
         if (payload.handover) { setHandover({ ...payload.handover, recommended: true }); setHandoverExpanded(true) }
       } catch (error) { if (error instanceof Error && error.name === "AbortError") return }
     }
@@ -79,16 +79,16 @@ export default function ChatbotWidget() {
     if (!created.ok) throw new Error(await responseError(created, "Unable to start the assistant."))
   }
 
-  async function send(value = text) {
+  async function send(value = text, solutionAnswer?:{question_id:string;value:string}) {
     const message = value.trim()
     if (!message || busy) return
     setBusy(true); setMessages((items) => [...items, { id: crypto.randomUUID(), role: "user", message, createdAt: new Date() }]); setText(""); setHandoverError("")
     try {
       await ensureSession()
-      const response = await fetch("/api/cba/chatbot/message", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ client_message_id: crypto.randomUUID(), message, source_page_url: location.pathname }) })
+      const response = await fetch("/api/cba/chatbot/message", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ client_message_id: crypto.randomUUID(), message, source_page_url: location.pathname, ...(solutionAnswer?{solution_answer:solutionAnswer}:{}) }) })
       if (!response.ok) throw new Error(await responseError(response, "The assistant is temporarily unavailable."))
       const payload = await response.json() as ChatbotResponse
-      setMessages((items) => [...items, { id: crypto.randomUUID(), role: "assistant", message: payload.message, actions: payload.actions, createdAt: new Date() }])
+      setMessages((items) => [...items, { id: crypto.randomUUID(), role: "assistant", message: payload.message, actions: payload.actions, follow_up:payload.follow_up, solution:payload.solution, createdAt: new Date() }])
       if (payload.handover?.recommended && config?.handover_enabled) setHandover({ recommended: true })
     } catch (error) {
       setMessages((items) => [...items, { id: crypto.randomUUID(), role: "assistant", message: error instanceof Error ? error.message : "The assistant is temporarily unavailable.", createdAt: new Date(), isError: true }])
@@ -115,7 +115,7 @@ export default function ChatbotWidget() {
     void fetch("/api/cba/chatbot/handover/opened", { method: "POST", headers: { "content-type": "application/json" }, body: "{}", keepalive: true }).catch(() => undefined)
   }
 
-  return <><ChatbotLauncher ref={launcherRef} open={open} onClick={() => setOpen((value) => !value)}/>{open ? <ChatbotPanel config={config} messages={messages} text={text} busy={busy} handover={handover} handoverExpanded={handoverExpanded} handoverError={handoverError} form={form} panelRef={panelRef} inputRef={inputRef} endRef={endRef} onClose={() => setOpen(false)} onTextChange={setText} onSend={(value) => void send(value)} onExpandHandover={() => setHandoverExpanded(true)} onFormChange={setForm} onCreateHandover={() => void createHandover()} onWhatsApp={() => void continueOnWhatsApp()}/> : null}</>
+  return <><ChatbotLauncher ref={launcherRef} open={open} onClick={() => setOpen((value) => !value)}/>{open ? <ChatbotPanel config={config} messages={messages} text={text} busy={busy} handover={handover} handoverExpanded={handoverExpanded} handoverError={handoverError} form={form} panelRef={panelRef} inputRef={inputRef} endRef={endRef} onClose={() => setOpen(false)} onTextChange={setText} onSend={(value) => void send(value)} onSolutionAnswer={(answer,label)=>void send(label,answer)} onExpandHandover={() => setHandoverExpanded(true)} onFormChange={setForm} onCreateHandover={() => void createHandover()} onWhatsApp={() => void continueOnWhatsApp()}/> : null}</>
 }
 
 async function responseError(response: Response, fallback: string) {
