@@ -4,6 +4,7 @@ import Script from "next/script"
 import NotificationProvider from "@modules/common/components/notification-provider"
 import HomeNavigationLoader from "@modules/common/components/home-navigation-loader"
 import RouteScrollRestoration from "@modules/layout/components/route-scroll-restoration"
+import ChatbotWidget from "@modules/chatbot/components/chatbot-widget"
 import "styles/globals.css"
 
 export const metadata: Metadata = {
@@ -53,6 +54,7 @@ export default function RootLayout(props: { children: React.ReactNode }) {
         <HomeNavigationLoader />
         <RouteScrollRestoration />
         <NotificationProvider />
+        <ChatbotWidget />
       </body>
     </html>
   )

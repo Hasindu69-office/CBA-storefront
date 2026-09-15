@@ -13,7 +13,7 @@
     "start": "next start -p 8000",
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
-    "test:unit": "npx --yes tsx --test src/lib/util/__tests__/cart-totals.unit.spec.ts src/lib/util/__tests__/checkout-validation-focus.unit.spec.ts src/lib/util/__tests__/cms-pages.unit.spec.ts src/lib/util/__tests__/compare-products.unit.spec.ts src/lib/util/__tests__/order-tracking.unit.spec.ts src/lib/util/__tests__/product-options.unit.spec.ts",
+    "test:unit": "npx --yes tsx --test src/lib/util/__tests__/cart-totals.unit.spec.ts src/lib/util/__tests__/chatbot-markdown.unit.spec.tsx src/lib/util/__tests__/checkout-validation-focus.unit.spec.ts src/lib/util/__tests__/cms-pages.unit.spec.ts src/lib/util/__tests__/compare-products.unit.spec.ts src/lib/util/__tests__/order-tracking.unit.spec.ts src/lib/util/__tests__/product-options.unit.spec.ts",
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
@@ -33,6 +33,8 @@
     "react": "19.0.5",
     "react-country-flag": "^3.1.0",
     "react-dom": "19.0.5",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "server-only": "^0.0.1",
     "sonner": "^2.0.7",
     "tailwindcss-radix": "^2.8.0",
