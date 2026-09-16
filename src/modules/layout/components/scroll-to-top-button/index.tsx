@@ -58,7 +58,7 @@ export default function ScrollToTopButton() {
       type="button"
       onClick={scrollToTop}
       aria-label="Scroll to top"
-      className={`fixed bottom-[calc(160px+env(safe-area-inset-bottom))] right-5 z-[65] flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white/95 text-brand shadow-[0_10px_30px_rgba(17,24,39,0.18),0_2px_8px_rgba(17,24,39,0.10)] backdrop-blur transition-all duration-200 ease-out small:bottom-24 small:right-6 ${
+      className={`pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-gray-200/80 bg-white/95 text-brand shadow-[0_8px_24px_rgba(17,24,39,0.14),0_2px_6px_rgba(17,24,39,0.08)] backdrop-blur transition-[transform,opacity,background-color,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_10px_28px_rgba(17,24,39,0.18),0_2px_8px_rgba(17,24,39,0.10)] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/25 motion-reduce:transform-none ${
         isVisible && !chatbotOpen
           ? "translate-y-0 opacity-100"
           : "pointer-events-none translate-y-2 opacity-0"

@@ -19,6 +19,8 @@ import {
   validateSriLankanPhone,
 } from "@lib/util/storefront-form-validation"
 import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
+import RecaptchaDisclosure from "@modules/common/components/recaptcha-disclosure"
+import { executeRecaptcha } from "@lib/recaptcha-client"
 
 type GuestOrderTrackingTemplateProps = {
   initialTracking?: CbaCustomerOrderTracking | null
@@ -79,11 +81,13 @@ export default function GuestOrderTrackingTemplate({
 
     const flowGeneration = flowGenerationRef.current
     startTransition(async () => {
+      let recaptchaToken: string
+      try { recaptchaToken = await executeRecaptcha("order_tracking_lookup") } catch { setError("Verification is temporarily unavailable. Please try again."); return }
       const result = await guestTrackingLookup({
         order_reference: validated.values.order_reference,
         email: validated.values.email || undefined,
         phone: validated.values.phone || undefined,
-      })
+      }, recaptchaToken)
       if (flowGeneration !== flowGenerationRef.current) {
         return
       }
@@ -108,10 +112,12 @@ export default function GuestOrderTrackingTemplate({
     const flowGeneration = flowGenerationRef.current
     const activeChallengeId = challengeId
     startTransition(async () => {
+      let recaptchaToken: string
+      try { recaptchaToken = await executeRecaptcha("order_tracking_verify") } catch { setError("Verification is temporarily unavailable. Please try again."); return }
       const result = await guestTrackingVerify({
         challenge_id: activeChallengeId,
         code: validated.code,
-      })
+      }, recaptchaToken)
       if (flowGeneration !== flowGenerationRef.current) {
         return
       }
@@ -235,6 +241,7 @@ export default function GuestOrderTrackingTemplate({
             >
               {pending ? "Checking…" : "Send verification code"}
             </button>
+            <RecaptchaDisclosure className="text-center" />
           </form>
         ) : (
           <form className="mt-6 flex flex-col gap-4" onSubmit={onVerify}>
@@ -269,6 +276,7 @@ export default function GuestOrderTrackingTemplate({
             >
               {pending ? "Verifying…" : "Verify and track"}
             </button>
+            <RecaptchaDisclosure className="text-center" />
             <button
               type="button"
               disabled={pending}

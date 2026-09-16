@@ -4,6 +4,8 @@ import { subscribeToNewsletter } from "@lib/data/newsletter"
 import { notify } from "@lib/notifications"
 import { normalizeEmail, validateEmail } from "@lib/util/storefront-form-validation"
 import { useActionState, useEffect, useRef, useState } from "react"
+import { useRecaptchaSubmit } from "@lib/hooks/use-recaptcha-submit"
+import RecaptchaDisclosure from "@modules/common/components/recaptcha-disclosure"
 
 const initialState = {
   status: "idle" as const,
@@ -17,6 +19,7 @@ export default function NewsletterForm() {
   const formRef = useRef<HTMLFormElement>(null)
   const lastNotifiedKeyRef = useRef<string | null>(null)
   const [clientError, setClientError] = useState<string | null>(null)
+  const captcha = useRecaptchaSubmit("newsletter_subscribe")
 
   useEffect(() => {
     if (state.status === "idle") {
@@ -60,7 +63,7 @@ export default function NewsletterForm() {
       <form
         ref={formRef}
         action={formAction}
-        onSubmit={validate}
+        onSubmit={(event) => { validate(event); if (!event.defaultPrevented) void captcha.onRecaptchaSubmit(event) }}
         className="flex flex-col gap-4 medium:relative medium:flex-row medium:items-center medium:gap-0"
         noValidate
       >
@@ -94,16 +97,17 @@ export default function NewsletterForm() {
         />
         <button
           type="submit"
-          disabled={isPending}
-          aria-busy={isPending}
+          disabled={isPending || captcha.verifying}
+          aria-busy={isPending || captcha.verifying}
           className="w-full rounded-[10px] bg-[#ff5c0e] px-6 py-3.5 font-medium text-white transition-colors hover:bg-[#e6530c] disabled:cursor-not-allowed disabled:opacity-70 medium:absolute medium:right-0 medium:top-0 medium:bottom-0 medium:w-auto medium:min-w-36 medium:px-5 medium:py-0 medium:text-[14px]"
         >
           {isPending ? "Subscribing..." : "Subscribe"}
         </button>
       </form>
-      {(clientError || state.status === "error") && (
+      <RecaptchaDisclosure className="mt-2 text-center text-white/55 medium:text-left" />
+      {(captcha.verificationError || clientError || state.status === "error") && (
         <p id="newsletter-email-error" className="mt-2 text-[12px] font-medium text-rose-600">
-          {clientError ?? state.error}
+          {captcha.verificationError ?? clientError ?? state.error}
         </p>
       )}
     </div>

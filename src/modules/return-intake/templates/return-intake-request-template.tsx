@@ -9,6 +9,7 @@ import {
   uploadReturnIntakeEvidence,
 } from "@lib/data/return-intake"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import RecaptchaDisclosure from "@modules/common/components/recaptcha-disclosure"
 import EvidenceUploader from "@modules/return-intake/components/evidence-uploader"
 import {
   DEFAULT_UPLOAD_POLICY,
@@ -31,6 +32,7 @@ import type {
   CbaReturnEligibility,
   CbaReturnIntakeRequestType,
 } from "types/return-intake"
+import { executeRecaptcha } from "@lib/recaptcha-client"
 
 type Props = {
   tracking: CbaCustomerOrderTracking
@@ -155,7 +157,7 @@ export default function ReturnIntakeRequestTemplate({
         order_id: tracking.order.id,
         request_type: values.request_type as CbaReturnIntakeRequestType,
         items,
-      })
+      }, await executeRecaptcha("return_eligibility"))
       if (result.eligibility.upload_policy) {
         setUploadPolicy({
           max_files: result.eligibility.upload_policy.max_files,
@@ -262,7 +264,7 @@ export default function ReturnIntakeRequestTemplate({
           order_id: tracking.order.id,
           request_type: values.request_type as CbaReturnIntakeRequestType,
           items,
-        })
+        }, await executeRecaptcha("return_eligibility"))
 
         let evidenceIds: string[] = []
         if (evidenceStepVisible(values.request_type) && stagedEvidence.length) {
@@ -279,7 +281,7 @@ export default function ReturnIntakeRequestTemplate({
           evidence_ids: evidenceIds,
           staging_token: stagingTokenRef.current,
           idempotency_key: crypto.randomUUID(),
-        })
+        }, await executeRecaptcha("return_submit"))
 
         clearEvidence()
         router.push(
@@ -552,6 +554,7 @@ export default function ReturnIntakeRequestTemplate({
             </button>
           )}
         </div>
+        <RecaptchaDisclosure className="mt-3" />
       </div>
     </div>
   )

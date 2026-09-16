@@ -1,6 +1,7 @@
 "use server"
 
 import { sdk } from "@lib/config"
+import { RECAPTCHA_FORM_FIELD, recaptchaHeaders } from "@lib/recaptcha"
 import { getLocale } from "@lib/data/locale-actions"
 import { normalizeEmail, validateEmail } from "@lib/util/storefront-form-validation"
 
@@ -39,6 +40,7 @@ export async function subscribeToNewsletter(
       "/store/cba/v1/newsletter/subscriptions",
       {
         method: "POST",
+        headers: recaptchaHeaders(formData.get(RECAPTCHA_FORM_FIELD)),
         body: {
           email,
           source: "footer",

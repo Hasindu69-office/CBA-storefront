@@ -2,6 +2,9 @@
 
 import { addToCart } from "@lib/data/cart"
 import { requestBackInStock } from "@lib/data/back-in-stock"
+import { executeRecaptcha } from "@lib/recaptcha-client"
+import { RECAPTCHA_FORM_FIELD } from "@lib/recaptcha"
+import RecaptchaDisclosure from "@modules/common/components/recaptcha-disclosure"
 import { sdk } from "@lib/config"
 import {
   listInstallmentPlans,
@@ -433,6 +436,7 @@ export default function CbaProductDetail({
     startTransition(async () => {
       const toastId = `back-in-stock:${selectedVariant.id}`
       notify.loading("Submitting availability request...", { id: toastId })
+      try { formData.set(RECAPTCHA_FORM_FIELD, await executeRecaptcha("back_in_stock")) } catch { notify.error("Verification is temporarily unavailable. Please try again.", undefined, { id: toastId }); return }
       const result = await requestBackInStock(null, formData)
       setWaitlistState({
         type: result.status === "success" ? "success" : "error",
@@ -704,6 +708,7 @@ export default function CbaProductDetail({
                   >
                     Notify me
                   </button>
+                  <RecaptchaDisclosure className="text-center" />
                   {waitlistState.message && (
                     <p
                       id={
