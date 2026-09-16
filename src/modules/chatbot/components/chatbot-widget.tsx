@@ -119,7 +119,7 @@ export default function ChatbotWidget() {
     void fetch("/api/cba/chatbot/handover/opened", { method: "POST", headers: { "content-type": "application/json" }, body: "{}", keepalive: true }).catch(() => undefined)
   }
 
-  return <><ChatbotLauncher ref={launcherRef} open={open} onClick={() => setOpen((value) => !value)}/>{open ? <ChatbotPanel config={config} messages={messages} text={text} busy={busy} handover={handover} handoverExpanded={handoverExpanded} handoverError={handoverError} form={form} panelRef={panelRef} inputRef={inputRef} endRef={endRef} onClose={() => setOpen(false)} onTextChange={setText} onSend={(value) => void send(value)} onExpandHandover={() => setHandoverExpanded(true)} onFormChange={setForm} onCreateHandover={() => void createHandover()} onWhatsApp={() => void continueOnWhatsApp()}/> : null}</>
+  return <><ChatbotLauncher ref={launcherRef} open={open} avatarUrl={config.avatar_url} avatarAltText={config.avatar_alt_text} onClick={() => setOpen((value) => !value)}/>{open ? <ChatbotPanel config={config} messages={messages} text={text} busy={busy} handover={handover} handoverExpanded={handoverExpanded} handoverError={handoverError} form={form} panelRef={panelRef} inputRef={inputRef} endRef={endRef} onClose={() => setOpen(false)} onTextChange={setText} onSend={(value) => void send(value)} onExpandHandover={() => setHandoverExpanded(true)} onFormChange={setForm} onCreateHandover={() => void createHandover()} onWhatsApp={() => void continueOnWhatsApp()}/> : null}</>
 }
 
 async function responseError(response: Response, fallback: string) {
