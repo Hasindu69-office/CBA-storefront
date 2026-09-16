@@ -4,6 +4,7 @@ import { login, startOAuthLogin } from "@lib/data/customer"
 import type { AccountAuthSettings, AuthProviderId } from "@lib/data/account-auth"
 import { LOGIN_VIEW } from "@modules/account/templates/login-template"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import RecaptchaDisclosure from "@modules/common/components/recaptcha-disclosure"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { notify } from "@lib/notifications"
@@ -11,6 +12,7 @@ import { normalizeEmail, validateEmail } from "@lib/util/storefront-form-validat
 import Image from "next/image"
 import type React from "react"
 import { useActionState, useEffect, useState } from "react"
+import { useRecaptchaSubmit } from "@lib/hooks/use-recaptcha-submit"
 
 type Props = {
   setCurrentView: (view: LOGIN_VIEW) => void
@@ -23,6 +25,7 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
   const [socialMessage, socialAction] = useActionState(startOAuthLogin, null)
   const [clientError, setClientError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const captcha = useRecaptchaSubmit("customer_login")
 
   useEffect(() => {
     if (message) {
@@ -79,7 +82,7 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
         {settings.content.login_description}
       </p>
 
-      <form className="mt-8 w-full" action={formAction} onSubmit={validate} noValidate>
+      <form className="mt-8 w-full" action={formAction} onSubmit={(event) => { validate(event); if (!event.defaultPrevented) void captcha.onRecaptchaSubmit(event) }} noValidate>
         <div className="flex flex-col gap-5">
           <AuthField
             label="Email Address"
@@ -122,13 +125,14 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
             Remember me
           </label>
         </div>
-        <ErrorMessage error={clientError ?? message} data-testid="login-error-message" />
+        <ErrorMessage error={captcha.verificationError ?? clientError ?? message} data-testid="login-error-message" />
         <SubmitButton
           data-testid="sign-in-button"
           className="mt-7 h-[54px] w-full rounded-md border-none bg-[#ff5c0e] text-[16px] font-semibold text-white shadow-none hover:bg-[#e6530c]"
         >
           Sign In
         </SubmitButton>
+        <RecaptchaDisclosure className="mt-3 text-center" />
       </form>
 
       <SocialSection

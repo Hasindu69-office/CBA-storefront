@@ -5,6 +5,8 @@ export type ChatbotConfig = {
   disclaimer: string
   quick_prompts: string[]
   handover_enabled: boolean
+  avatar_url?: string | null
+  avatar_alt_text?: string | null
 }
 
 export type ChatbotAction = {

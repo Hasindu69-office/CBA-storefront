@@ -1,6 +1,7 @@
 "use server"
 
 import { sdk } from "@lib/config"
+import { RECAPTCHA_FORM_FIELD, recaptchaHeaders } from "@lib/recaptcha"
 import {
   normalizeEmail,
   normalizeText,
@@ -102,6 +103,7 @@ export async function submitContactInquiry(
       "/store/cba/v1/inquiries/contact",
       {
         method: "POST",
+        headers: recaptchaHeaders(formData.get(RECAPTCHA_FORM_FIELD)),
         body,
         cache: "no-store",
       }

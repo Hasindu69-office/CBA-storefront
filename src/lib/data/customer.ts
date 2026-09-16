@@ -1,6 +1,7 @@
 "use server"
 
 import { MEDUSA_BACKEND_URL, sdk } from "@lib/config"
+import { RECAPTCHA_FORM_FIELD, recaptchaHeaders } from "@lib/recaptcha"
 import medusaError from "@lib/util/medusa-error"
 import { HttpTypes } from "@medusajs/types"
 import { revalidatePath, revalidateTag } from "next/cache"
@@ -97,9 +98,9 @@ export async function signup(_currentState: unknown, formData: FormData) {
   }
 
   try {
-    const token = await sdk.auth.register("customer", "emailpass", {
-      email: customerForm.email,
-      password: password,
+    const { token } = await sdk.client.fetch<{ token: string }>("/auth/customer/emailpass/register", {
+      method: "POST", body: { email: customerForm.email, password },
+      headers: recaptchaHeaders(formData.get(RECAPTCHA_FORM_FIELD)), cache: "no-store",
     })
 
     const headers = {
@@ -112,9 +113,9 @@ export async function signup(_currentState: unknown, formData: FormData) {
       headers
     )
 
-    const loginToken = await sdk.auth.login("customer", "emailpass", {
-      email: customerForm.email,
-      password,
+    const { token: loginToken } = await sdk.client.fetch<{ token: string }>("/auth/customer/emailpass", {
+      method: "POST", body: { email: customerForm.email, password },
+      headers: recaptchaHeaders(formData.get(`${RECAPTCHA_FORM_FIELD}_customer_login`)), cache: "no-store",
     })
 
     await setAuthToken(loginToken as string)
@@ -143,9 +144,11 @@ export async function login(_currentState: unknown, formData: FormData) {
   }
 
   try {
-    await sdk.auth
-      .login("customer", "emailpass", { email, password })
-      .then(async (token) => {
+    await sdk.client.fetch<{ token: string }>("/auth/customer/emailpass", {
+      method: "POST", body: { email, password },
+      headers: recaptchaHeaders(formData.get(RECAPTCHA_FORM_FIELD)), cache: "no-store",
+    })
+      .then(async ({ token }) => {
         await setAuthToken(token as string)
         const customerCacheTag = await getCacheTag("customers")
         revalidateTag(customerCacheTag)
@@ -171,6 +174,7 @@ export async function requestPasswordReset(_currentState: unknown, formData: For
     await sdk.client.fetch("/auth/customer/emailpass/reset-password", {
       method: "POST",
       body: { identifier: email },
+      headers: recaptchaHeaders(formData.get(RECAPTCHA_FORM_FIELD)),
       cache: "no-store",
     })
   } catch (error) {

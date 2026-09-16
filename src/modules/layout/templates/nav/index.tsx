@@ -12,7 +12,6 @@ import DesktopCategoryDrawer from "@modules/layout/components/desktop-category-d
 import DesktopStickyHeader from "@modules/layout/components/desktop-sticky-header"
 import MobileBottomNav from "@modules/layout/components/mobile-bottom-nav"
 import MobileHeaderMenu from "@modules/layout/components/mobile-header-menu"
-import ScrollToTopButton from "@modules/layout/components/scroll-to-top-button"
 import SideCart from "@modules/layout/components/side-cart"
 import WishlistHeaderLink from "@modules/layout/components/wishlist-header-link"
 import ReactCountryFlag from "react-country-flag"
@@ -566,7 +565,6 @@ export default async function Nav({
         categoryLinks={dropdownItems}
         logo={mobileMenuLogo}
       />
-      <ScrollToTopButton />
     </div>
   )
 }

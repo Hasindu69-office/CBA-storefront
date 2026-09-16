@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import ChatbotLauncher from "./chatbot-launcher"
 import ChatbotPanel from "./chatbot-panel"
 import type { ChatbotConfig, ChatbotMessage, ChatbotResponse, CurrentChatbotResponse, HandoverForm, HandoverState } from "./types"
+import { executeRecaptcha } from "@lib/recaptcha-client"
 
 const VISIBILITY_EVENT = "cba:chatbot-visibility"
 const EMPTY_FORM: HandoverForm = { name: "", phone: "", consent: false }
@@ -75,7 +76,8 @@ export default function ChatbotWidget() {
   async function ensureSession() {
     const current = await fetch("/api/cba/chatbot/current", { cache: "no-store" })
     if (current.ok) return
-    const created = await fetch("/api/cba/chatbot/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ locale: document.documentElement.lang || "en", source_page_url: location.pathname }) })
+    const captcha = await executeRecaptcha("chatbot_session")
+    const created = await fetch("/api/cba/chatbot/session", { method: "POST", headers: { "content-type": "application/json", "x-cba-recaptcha-token": captcha }, body: JSON.stringify({ locale: document.documentElement.lang || "en", source_page_url: location.pathname }) })
     if (!created.ok) throw new Error(await responseError(created, "Unable to start the assistant."))
   }
 
@@ -85,7 +87,8 @@ export default function ChatbotWidget() {
     setBusy(true); setMessages((items) => [...items, { id: crypto.randomUUID(), role: "user", message, createdAt: new Date() }]); setText(""); setHandoverError("")
     try {
       await ensureSession()
-      const response = await fetch("/api/cba/chatbot/message", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ client_message_id: crypto.randomUUID(), message, source_page_url: location.pathname }) })
+      const captcha = await executeRecaptcha("chatbot_message")
+      const response = await fetch("/api/cba/chatbot/message", { method: "POST", headers: { "content-type": "application/json", "x-cba-recaptcha-token": captcha }, body: JSON.stringify({ client_message_id: crypto.randomUUID(), message, source_page_url: location.pathname }) })
       if (!response.ok) throw new Error(await responseError(response, "The assistant is temporarily unavailable."))
       const payload = await response.json() as ChatbotResponse
       setMessages((items) => [...items, { id: crypto.randomUUID(), role: "assistant", message: payload.message, actions: payload.actions, createdAt: new Date() }])
@@ -103,7 +106,8 @@ export default function ChatbotWidget() {
     if (!form.consent) return setHandoverError("Please accept the consent statement before continuing.")
     setBusy(true)
     try {
-      const response = await fetch("/api/cba/chatbot/handover", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(form) })
+      const captcha = await executeRecaptcha("chatbot_handover")
+      const response = await fetch("/api/cba/chatbot/handover", { method: "POST", headers: { "content-type": "application/json", "x-cba-recaptcha-token": captcha }, body: JSON.stringify(form) })
       if (!response.ok) throw new Error(await responseError(response, "We could not create the support request."))
       setHandover({ ...(await response.json() as HandoverState), recommended: true })
     } catch (error) { setHandoverError(error instanceof Error ? error.message : "We could not create the support request.") }
@@ -115,7 +119,7 @@ export default function ChatbotWidget() {
     void fetch("/api/cba/chatbot/handover/opened", { method: "POST", headers: { "content-type": "application/json" }, body: "{}", keepalive: true }).catch(() => undefined)
   }
 
-  return <><ChatbotLauncher ref={launcherRef} open={open} onClick={() => setOpen((value) => !value)}/>{open ? <ChatbotPanel config={config} messages={messages} text={text} busy={busy} handover={handover} handoverExpanded={handoverExpanded} handoverError={handoverError} form={form} panelRef={panelRef} inputRef={inputRef} endRef={endRef} onClose={() => setOpen(false)} onTextChange={setText} onSend={(value) => void send(value)} onExpandHandover={() => setHandoverExpanded(true)} onFormChange={setForm} onCreateHandover={() => void createHandover()} onWhatsApp={() => void continueOnWhatsApp()}/> : null}</>
+  return <><ChatbotLauncher ref={launcherRef} open={open} avatarUrl={config.avatar_url} avatarAltText={config.avatar_alt_text} onClick={() => setOpen((value) => !value)}/>{open ? <ChatbotPanel config={config} messages={messages} text={text} busy={busy} handover={handover} handoverExpanded={handoverExpanded} handoverError={handoverError} form={form} panelRef={panelRef} inputRef={inputRef} endRef={endRef} onClose={() => setOpen(false)} onTextChange={setText} onSend={(value) => void send(value)} onExpandHandover={() => setHandoverExpanded(true)} onFormChange={setForm} onCreateHandover={() => void createHandover()} onWhatsApp={() => void continueOnWhatsApp()}/> : null}</>
 }
 
 async function responseError(response: Response, fallback: string) {

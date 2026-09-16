@@ -24,6 +24,7 @@ MEDUSA_BACKEND_URL=https://your-backend-domain
 NEXT_PUBLIC_MEDUSA_BACKEND_URL=https://your-backend-domain
 MEDUSA_FILE_BACKEND_URL=https://your-backend-domain/static
 NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=replace-with-publishable-key
+NEXT_PUBLIC_RECAPTCHA_SITE_KEY=replace-with-public-v3-site-key
 NEXT_PUBLIC_BASE_URL=https://your-storefront-domain
 ```
 

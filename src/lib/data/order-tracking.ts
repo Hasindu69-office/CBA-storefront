@@ -14,6 +14,7 @@ import type {
   CbaCustomerOrderTracking,
 } from "types/order-tracking"
 import type { CbaReturnEligibility } from "types/return-intake"
+import { recaptchaHeaders } from "@lib/recaptcha"
 import {
   normalizeEmail,
   normalizeText,
@@ -93,7 +94,7 @@ export async function guestTrackingLookup(input: {
   order_reference: string
   email?: string
   phone?: string
-}) {
+}, recaptchaToken?: string) {
   const order_reference = normalizeText(input.order_reference).slice(0, 64)
   const email = input.email ? normalizeEmail(input.email).slice(0, 254) : ""
   const phone = input.phone ? normalizeText(input.phone).slice(0, 20) : ""
@@ -126,6 +127,7 @@ export async function guestTrackingLookup(input: {
       code?: string
     }>("/store/cba/v1/order-tracking/lookup", {
       method: "POST",
+      headers: recaptchaHeaders(recaptchaToken),
       body: {
         order_reference,
         ...(email ? { email } : {}),
@@ -164,7 +166,7 @@ export async function guestTrackingLookup(input: {
 export async function guestTrackingVerify(input: {
   challenge_id: string
   code: string
-}) {
+}, recaptchaToken?: string) {
   const challenge_id = input.challenge_id.trim()
   const code = input.code.trim()
   if (!/^[A-Za-z0-9_-]{16,80}$/.test(challenge_id) || !/^\d{6}$/.test(code)) {
@@ -182,6 +184,7 @@ export async function guestTrackingVerify(input: {
       expires_at?: string
     }>("/store/cba/v1/order-tracking/verify", {
       method: "POST",
+      headers: recaptchaHeaders(recaptchaToken),
       body: { challenge_id, code },
       cache: "no-store",
     })

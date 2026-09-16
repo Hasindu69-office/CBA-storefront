@@ -1,6 +1,7 @@
 "use server"
 
 import { sdk } from "@lib/config"
+import { RECAPTCHA_FORM_FIELD, recaptchaHeaders } from "@lib/recaptcha"
 import { getLocale } from "@lib/data/locale-actions"
 import { normalizeEmail, normalizeText, validateEmail } from "@lib/util/storefront-form-validation"
 
@@ -27,6 +28,7 @@ export async function requestBackInStock(
     const locale = await getLocale()
     const response = await sdk.client.fetch<{ message?: string }>("/store/cba/v1/back-in-stock", {
       method: "POST",
+      headers: recaptchaHeaders(formData.get(RECAPTCHA_FORM_FIELD)),
       body: {
         email,
         product_id: productId,
