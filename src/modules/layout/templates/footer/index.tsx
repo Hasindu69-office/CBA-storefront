@@ -139,6 +139,7 @@ function SocialLink({
         href={href}
         className={className}
         aria-label={label}
+        target="_blank"
         rel="noopener noreferrer"
       >
         {children}
