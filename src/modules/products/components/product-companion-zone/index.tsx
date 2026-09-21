@@ -227,7 +227,7 @@ export default function ProductCompanionZone({
   }
 
   return (
-    <div className="rounded-rounded border border-gray-200 p-7">
+    <div className="min-w-0 rounded-rounded border border-gray-200 p-7 max-[399px]:p-5">
       {categories.length > 1 ? (
         <div
           className="flex flex-wrap gap-2"

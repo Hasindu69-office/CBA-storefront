@@ -5,7 +5,6 @@ import {
   listRelatedProductCards,
   listUpSellCompanionCards,
 } from "@lib/data/product-relationship-cards"
-import { listPdpBannerContent } from "@lib/data/pdp-banners"
 import {
   retrieveKokoCheckoutBranding,
   retrieveKokoPaymentAvailability,
@@ -38,14 +37,12 @@ export default async function ProductTemplate({
   const [
     detail,
     reviews,
-    pdpBanners,
     wishlistedProductIds,
     kokoBranding,
     kokoAvailable,
   ] = await Promise.all([
     getProductDetail(product.id, selectedVariantId),
     getProductReviews(product.id, { limit: 5 }),
-    listPdpBannerContent(),
     retrieveWishlistedProductIds({
       country_code: countryCode,
       currency_code: "lkr",
@@ -78,7 +75,6 @@ export default async function ProductTemplate({
         accessoryProducts={accessoryProducts}
         upSellProducts={upSellProducts}
         relatedProducts={relatedProducts}
-        pdpBanners={pdpBanners}
         kokoBranding={kokoBranding}
         kokoAvailable={kokoAvailable}
         selectedVariantId={selectedVariantId}
