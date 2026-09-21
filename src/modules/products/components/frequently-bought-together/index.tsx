@@ -172,7 +172,7 @@ export default function FrequentlyBoughtTogether({
   }
 
   return (
-    <div className="rounded-rounded border border-gray-200 p-7">
+    <div className="min-w-0 rounded-rounded border border-gray-200 p-7 max-[399px]:p-5">
       <h2 className="text-lg font-black uppercase">{title}</h2>
       <BundleOfferPanel
         product={product}

@@ -12,7 +12,6 @@ import {
 } from "@lib/data/installments"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import type { KokoCheckoutBranding } from "@lib/data/koko-branding"
-import type { PdpBannerContent } from "@lib/data/pdp-banners"
 import type {
   ProductDetailResponse,
   ProductReviewsResponse,
@@ -35,7 +34,6 @@ import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import KokoInstallmentLine from "@modules/common/components/koko-installment-line"
 import ProductCompanionZone from "@modules/products/components/product-companion-zone"
-import PdpSidebarBanners from "@modules/products/components/pdp-sidebar-banners"
 import RelatedProductsSection from "@modules/products/components/related-products-section"
 import {
   ShoppingCartIcon,
@@ -65,7 +63,6 @@ type CbaProductDetailProps = {
   accessoryProducts: FeaturedProductCard[]
   upSellProducts: FeaturedProductCard[]
   relatedProducts: FeaturedProductCard[]
-  pdpBanners: PdpBannerContent
   kokoBranding?: KokoCheckoutBranding | null
   kokoAvailable?: boolean
   selectedVariantId?: string
@@ -117,7 +114,6 @@ export default function CbaProductDetail({
   accessoryProducts,
   upSellProducts,
   relatedProducts,
-  pdpBanners,
   kokoBranding,
   kokoAvailable = false,
   selectedVariantId,
@@ -213,7 +209,6 @@ export default function CbaProductDetail({
   const reviewCount = detail?.review_summary?.total_reviews ?? 0
   const rating = detail?.review_summary?.average_rating ?? null
   const mainProductImage = activeImage || product.thumbnail || galleryImages[0]?.url || null
-  const hasPdpSidebarBanners = Boolean(pdpBanners.primary || pdpBanners.secondary)
   const hasCompanionContent =
     crossSellProducts.length > 0 ||
     accessoryProducts.length > 0 ||
@@ -786,30 +781,14 @@ export default function CbaProductDetail({
           </aside>
         </section>
 
-        {(hasCompanionContent || hasPdpSidebarBanners) && (
-          <section
-            className={
-              hasCompanionContent && hasPdpSidebarBanners
-                ? "mt-12 grid min-w-0 gap-4 small:grid-cols-[minmax(0,1fr)_280px]"
-                : "mt-12"
-            }
-          >
-            {hasCompanionContent && (
-              <ProductCompanionZone
-                {...bundleSectionProps}
-                crossSellProducts={crossSellProducts}
-                accessoryProducts={accessoryProducts}
-                upSellProducts={upSellProducts}
-              />
-            )}
-            {hasPdpSidebarBanners && (
-              <div className={hasCompanionContent ? "h-full min-h-0" : undefined}>
-                <PdpSidebarBanners
-                  banners={pdpBanners}
-                  layout={hasCompanionContent ? "sidebar" : "standalone"}
-                />
-              </div>
-            )}
+        {hasCompanionContent && (
+          <section className="mt-12 min-w-0">
+            <ProductCompanionZone
+              {...bundleSectionProps}
+              crossSellProducts={crossSellProducts}
+              accessoryProducts={accessoryProducts}
+              upSellProducts={upSellProducts}
+            />
           </section>
         )}
 
