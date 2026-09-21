@@ -46,6 +46,8 @@ import { isEqual } from "lodash"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import {
+  type KeyboardEvent,
+  type PointerEvent,
   useEffect,
   useMemo,
   useRef,
@@ -1132,9 +1134,99 @@ function ProductGallery({
   activeImage: string
   setActiveImage: (value: string) => void
 }) {
+  const [isHoveringImage, setIsHoveringImage] = useState(false)
+  const [isPreviewFocused, setIsPreviewFocused] = useState(false)
+  const [isTouchZoomed, setIsTouchZoomed] = useState(false)
+  const [zoomInput, setZoomInput] = useState<"touch" | "keyboard" | null>(null)
+  const [zoomOrigin, setZoomOrigin] = useState({ x: 50, y: 50 })
+
+  const resetZoom = () => {
+    setIsHoveringImage(false)
+    setIsTouchZoomed(false)
+    setZoomInput(null)
+    setZoomOrigin({ x: 50, y: 50 })
+  }
+
+  useEffect(() => {
+    resetZoom()
+  }, [activeImage])
+
+  const setZoomOriginFromPointer = (event: PointerEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const toPercentage = (position: number, start: number, size: number) =>
+      Math.min(100, Math.max(0, ((position - start) / size) * 100))
+
+    setZoomOrigin({
+      x: toPercentage(event.clientX, bounds.left, bounds.width),
+      y: toPercentage(event.clientY, bounds.top, bounds.height),
+    })
+  }
+
+  const handlePreviewPointerEnter = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "mouse") return
+    setZoomOriginFromPointer(event)
+    setIsHoveringImage(true)
+  }
+
+  const handlePreviewPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse") setZoomOriginFromPointer(event)
+  }
+
+  const handlePreviewPointerLeave = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse") setIsHoveringImage(false)
+  }
+
+  const handlePreviewPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "touch") return
+    setZoomOriginFromPointer(event)
+    setZoomInput("touch")
+    setIsTouchZoomed((isZoomed) => !isZoomed)
+  }
+
+  const handlePreviewKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      resetZoom()
+      return
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault()
+      setZoomOrigin({ x: 50, y: 50 })
+      setZoomInput("keyboard")
+      setIsTouchZoomed((isZoomed) => !isZoomed)
+    }
+  }
+
+  const isZoomed = isHoveringImage || isTouchZoomed
+  const isZoomAffordanceVisible =
+    isHoveringImage || isPreviewFocused || isTouchZoomed
+
   return (
     <div className="min-w-0">
-      <div className="relative aspect-[4/3] overflow-hidden rounded-rounded bg-gray-50">
+      <div
+        className={`relative aspect-[4/3] overflow-hidden rounded-rounded bg-gray-50 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${
+          activeImage
+            ? isTouchZoomed
+              ? "cursor-zoom-out"
+              : "cursor-zoom-in"
+            : "cursor-default"
+        }`}
+        role="button"
+        tabIndex={activeImage ? 0 : -1}
+        aria-label={
+          isTouchZoomed
+            ? `Zoomed product image: ${title}. Press Enter or Space to reset zoom.`
+            : `Product image: ${title}. Hover to zoom, or press Enter or Space to toggle zoom.`
+        }
+        aria-pressed={isTouchZoomed}
+        onFocus={() => setIsPreviewFocused(true)}
+        onBlur={() => setIsPreviewFocused(false)}
+        onKeyDown={handlePreviewKeyDown}
+        onPointerEnter={handlePreviewPointerEnter}
+        onPointerMove={handlePreviewPointerMove}
+        onPointerLeave={handlePreviewPointerLeave}
+        onPointerUp={handlePreviewPointerUp}
+      >
         {activeImage ? (
           <Image
             src={activeImage}
@@ -1142,12 +1234,30 @@ function ProductGallery({
             fill
             priority
             sizes="(max-width: 1024px) 92vw, 520px"
-            className="object-contain p-5 xsmall:p-8"
+            className="pointer-events-none object-contain p-5 transition-transform duration-200 ease-out xsmall:p-8"
+            style={{
+              transform: isZoomed ? "scale(2)" : "scale(1)",
+              transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
+            }}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-gray-400">
             No image
           </div>
+        )}
+        {activeImage && (
+          <span
+            className={`pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-circle bg-gray-950/75 px-3 py-1.5 text-xs font-semibold text-white transition-opacity duration-200 ${
+              isZoomAffordanceVisible ? "opacity-100" : "opacity-0"
+            }`}
+            aria-hidden="true"
+          >
+            {isTouchZoomed
+              ? zoomInput === "keyboard"
+                ? "Press Enter or Space to reset"
+                : "Tap again to reset"
+              : "Hover to zoom"}
+          </span>
         )}
       </div>
       <div className="no-scrollbar mt-4 flex max-w-full gap-3 overflow-x-auto overscroll-x-contain pb-1 small:mt-5 small:gap-4">
@@ -1155,7 +1265,11 @@ function ProductGallery({
           <button
             type="button"
             key={image.id ?? image.url ?? index}
-            onClick={() => image.url && setActiveImage(image.url)}
+            onClick={() => {
+              if (!image.url) return
+              resetZoom()
+              setActiveImage(image.url)
+            }}
             className={
               image.url === activeImage
                 ? "relative h-16 w-16 shrink-0 rounded-base border-2 border-brand bg-white xsmall:h-20 xsmall:w-20"
