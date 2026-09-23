@@ -3,16 +3,27 @@ import { HttpTypes } from "@medusajs/types"
 import { Heading, Text } from "@medusajs/ui"
 
 import Divider from "@modules/common/components/divider"
+import { resolveFulfillmentMode } from "@lib/util/fulfillment-plan"
 
 type ShippingDetailsProps = {
   order: HttpTypes.StoreOrder
 }
 
 const ShippingDetails = ({ order }: ShippingDetailsProps) => {
+  const fulfillmentMode = resolveFulfillmentMode({
+    items: order.items as never,
+    shippingMethods: order.shipping_methods,
+  })
+  const isPickupOnly = fulfillmentMode === "pickup-only"
+
   return (
     <div>
       <Heading level="h2" className="flex flex-row text-3xl-regular my-6">
-        Delivery
+        {isPickupOnly
+          ? "Collection"
+          : fulfillmentMode === "mixed"
+          ? "Fulfillment"
+          : "Delivery"}
       </Heading>
       <div className="flex items-start gap-x-8">
         <div
@@ -20,7 +31,7 @@ const ShippingDetails = ({ order }: ShippingDetailsProps) => {
           data-testid="shipping-address-summary"
         >
           <Text className="txt-medium-plus text-ui-fg-base mb-1">
-            Shipping Address
+            {isPickupOnly ? "Customer Address" : "Shipping Address"}
           </Text>
           <Text className="txt-medium text-ui-fg-subtle">
             {order.shipping_address?.first_name}{" "}
@@ -55,14 +66,19 @@ const ShippingDetails = ({ order }: ShippingDetailsProps) => {
           data-testid="shipping-method-summary"
         >
           <Text className="txt-medium-plus text-ui-fg-base mb-1">Method</Text>
-          <Text className="txt-medium text-ui-fg-subtle">
-            {(order as any).shipping_methods[0]?.name} (
-            {convertToLocale({
-              amount: order.shipping_methods?.[0].total ?? 0,
-              currency_code: order.currency_code,
-            })}
-            )
-          </Text>
+          {(order.shipping_methods ?? []).map((method) => (
+            <Text key={method.id} className="txt-medium text-ui-fg-subtle">
+              {method.name} (
+              {/pickup|pick-up|collection/i.test(method.name ?? "") &&
+              (method.total ?? 0) <= 0
+                ? "Self collection"
+                : convertToLocale({
+                    amount: method.total ?? 0,
+                    currency_code: order.currency_code,
+                  })}
+              )
+            </Text>
+          ))}
         </div>
       </div>
       <Divider className="mt-8" />

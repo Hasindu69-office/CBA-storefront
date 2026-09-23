@@ -40,7 +40,7 @@ export default function OrderAddressCard({
       </address>
       {shippingMethodName && (
         <p className="mt-3 text-[13px] text-[#5d6470]">
-          Delivery method:{" "}
+          Fulfillment methods:{" "}
           <span className="font-semibold text-[#151922]">{shippingMethodName}</span>
         </p>
       )}

@@ -80,6 +80,13 @@ import {
   hasAutomaticPromotions,
   manualCodesWithNewCoupon,
 } from "@lib/util/coupon-promotions"
+import {
+  buildFulfillmentPlan,
+  deriveFulfillmentModeFromItems,
+  formatPickupAddress,
+  isTestDeliveryOption,
+  type FulfillmentPlan,
+} from "@lib/util/fulfillment-plan"
 
 type CbaCheckoutTemplateProps = {
   cart: HttpTypes.StoreCart
@@ -107,7 +114,10 @@ function money(amount: number | null | undefined, currencyCode: string) {
   })
 }
 
-function installmentMoney(amount: number | null | undefined, currencyCode: string) {
+function installmentMoney(
+  amount: number | null | undefined,
+  currencyCode: string
+) {
   return convertToLocale({
     amount: amount ?? 0,
     currency_code: currencyCode,
@@ -125,7 +135,11 @@ function formatInstallmentRate(value: number) {
   if (!Number.isFinite(rate)) {
     return ""
   }
-  return `${Number.isInteger(rate) ? rate.toFixed(0) : rate.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}%`
+  return `${
+    Number.isInteger(rate)
+      ? rate.toFixed(0)
+      : rate.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")
+  }%`
 }
 
 function paymentTitle(
@@ -183,7 +197,9 @@ function selectedPaymentSession(cart: HttpTypes.StoreCart) {
   )
 }
 
-function selectedInstallmentPlanId(cart: CbaCheckoutCart | HttpTypes.StoreCart) {
+function selectedInstallmentPlanId(
+  cart: CbaCheckoutCart | HttpTypes.StoreCart
+) {
   const value = (cart as CbaCheckoutCart).metadata?.cba_installment_plan_id
   return typeof value === "string" && value.startsWith("cbaip_") ? value : ""
 }
@@ -194,7 +210,10 @@ function selectedCheckoutPaymentMethod(
 ) {
   void paymentMethods
   const activeSession = selectedPaymentSession(cart as HttpTypes.StoreCart)
-  if (isWebxpay(activeSession?.provider_id) && selectedInstallmentPlanId(cart)) {
+  if (
+    isWebxpay(activeSession?.provider_id) &&
+    selectedInstallmentPlanId(cart)
+  ) {
     return CBA_INSTALLMENT_METHOD_ID
   }
   return activeSession?.provider_id ?? ""
@@ -221,6 +240,10 @@ export default function CbaCheckoutTemplate({
   kokoBranding = null,
 }: CbaCheckoutTemplateProps) {
   const activeSession = selectedPaymentSession(cart)
+  const fulfillmentPlan = useMemo(
+    () => buildFulfillmentPlan(cart, shippingMethods),
+    [cart, shippingMethods]
+  )
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
     selectedCheckoutPaymentMethod(cart, paymentMethods)
   )
@@ -233,7 +256,10 @@ export default function CbaCheckoutTemplate({
   const [addressFormError, setAddressFormError] = useState<string | null>(null)
 
   const validateAddressField = useCallback(
-    (field: CheckoutAddressFieldName, event?: FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    (
+      field: CheckoutAddressFieldName,
+      event?: FormEvent<HTMLInputElement | HTMLTextAreaElement>
+    ) => {
       const form = addressFormRef.current
       if (!form) return
 
@@ -246,7 +272,9 @@ export default function CbaCheckoutTemplate({
       }
 
       const validation = validateCheckoutAddressFormData(new FormData(form))
-      const fieldError = validation.ok ? null : validation.fieldErrors[field] ?? null
+      const fieldError = validation.ok
+        ? null
+        : validation.fieldErrors[field] ?? null
 
       setAddressFieldErrors((current) => {
         const next = { ...current }
@@ -266,16 +294,19 @@ export default function CbaCheckoutTemplate({
     []
   )
 
-  const focusAddressField = useCallback((field: CheckoutAddressFieldName | null) => {
-    if (!field) return
-    const element = addressFormRef.current?.querySelector<HTMLElement>(
-      `[data-phone-input-for="${field}"], [name="${field}"]`
-    )
-    if (element instanceof HTMLElement) {
-      element.focus()
-      element.scrollIntoView({ block: "center", behavior: "smooth" })
-    }
-  }, [])
+  const focusAddressField = useCallback(
+    (field: CheckoutAddressFieldName | null) => {
+      if (!field) return
+      const element = addressFormRef.current?.querySelector<HTMLElement>(
+        `[data-phone-input-for="${field}"], [name="${field}"]`
+      )
+      if (element instanceof HTMLElement) {
+        element.focus()
+        element.scrollIntoView({ block: "center", behavior: "smooth" })
+      }
+    },
+    []
+  )
 
   const saveCurrentCheckoutDetails = useCallback(async () => {
     const form = addressFormRef.current
@@ -289,7 +320,9 @@ export default function CbaCheckoutTemplate({
     if (!clientValidation.ok) {
       setAddressFieldErrors(clientValidation.fieldErrors)
       setAddressFormError(clientValidation.formError)
-      focusAddressField(firstCheckoutAddressErrorField(clientValidation.fieldErrors))
+      focusAddressField(
+        firstCheckoutAddressErrorField(clientValidation.fieldErrors)
+      )
       return clientValidation.formError
     }
 
@@ -304,7 +337,9 @@ export default function CbaCheckoutTemplate({
       result = {
         success: false,
         error:
-          err instanceof Error ? err.message : "Could not save delivery details.",
+          err instanceof Error
+            ? err.message
+            : "Could not save delivery details.",
       }
     } finally {
       setIsSavingCheckoutDetails(false)
@@ -331,13 +366,19 @@ export default function CbaCheckoutTemplate({
 
   useEffect(() => {
     if (activeSession?.provider_id) {
-      const nextPaymentMethod = selectedCheckoutPaymentMethod(cart, paymentMethods)
+      const nextPaymentMethod = selectedCheckoutPaymentMethod(
+        cart,
+        paymentMethods
+      )
       const keepPendingInstallmentChoice =
         selectedPaymentMethod === CBA_INSTALLMENT_METHOD_ID &&
         isWebxpay(activeSession.provider_id) &&
         !selectedInstallmentPlanId(cart)
 
-      if (!keepPendingInstallmentChoice && nextPaymentMethod !== selectedPaymentMethod) {
+      if (
+        !keepPendingInstallmentChoice &&
+        nextPaymentMethod !== selectedPaymentMethod
+      ) {
         setSelectedPaymentMethod(nextPaymentMethod)
       }
     }
@@ -361,10 +402,11 @@ export default function CbaCheckoutTemplate({
             fieldErrors={addressFieldErrors}
             formError={addressFormError}
             onFieldChange={validateAddressField}
+            pickupOnly={fulfillmentPlan.mode === "pickup-only"}
           />
           <DeliveryMethodSelector
             cart={cart}
-            shippingMethods={shippingMethods}
+            plan={fulfillmentPlan}
             isSavingCheckoutDetails={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
           />
@@ -378,6 +420,7 @@ export default function CbaCheckoutTemplate({
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
             webxpayBranding={webxpayBranding}
             kokoBranding={kokoBranding}
+            fulfillmentReady={fulfillmentPlan.isComplete}
           />
           <div className="hidden small:block">
             <PlaceOrderControl
@@ -390,6 +433,7 @@ export default function CbaCheckoutTemplate({
               setTermsAccepted={setTermsAccepted}
               webxpayBranding={webxpayBranding}
               kokoBranding={kokoBranding}
+              fulfillmentReady={fulfillmentPlan.isComplete}
             />
           </div>
         </section>
@@ -405,6 +449,7 @@ export default function CbaCheckoutTemplate({
             setTermsAccepted={setTermsAccepted}
             webxpayBranding={webxpayBranding}
             kokoBranding={kokoBranding}
+            fulfillmentPlan={fulfillmentPlan}
           />
         </aside>
       </div>
@@ -421,6 +466,7 @@ function ShippingInformationForm({
   fieldErrors,
   formError,
   onFieldChange,
+  pickupOnly,
 }: {
   cart: HttpTypes.StoreCart
   customer: HttpTypes.StoreCustomer | null
@@ -433,6 +479,7 @@ function ShippingInformationForm({
     field: CheckoutAddressFieldName,
     event?: FormEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => void
+  pickupOnly: boolean
 }) {
   const initialFullName = [
     cart.shipping_address?.first_name,
@@ -457,8 +504,14 @@ function ShippingInformationForm({
     >
       <SectionTitle
         icon={<MapPin className="text-brand" />}
-        title="Shipping Information"
-        subtitle="Enter your delivery details"
+        title={
+          pickupOnly ? "Customer & Billing Information" : "Shipping Information"
+        }
+        subtitle={
+          pickupOnly
+            ? "Enter your contact and billing address for this pickup order"
+            : "Enter your delivery details"
+        }
       />
       {formError && (
         <p
@@ -487,16 +540,14 @@ function ShippingInformationForm({
           required
           error={fieldErrors["shipping_address.phone"]}
           onValueChange={(internationalValue) =>
-            onFieldChange(
-              "shipping_address.phone",
-              { currentTarget: { value: internationalValue } } as FormEvent<HTMLInputElement>
-            )
+            onFieldChange("shipping_address.phone", {
+              currentTarget: { value: internationalValue },
+            } as FormEvent<HTMLInputElement>)
           }
           onValueBlur={(internationalValue) =>
-            onFieldChange(
-              "shipping_address.phone",
-              { currentTarget: { value: internationalValue } } as FormEvent<HTMLInputElement>
-            )
+            onFieldChange("shipping_address.phone", {
+              currentTarget: { value: internationalValue },
+            } as FormEvent<HTMLInputElement>)
           }
         />
         <Field
@@ -653,7 +704,15 @@ function Field({
   onChange?: (event: FormEvent<HTMLInputElement>) => void
   onBlur?: (event: FormEvent<HTMLInputElement>) => void
   maxLength?: number
-  inputMode?: "none" | "text" | "tel" | "url" | "email" | "numeric" | "decimal" | "search"
+  inputMode?:
+    | "none"
+    | "text"
+    | "tel"
+    | "url"
+    | "email"
+    | "numeric"
+    | "decimal"
+    | "search"
 }) {
   const errorId = `${name.replace(/[^A-Za-z0-9_-]+/g, "-")}-error`
   return (
@@ -681,9 +740,7 @@ function Field({
           onBlur={onBlur}
           className={`h-10 w-full rounded-md border px-4 text-[13px] outline-none transition placeholder:text-[#9aa1af] focus:border-brand ${
             icon ? "pl-10" : ""
-          } ${
-            error ? "border-rose-300 bg-rose-50/40" : "border-gray-200"
-          }`}
+          } ${error ? "border-rose-300 bg-rose-50/40" : "border-gray-200"}`}
         />
       </span>
       {error && (
@@ -697,7 +754,10 @@ function Field({
 
 function sanitizeCheckoutInput(field: CheckoutAddressFieldName, value: string) {
   if (field === "full_name") return sanitizePersonNameInput(value)
-  if (field === "shipping_address.city" || field === "shipping_address.province") {
+  if (
+    field === "shipping_address.city" ||
+    field === "shipping_address.province"
+  ) {
     return sanitizePlaceNameInput(value)
   }
   if (field === "shipping_address.phone") {
@@ -711,39 +771,48 @@ function sanitizeCheckoutInput(field: CheckoutAddressFieldName, value: string) {
 
 function DeliveryMethodSelector({
   cart,
-  shippingMethods,
+  plan,
   isSavingCheckoutDetails,
   saveCurrentCheckoutDetails,
 }: {
   cart: HttpTypes.StoreCart
-  shippingMethods: HttpTypes.StoreCartShippingOption[]
+  plan: FulfillmentPlan
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [selected, setSelected] = useState(
-    cart.shipping_methods?.at(-1)?.shipping_option_id ?? ""
+  const [selectedByProfile, setSelectedByProfile] = useState<
+    Record<string, string>
+  >(() =>
+    Object.fromEntries(
+      plan.groups.map((group) => [
+        group.profileId,
+        group.selectedOption?.id ?? "",
+      ])
+    )
   )
   const [actionError, setActionError] = useState<string | null>(null)
-  const [calculatedPrices, setCalculatedPrices] = useState<Record<string, number>>(
-    {}
-  )
-  const deliveryMethods = useMemo(
-    () =>
-      shippingMethods.filter(
-        (method) => (method as any).service_zone?.fulfillment_set?.type !== "pickup"
-      ),
-    [shippingMethods]
-  )
+  const [calculatedPrices, setCalculatedPrices] = useState<
+    Record<string, number>
+  >({})
 
   useEffect(() => {
-    setSelected(cart.shipping_methods?.at(-1)?.shipping_option_id ?? "")
-  }, [cart.shipping_methods])
+    setSelectedByProfile(
+      Object.fromEntries(
+        plan.groups.map((group) => [
+          group.profileId,
+          group.selectedOption?.id ?? "",
+        ])
+      )
+    )
+  }, [plan])
 
   useEffect(() => {
-    const calculatedMethods = deliveryMethods.filter(
-      (method) => method.price_type === "calculated"
+    const calculatedMethods = plan.groups.flatMap((group) =>
+      group.eligibleOptions.filter(
+        (method) => method.price_type === "calculated"
+      )
     )
     if (!calculatedMethods.length) {
       setCalculatedPrices({})
@@ -772,29 +841,39 @@ function DeliveryMethodSelector({
     return () => {
       active = false
     }
-  }, [cart.id, deliveryMethods])
+  }, [cart.id, plan])
 
-  const selectMethod = (methodId: string) => {
+  const selectMethod = (profileId: string, methodId: string) => {
+    const previous = selectedByProfile[profileId] ?? ""
     setActionError(null)
+    setSelectedByProfile((current) => ({ ...current, [profileId]: methodId }))
     startTransition(async () => {
       try {
         const checkoutDetailsError = await saveCurrentCheckoutDetails()
         if (checkoutDetailsError) {
+          setSelectedByProfile((current) => ({
+            ...current,
+            [profileId]: previous,
+          }))
           setActionError("Complete the highlighted delivery details first.")
           return
         }
 
         await setShippingMethod({ cartId: cart.id, shippingMethodId: methodId })
-        setSelected(methodId)
         router.refresh()
       } catch (err) {
-        setSelected(cart.shipping_methods?.at(-1)?.shipping_option_id ?? "")
-        setActionError("Could not set delivery method. Please try again.")
-        notify.error(
-          err,
-          "Could not set delivery method.",
-          { id: "checkout-shipping" }
-        )
+        setSelectedByProfile((current) => ({
+          ...current,
+          [profileId]: previous,
+        }))
+        const message =
+          err instanceof Error && err.message
+            ? err.message
+            : "Could not set fulfillment method. Please try again."
+        setActionError(message)
+        notify.error(err, "Could not set fulfillment method.", {
+          id: "checkout-shipping",
+        })
       }
     })
   }
@@ -803,69 +882,139 @@ function DeliveryMethodSelector({
     <div className="border-b border-gray-100 py-6">
       <SectionTitle
         icon={<ShoppingBag className="text-brand" />}
-        title="Delivery Method"
-        subtitle="Select your preferred delivery option"
+        title="Fulfillment Method"
+        subtitle={
+          plan.mode === "pickup-only"
+            ? "Confirm where you will collect your order"
+            : plan.mode === "mixed"
+            ? "Your order requires delivery and store pickup"
+            : "Select your preferred delivery option"
+        }
       />
-      <div
-        role="radiogroup"
-        aria-label="Delivery method"
-        className="mt-4 grid grid-cols-1 gap-3 medium:grid-cols-2"
-      >
-        {deliveryMethods.map((method, index) => {
-          const checked = selected === method.id
-          const price =
-            method.price_type === "flat"
-              ? method.amount ?? 0
-              : calculatedPrices[method.id]
-          const isFree = Number(price ?? 0) <= 0
-          const calculationUnavailable =
-            method.price_type === "calculated" && typeof price !== "number"
-
-          return (
-            <button
-              key={method.id}
-              type="button"
-              role="radio"
-              aria-checked={checked}
-              onClick={() => selectMethod(method.id)}
-              disabled={
-                isPending ||
-                isSavingCheckoutDetails ||
-                method.insufficient_inventory ||
-                calculationUnavailable
+      {(plan.mode === "pickup-only" || plan.mode === "mixed") && (
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+          <p className="font-bold">
+            {plan.mode === "mixed"
+              ? "This order will be fulfilled in two parts."
+              : "This order is not eligible for delivery."}
+          </p>
+          <p className="mt-1 font-medium">
+            Pickup-only products must be collected from the selected CBA
+            location. Collection and transport are the customer&apos;s
+            responsibility.
+          </p>
+        </div>
+      )}
+      <div className="mt-4 flex flex-col gap-5">
+        {plan.groups.map((group) => (
+          <div key={group.profileId}>
+            <div className="mb-3">
+              <p className="text-[13px] font-bold text-[#252a33]">
+                {group.kind === "pickup" ? "Store pickup" : "Domex delivery"}
+              </p>
+              <ul className="mt-1 list-inside list-disc text-[12px] text-[#6b7280]">
+                {group.items.map((item) => (
+                  <li key={item.id}>
+                    {item.product_title ?? item.title} × {item.quantity}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div
+              role="radiogroup"
+              aria-label={
+                group.kind === "pickup" ? "Pickup location" : "Delivery method"
               }
-              className={`flex min-h-[66px] items-center gap-4 rounded-md border px-4 text-left transition ${
-                checked
-                  ? "border-brand bg-brand/5"
-                  : "border-gray-200 hover:border-brand/60"
-              } disabled:cursor-not-allowed disabled:opacity-60`}
+              className="grid grid-cols-1 gap-3 medium:grid-cols-2"
             >
-              <Radio checked={checked} />
-              <span className="flex h-9 w-9 items-center justify-center text-[#7b8493]">
-                {index === 0 ? <ShoppingBag /> : <Bolt />}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-bold text-[#252a33]">
-                  {method.name}
-                </span>
-                <span className="block text-[12px] text-[#6b7280]">
-                  {index === 0 ? "2 - 4 business days" : "1 - 2 business days"}
-                </span>
-              </span>
-              <span
-                className={`text-[12px] font-bold ${
-                  isFree ? "text-[#25a244]" : "text-[#252a33]"
-                }`}
+              {group.options.map((method, index) => {
+                const checked = selectedByProfile[group.profileId] === method.id
+                const price =
+                  method.price_type === "flat"
+                    ? method.amount ?? 0
+                    : calculatedPrices[method.id]
+                const isPickup = group.kind === "pickup"
+                const isFree = !isPickup && Number(price ?? 0) <= 0
+                const isTestDelivery = isTestDeliveryOption(method)
+                const calculationUnavailable =
+                  method.price_type === "calculated" &&
+                  typeof price !== "number"
+                const isEligible = group.eligibleOptions.some(
+                  (option) => option.id === method.id
+                )
+                const address =
+                  group.kind === "pickup" ? formatPickupAddress(method) : ""
+
+                return (
+                  <button
+                    key={method.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={checked}
+                    onClick={() => selectMethod(group.profileId, method.id)}
+                    disabled={
+                      isPending ||
+                      isSavingCheckoutDetails ||
+                      !isEligible ||
+                      calculationUnavailable
+                    }
+                    className={`flex min-h-[76px] items-center gap-4 rounded-md border px-4 text-left transition ${
+                      checked
+                        ? "border-brand bg-brand/5"
+                        : "border-gray-200 hover:border-brand/60"
+                    } disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    <Radio checked={checked} />
+                    <span className="flex h-9 w-9 items-center justify-center text-[#7b8493]">
+                      {group.kind === "pickup" ? (
+                        <MapPin />
+                      ) : index === 0 ? (
+                        <ShoppingBag />
+                      ) : (
+                        <Bolt />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-bold text-[#252a33]">
+                        {method.name}
+                      </span>
+                      <span className="block text-[12px] text-[#6b7280]">
+                        {isPickup
+                          ? address
+                            ? `${address} · Collection and transport arranged by customer`
+                            : "Pickup address unavailable"
+                          : isTestDelivery
+                          ? "Test delivery option"
+                          : "Delivered by Domex"}
+                      </span>
+                    </span>
+                    <span
+                      className={`text-[12px] font-bold ${
+                        isFree ? "text-[#25a244]" : "text-[#252a33]"
+                      }`}
+                    >
+                      {isPickup
+                        ? "SELF COLLECTION"
+                        : price === undefined
+                        ? "Unavailable"
+                        : isFree
+                        ? "FREE"
+                        : money(price, cart.currency_code)}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            {group.configurationError && (
+              <p
+                className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] font-semibold text-rose-700"
+                role="alert"
               >
-                {price === undefined
-                  ? "Unavailable"
-                  : isFree
-                  ? "FREE"
-                  : money(price, cart.currency_code)}
-              </span>
-            </button>
-          )
-        })}
+                {group.configurationError}
+              </p>
+            )}
+          </div>
+        ))}
       </div>
       {actionError && (
         <p
@@ -890,6 +1039,7 @@ function PaymentMethodSelector({
   saveCurrentCheckoutDetails,
   webxpayBranding,
   kokoBranding,
+  fulfillmentReady,
 }: {
   cart: HttpTypes.StoreCart
   paymentMethods: HttpTypes.StorePaymentProvider[]
@@ -900,11 +1050,14 @@ function PaymentMethodSelector({
   saveCurrentCheckoutDetails: () => Promise<string | null>
   webxpayBranding?: WebxpayCheckoutBranding | null
   kokoBranding?: KokoCheckoutBranding | null
+  fulfillmentReady: boolean
 }) {
   const router = useRouter()
   const activeSession = selectedPaymentSession(cart)
   const [isPending, startTransition] = useTransition()
-  const [installmentPlans, setInstallmentPlans] = useState<StoreInstallmentPlan[]>([])
+  const [installmentPlans, setInstallmentPlans] = useState<
+    StoreInstallmentPlan[]
+  >([])
   const [installmentEligible, setInstallmentEligible] = useState(false)
   const [installmentLoadError, setInstallmentLoadError] = useState("")
   const [actionError, setActionError] = useState<string | null>(null)
@@ -915,7 +1068,7 @@ function PaymentMethodSelector({
   const webxpayMethod = paymentMethods.find((method) => isWebxpay(method.id))
   const showInstallments =
     Boolean(webxpayMethod) && installmentEligible && installmentPlans.length > 0
-  const hasSelectedDelivery = (cart.shipping_methods?.length ?? 0) > 0
+  const hasSelectedDelivery = fulfillmentReady
 
   useEffect(() => {
     let alive = true
@@ -960,7 +1113,9 @@ function PaymentMethodSelector({
           return
         }
         if (!hasSelectedDelivery) {
-          setActionError("Select a delivery method before choosing payment.")
+          setActionError(
+            "Select a method for every fulfillment group before choosing payment."
+          )
           return
         }
 
@@ -988,7 +1143,9 @@ function PaymentMethodSelector({
           return
         }
         if (!hasSelectedDelivery) {
-          setActionError("Select a delivery method before choosing payment.")
+          setActionError(
+            "Select a method for every fulfillment group before choosing payment."
+          )
           return
         }
 
@@ -1017,7 +1174,9 @@ function PaymentMethodSelector({
           return
         }
         if (!hasSelectedDelivery) {
-          setActionError("Select a delivery method before choosing an installment plan.")
+          setActionError(
+            "Select a method for every fulfillment group before choosing an installment plan."
+          )
           return
         }
 
@@ -1073,12 +1232,14 @@ function PaymentMethodSelector({
                   {paymentTitle(method.id, webxpayBranding, kokoBranding)}
                   {checked && isWebxpay(method.id) ? (
                     <span className="mt-1 block text-[11px] font-medium text-[#6b7280]">
-                      You will be redirected to WEBXPAY to complete payment securely.
+                      You will be redirected to WEBXPAY to complete payment
+                      securely.
                     </span>
                   ) : null}
                   {checked && isKoko(method.id) ? (
                     <span className="mt-1 block text-[11px] font-medium text-[#6b7280]">
-                      You will be redirected to Koko to complete payment securely.
+                      You will be redirected to Koko to complete payment
+                      securely.
                     </span>
                   ) : null}
                 </span>
@@ -1217,7 +1378,10 @@ function InstallmentPaymentOption({
                 <span className="block truncate text-[13px] font-bold">
                   {plan.tenor_months} Months
                   {plan.monthly_amount !== undefined
-                    ? ` (${installmentMoney(plan.monthly_amount, currencyCode)})`
+                    ? ` (${installmentMoney(
+                        plan.monthly_amount,
+                        currencyCode
+                      )})`
                     : ""}{" "}
                   {formatInstallmentRate(plan.fee_percentage)}
                 </span>
@@ -1258,6 +1422,7 @@ function CheckoutOrderSummary({
   setTermsAccepted,
   webxpayBranding,
   kokoBranding,
+  fulfillmentPlan,
 }: {
   cart: CbaCheckoutCart
   selectedPaymentMethod: string
@@ -1268,14 +1433,28 @@ function CheckoutOrderSummary({
   setTermsAccepted: (accepted: boolean) => void
   webxpayBranding?: WebxpayCheckoutBranding | null
   kokoBranding?: KokoCheckoutBranding | null
+  fulfillmentPlan: FulfillmentPlan
 }) {
   const router = useRouter()
   const [isRefreshingTotals, setIsRefreshingTotals] = useState(false)
-  const itemCount = cart.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
+  const itemCount =
+    cart.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
   const automaticPromotions = hasAutomaticPromotions(cart.promotions)
+  const requiredDeliveryGroups = fulfillmentPlan.groups.filter(
+    (group) => group.kind === "delivery"
+  )
+  const shippingSelectionValid =
+    requiredDeliveryGroups.length > 0
+      ? requiredDeliveryGroups.every((group) => Boolean(group.selectedOption))
+      : fulfillmentPlan.groups.every((group) => Boolean(group.selectedOption))
+  const selectedFulfillmentNames = fulfillmentPlan.groups
+    .map((group) => group.selectedOption?.name)
+    .filter((name): name is string => Boolean(name))
   const mapped = mapAuthoritativeTotals(cart, {
     itemCount,
     automaticPromotionApplied: automaticPromotions,
+    fulfillmentMode: deriveFulfillmentModeFromItems(cart.items),
+    shippingSelectionValid,
   })
   const subtotalRow = mapped.rows.find((row) => row.key === "subtotal")
   const discountRow = mapped.rows.find((row) => row.key === "discount")
@@ -1301,7 +1480,9 @@ function CheckoutOrderSummary({
       notify.dismiss("checkout-totals")
       router.refresh()
     } catch (error) {
-      notify.error(error, "Could not refresh totals.", { id: "checkout-totals" })
+      notify.error(error, "Could not refresh totals.", {
+        id: "checkout-totals",
+      })
     } finally {
       setIsRefreshingTotals(false)
     }
@@ -1342,7 +1523,10 @@ function CheckoutOrderSummary({
         <div className="mt-4 border-t border-gray-100 pt-5 text-[14px]">
           <SummaryLine
             label="Subtotal"
-            value={subtotalRow?.display ?? money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)}
+            value={
+              subtotalRow?.display ??
+              money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)
+            }
           />
           {discountRow && (
             <SummaryLine
@@ -1353,7 +1537,7 @@ function CheckoutOrderSummary({
           )}
           {mapped.shippingVisible && (
             <SummaryLine
-              label="Delivery Fee"
+              label={mapped.shippingLabel}
               value={
                 mapped.shippingBeforeDiscountDisplay ? (
                   <span className="text-right">
@@ -1373,6 +1557,27 @@ function CheckoutOrderSummary({
               }
             />
           )}
+          {mapped.shippingIsPending && (
+            <SummaryLine
+              label={
+                fulfillmentPlan.mode === "pickup-only"
+                  ? "Collection"
+                  : "Delivery Fee"
+              }
+              value={
+                fulfillmentPlan.mode === "pickup-only"
+                  ? "Select a pickup location"
+                  : "Select a delivery method"
+              }
+            />
+          )}
+          {fulfillmentPlan.mode === "mixed" &&
+            selectedFulfillmentNames.length > 0 && (
+              <SummaryLine
+                label="Fulfillment"
+                value={selectedFulfillmentNames.join(" + ")}
+              />
+            )}
           {taxRows.map((row) => (
             <SummaryLine key={row.key} label={row.label} value={row.display} />
           ))}
@@ -1380,23 +1585,37 @@ function CheckoutOrderSummary({
 
         <div className="mt-5 border-t border-gray-100 pt-5">
           <div className="flex items-start justify-between gap-4">
-            <span className="text-[20px] font-bold text-[#111111]">Total</span>
+            <span className="text-[20px] font-bold text-[#111111]">
+              {fulfillmentPlan.isComplete ? "Total" : "Estimated total"}
+            </span>
             <span className="text-right">
               <span className="block text-[24px] font-bold text-brand">
                 {mapped.total.display}
               </span>
-          {mapped.taxNote && (
-            <span className="text-[12px] font-semibold text-[#7b8493]" aria-live="polite">
-              {mapped.taxNote}
-            </span>
-          )}
+              {mapped.taxNote && (
+                <span
+                  className="text-[12px] font-semibold text-[#7b8493]"
+                  aria-live="polite"
+                >
+                  {mapped.taxNote}
+                </span>
+              )}
+              {!fulfillmentPlan.isComplete && (
+                <span className="mt-1 block max-w-[210px] text-[12px] font-medium leading-4 text-[#7b8493]">
+                  Fulfillment charges are confirmed after all required methods
+                  are selected.
+                </span>
+              )}
             </span>
           </div>
           {(mapped.states.includes("tax_pending") ||
             mapped.states.includes("configuration_unavailable") ||
             mapped.states.includes("calculation_failed")) && (
             <div className="mt-4 rounded-md border border-brand/20 bg-brand/5 px-3 py-3">
-              <p className="text-[12px] font-semibold text-[#626978]" aria-live="polite">
+              <p
+                className="text-[12px] font-semibold text-[#626978]"
+                aria-live="polite"
+              >
                 {mapped.taxNote}
               </p>
               <button
@@ -1420,6 +1639,7 @@ function CheckoutOrderSummary({
               setTermsAccepted={setTermsAccepted}
               webxpayBranding={webxpayBranding}
               kokoBranding={kokoBranding}
+              fulfillmentReady={fulfillmentPlan.isComplete}
             />
           </div>
         </div>
@@ -1502,6 +1722,7 @@ function PlaceOrderControl({
   setTermsAccepted,
   webxpayBranding,
   kokoBranding,
+  fulfillmentReady,
 }: {
   cart: HttpTypes.StoreCart
   selectedPaymentMethod: string
@@ -1512,16 +1733,25 @@ function PlaceOrderControl({
   setTermsAccepted: (accepted: boolean) => void
   webxpayBranding?: WebxpayCheckoutBranding | null
   kokoBranding?: KokoCheckoutBranding | null
+  fulfillmentReady: boolean
 }) {
   const activeSession = selectedPaymentSession(cart)
-  const totals = mapAuthoritativeTotals(cart)
+  const totals = mapAuthoritativeTotals(cart, {
+    fulfillmentMode: deriveFulfillmentModeFromItems(cart.items),
+    shippingSelectionValid: fulfillmentReady,
+  })
   const totalsReady = !totals.states.some((state) =>
-    ["tax_pending", "configuration_unavailable", "calculation_failed", "review_required"].includes(state)
+    [
+      "tax_pending",
+      "configuration_unavailable",
+      "calculation_failed",
+      "review_required",
+    ].includes(state)
   )
   const baseReady =
     hasAddress(cart) &&
     Boolean(cart.billing_address) &&
-    (cart.shipping_methods?.length ?? 0) > 0 &&
+    fulfillmentReady &&
     Boolean(activeSession) &&
     totalsReady &&
     termsAccepted
@@ -1538,7 +1768,8 @@ function PlaceOrderControl({
         className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-brand"
       />
       <span>
-        I agree to the terms and conditions and confirm the checkout details are correct.
+        I agree to the terms and conditions and confirm the checkout details are
+        correct.
       </span>
     </label>
   )
@@ -1564,7 +1795,9 @@ function PlaceOrderControl({
         {termsControl}
         <WebxPayPlaceOrderButton
           cart={cart}
-          disabled={!baseReady || !installmentPlanReady || isSavingCheckoutDetails}
+          disabled={
+            !baseReady || !installmentPlanReady || isSavingCheckoutDetails
+          }
           saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
           label={
             installmentPlanRequired
@@ -1662,9 +1895,13 @@ function StripePlaceOrderButton({
 
     const card = elements?.getElement("card")
     if (!stripe || !elements || !card || !session?.data.client_secret) {
-      notify.error("Payment details are not ready.", "Payment details are not ready.", {
-        id: "place-order",
-      })
+      notify.error(
+        "Payment details are not ready.",
+        "Payment details are not ready.",
+        {
+          id: "place-order",
+        }
+      )
       setIsPending(false)
       submittingRef.current = false
       return

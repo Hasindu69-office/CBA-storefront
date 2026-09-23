@@ -16,7 +16,10 @@ export default function OrderDetailsSidebar({
   documents,
   orderId,
 }: OrderDetailsSidebarProps) {
-  const shippingMethod = tracking.shipping_methods[0]?.name
+  const shippingMethod = tracking.shipping_methods
+    .map((method) => method.name)
+    .filter(Boolean)
+    .join(" + ")
   const resolvedOrderId = orderId ?? tracking.order.id
 
   return (
