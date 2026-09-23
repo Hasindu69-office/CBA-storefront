@@ -35,10 +35,11 @@ import { getRegion } from "./regions"
 import { getLocale } from "@lib/data/locale-actions"
 import { listCartPaymentMethods } from "./payment"
 import { buildFulfillmentPlan } from "@lib/util/fulfillment-plan"
+import { safeCartMutationError } from "@lib/util/cart-errors"
 
 const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
 const CART_TOTAL_FIELDS =
-  "id,customer_id,currency_code,email,region_id,metadata,*region,+region.automatic_taxes,total,subtotal,tax_total,discount_total,discount_subtotal,item_total,item_subtotal,item_tax_total,shipping_total,shipping_subtotal,shipping_tax_total,shipping_discount_total,original_total,original_tax_total,original_item_total,original_shipping_total,*items,+items.total,+items.subtotal,+items.tax_total,+items.is_tax_inclusive,*items.tax_lines,*items.adjustments,*items.product,*items.variant,+items.variant.product.shipping_profile.id,+items.variant.product.shipping_profile.type,*items.thumbnail,*items.metadata,*promotions,+promotions.is_tax_inclusive,*shipping_methods,+shipping_methods.name,+shipping_methods.tax_total,+shipping_methods.is_tax_inclusive,*shipping_methods.tax_lines,*shipping_methods.adjustments,*shipping_address,*billing_address,*payment_collection,*payment_collection.payment_sessions,*credit_lines"
+  "id,customer_id,currency_code,email,region_id,metadata,*region,+region.automatic_taxes,total,subtotal,tax_total,discount_total,discount_subtotal,item_total,item_subtotal,item_tax_total,shipping_total,shipping_subtotal,shipping_tax_total,shipping_discount_total,original_total,original_tax_total,original_item_total,original_shipping_total,*items,+items.total,+items.subtotal,+items.tax_total,+items.is_tax_inclusive,*items.tax_lines,*items.adjustments,*items.product,*items.variant,+items.variant.inventory_quantity,+items.variant.manage_inventory,+items.variant.allow_backorder,+items.variant.product.shipping_profile.id,+items.variant.product.shipping_profile.type,*items.thumbnail,*items.metadata,*promotions,+promotions.is_tax_inclusive,*shipping_methods,+shipping_methods.name,+shipping_methods.tax_total,+shipping_methods.is_tax_inclusive,*shipping_methods.tax_lines,*shipping_methods.adjustments,*shipping_address,*billing_address,*payment_collection,*payment_collection.payment_sessions,*credit_lines"
 const FULFILLMENT_OPTION_FIELDS =
   "+service_zone.fulfillment_set.type,+service_zone.fulfillment_set.location.id,+service_zone.fulfillment_set.location.name,+service_zone.fulfillment_set.location.address.*"
 
@@ -256,6 +257,39 @@ export async function addToCart({
     .catch(medusaError)
 }
 
+export type AddToCartResult =
+  | { success: true; cart: HttpTypes.StoreCart }
+  | { success: false; error: string }
+
+export async function addToCartSafe(input: {
+  variantId: string
+  quantity: number
+  countryCode: string
+}): Promise<AddToCartResult> {
+  try {
+    return { success: true, cart: await addToCart(input) }
+  } catch (error) {
+    return {
+      success: false,
+      error: safeCartMutationError(
+        error,
+        "We could not add this item to your cart right now. Please try again."
+      ),
+    }
+  }
+}
+
+export async function getCartLineQuantity(variantId: string) {
+  if (!variantId) return 0
+
+  const cart = await retrieveCart()
+  return (
+    cart?.items
+      ?.filter((item) => item.variant_id === variantId)
+      .reduce((total, item) => total + Number(item.quantity ?? 0), 0) ?? 0
+  )
+}
+
 export async function updateLineItem({
   lineId,
   quantity,
@@ -285,6 +319,24 @@ export async function updateLineItem({
       return refreshCartAfterMutation(cartId)
     })
     .catch(medusaError)
+}
+
+export type UpdateLineItemResult =
+  | { success: true; cart: HttpTypes.StoreCart }
+  | { success: false; error: string }
+
+export async function updateLineItemSafe(input: {
+  lineId: string
+  quantity: number
+}): Promise<UpdateLineItemResult> {
+  try {
+    return { success: true, cart: await updateLineItem(input) }
+  } catch (error) {
+    return {
+      success: false,
+      error: safeCartMutationError(error),
+    }
+  }
 }
 
 export async function deleteLineItem(lineId: string) {
