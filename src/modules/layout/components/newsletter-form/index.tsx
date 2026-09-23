@@ -104,7 +104,7 @@ export default function NewsletterForm() {
           {isPending ? "Subscribing..." : "Subscribe"}
         </button>
       </form>
-      <RecaptchaDisclosure className="mt-2 text-center text-white/55 medium:text-left" />
+      <RecaptchaDisclosure className="mt-2 text-center text-gray-500 medium:text-left" />
       {(captcha.verificationError || clientError || state.status === "error") && (
         <p id="newsletter-email-error" className="mt-2 text-[12px] font-medium text-rose-600">
           {captcha.verificationError ?? clientError ?? state.error}

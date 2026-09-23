@@ -93,6 +93,12 @@
     animation: none;
   }
 
+  .deals-nav-link--active {
+    animation: none;
+    background-color: #ff5c0e;
+    border-color: #ff5c0e;
+  }
+
   .order-success-icon__check {
     stroke-dasharray: 44;
     stroke-dashoffset: 44;
