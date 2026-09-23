@@ -1,7 +1,11 @@
 "use client"
 
 import { convertToLocale } from "@lib/util/money"
-import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
+import {
+  mapAuthoritativeTotals,
+  type TotalsSource,
+} from "@lib/util/cart-totals"
+import { deriveFulfillmentModeFromItems } from "@lib/util/fulfillment-plan"
 import React from "react"
 
 type CartTotalsProps = {
@@ -21,6 +25,7 @@ type CartTotalsProps = {
       is_tax_inclusive?: boolean | null
       tax_lines?: unknown[] | null
     }> | null
+    items?: unknown[] | null
   }
 }
 
@@ -35,7 +40,10 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
     discount_subtotal,
     discount_total,
   } = totals
-  const mapped = mapAuthoritativeTotals(totals, { includeTaxWhenZero: true })
+  const mapped = mapAuthoritativeTotals(totals as TotalsSource, {
+    includeTaxWhenZero: true,
+    fulfillmentMode: deriveFulfillmentModeFromItems(totals.items),
+  })
   const productDiscount =
     mapped.rows.find((row) => row.key === "discount")?.amount ?? 0
 
@@ -51,7 +59,7 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
         </div>
         {mapped.shippingVisible && (
           <div className="flex items-center justify-between">
-            <span>Shipping</span>
+            <span>{mapped.shippingLabel}</span>
             <span
               className="text-right"
               data-testid="cart-shipping"
@@ -82,8 +90,7 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
               data-testid="cart-discount"
               data-value={productDiscount}
             >
-              -{" "}
-              {mapped.rows.find((row) => row.key === "discount")?.display}
+              - {mapped.rows.find((row) => row.key === "discount")?.display}
             </span>
           </div>
         )}
@@ -107,7 +114,10 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
         </span>
       </div>
       {mapped.taxNote && (
-        <p className="mt-2 text-right text-xs text-ui-fg-muted" aria-live="polite">
+        <p
+          className="mt-2 text-right text-xs text-ui-fg-muted"
+          aria-live="polite"
+        >
           {mapped.taxNote}
         </p>
       )}

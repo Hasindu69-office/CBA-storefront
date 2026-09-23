@@ -41,10 +41,94 @@ describe("mapAuthoritativeTotals shipping display", () => {
     assert.equal(mapped.shippingVisible, true)
     assert.equal(mapped.shippingIsFree, true)
     assert.equal(mapped.shippingDisplay, "Free")
+    assert.equal(mapped.shippingLabel, "Delivery Fee")
     assert.equal(
       mapped.rows.some((row) => row.key === "shipping"),
       true
     )
+  })
+
+  it("treats a stale method that is invalid for the current cart as pending", () => {
+    const mapped = mapAuthoritativeTotals(
+      {
+        currency_code: "lkr",
+        item_subtotal: 100,
+        shipping_total: 0,
+        total: 100,
+        shipping_methods: [{}],
+        shipping_address: { address_1: "123 Main St" },
+      },
+      {
+        fulfillmentMode: "delivery-only",
+        shippingSelectionValid: false,
+      }
+    )
+
+    assert.equal(mapped.shippingIsPending, true)
+    assert.equal(mapped.shippingVisible, false)
+    assert.equal(mapped.shippingIsFree, false)
+    assert.equal(mapped.shippingDisplay, "")
+    assert.ok(mapped.states.includes("shipping_required"))
+  })
+
+  it("presents zero-priced pickup as self collection, not free delivery", () => {
+    const mapped = mapAuthoritativeTotals(
+      {
+        currency_code: "lkr",
+        item_subtotal: 100,
+        shipping_total: 0,
+        shipping_subtotal: 0,
+        total: 100,
+        shipping_methods: [{}],
+        shipping_address: { address_1: "123 Main St" },
+      },
+      { fulfillmentMode: "pickup-only" }
+    )
+
+    assert.equal(mapped.shippingLabel, "Collection")
+    assert.equal(mapped.shippingDisplay, "Self collection")
+    assert.equal(mapped.shippingIsSelfCollection, true)
+    assert.equal(mapped.shippingIsFree, false)
+    assert.equal(
+      mapped.rows.find((row) => row.key === "shipping")?.display,
+      "Self collection"
+    )
+  })
+
+  it("retains a configured pickup charge as a collection fee", () => {
+    const mapped = mapAuthoritativeTotals(
+      {
+        currency_code: "lkr",
+        item_subtotal: 100,
+        shipping_total: 50,
+        shipping_subtotal: 50,
+        total: 150,
+        shipping_methods: [{}],
+        shipping_address: { address_1: "123 Main St" },
+      },
+      { fulfillmentMode: "pickup-only" }
+    )
+
+    assert.equal(mapped.shippingLabel, "Collection fee")
+    assert.match(mapped.shippingDisplay, /50/)
+    assert.equal(mapped.shippingIsSelfCollection, false)
+  })
+
+  it("keeps mixed fulfillment charges labelled as delivery", () => {
+    const mapped = mapAuthoritativeTotals(
+      {
+        currency_code: "lkr",
+        item_subtotal: 100,
+        shipping_total: 50,
+        total: 150,
+        shipping_methods: [{}, {}],
+        shipping_address: { address_1: "123 Main St" },
+      },
+      { fulfillmentMode: "mixed" }
+    )
+
+    assert.equal(mapped.shippingLabel, "Delivery Fee")
+    assert.match(mapped.shippingDisplay, /50/)
   })
 
   it("shows the paid delivery amount when a method is selected", () => {
@@ -63,10 +147,7 @@ describe("mapAuthoritativeTotals shipping display", () => {
     assert.equal(mapped.shippingIsFree, false)
     assert.notEqual(mapped.shippingDisplay, "Free")
     assert.match(mapped.shippingDisplay, /500/)
-    assert.equal(
-      mapped.rows.find((row) => row.key === "shipping")?.amount,
-      500
-    )
+    assert.equal(mapped.rows.find((row) => row.key === "shipping")?.amount, 500)
   })
 
   it("keeps strike-through free shipping when a method is selected with discount", () => {

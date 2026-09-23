@@ -2,6 +2,7 @@
 
 import { convertToLocale } from "@lib/util/money"
 import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
+import { deriveFulfillmentModeFromItems } from "@lib/util/fulfillment-plan"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { ArrowRight } from "@medusajs/icons"
@@ -41,6 +42,7 @@ export default function CartSummaryPanel({
     itemCount,
     automaticPromotionApplied: hasAutomaticPromotions,
     reviewRequired: hasDirtyQuantities,
+    fulfillmentMode: deriveFulfillmentModeFromItems(cart.items),
   })
   const discountRow = mapped.rows.find((row) => row.key === "discount")
   const subtotalRow = mapped.rows.find((row) => row.key === "subtotal")
@@ -53,7 +55,8 @@ export default function CartSummaryPanel({
         <div className="flex items-start justify-between gap-4">
           <span className="text-[#111111]">Subtotal ({itemCount} items)</span>
           <span className="font-medium text-[#333740]">
-            {subtotalRow?.display ?? money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)}
+            {subtotalRow?.display ??
+              money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)}
           </span>
         </div>
         {discountRow && (
@@ -68,7 +71,7 @@ export default function CartSummaryPanel({
         )}
         {mapped.shippingVisible && (
           <div className="flex items-start justify-between gap-4">
-            <span className="text-[#111111]">Shipping</span>
+            <span className="text-[#111111]">{mapped.shippingLabel}</span>
             <span className="text-right">
               {mapped.shippingBeforeDiscountDisplay && (
                 <span className="block text-[13px] font-medium text-[#8b90a0] line-through">
@@ -109,7 +112,10 @@ export default function CartSummaryPanel({
             {mapped.total.display}
           </span>
           {mapped.taxNote && (
-            <span className="mt-1 block text-[12px] text-[#8b90a0]" aria-live="polite">
+            <span
+              className="mt-1 block text-[12px] text-[#8b90a0]"
+              aria-live="polite"
+            >
               {mapped.taxNote}
             </span>
           )}

@@ -34,10 +34,13 @@ import { establishGuestSessionFromConfirmation } from "./order-tracking"
 import { getRegion } from "./regions"
 import { getLocale } from "@lib/data/locale-actions"
 import { listCartPaymentMethods } from "./payment"
+import { buildFulfillmentPlan } from "@lib/util/fulfillment-plan"
 
 const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
 const CART_TOTAL_FIELDS =
-  "id,customer_id,currency_code,email,region_id,metadata,*region,+region.automatic_taxes,total,subtotal,tax_total,discount_total,discount_subtotal,item_total,item_subtotal,item_tax_total,shipping_total,shipping_subtotal,shipping_tax_total,shipping_discount_total,original_total,original_tax_total,original_item_total,original_shipping_total,*items,+items.total,+items.subtotal,+items.tax_total,+items.is_tax_inclusive,*items.tax_lines,*items.adjustments,*items.product,*items.variant,*items.thumbnail,*items.metadata,*promotions,+promotions.is_tax_inclusive,*shipping_methods,+shipping_methods.name,+shipping_methods.tax_total,+shipping_methods.is_tax_inclusive,*shipping_methods.tax_lines,*shipping_methods.adjustments,*shipping_address,*billing_address,*payment_collection,*payment_collection.payment_sessions,*credit_lines"
+  "id,customer_id,currency_code,email,region_id,metadata,*region,+region.automatic_taxes,total,subtotal,tax_total,discount_total,discount_subtotal,item_total,item_subtotal,item_tax_total,shipping_total,shipping_subtotal,shipping_tax_total,shipping_discount_total,original_total,original_tax_total,original_item_total,original_shipping_total,*items,+items.total,+items.subtotal,+items.tax_total,+items.is_tax_inclusive,*items.tax_lines,*items.adjustments,*items.product,*items.variant,+items.variant.product.shipping_profile.id,+items.variant.product.shipping_profile.type,*items.thumbnail,*items.metadata,*promotions,+promotions.is_tax_inclusive,*shipping_methods,+shipping_methods.name,+shipping_methods.tax_total,+shipping_methods.is_tax_inclusive,*shipping_methods.tax_lines,*shipping_methods.adjustments,*shipping_address,*billing_address,*payment_collection,*payment_collection.payment_sessions,*credit_lines"
+const FULFILLMENT_OPTION_FIELDS =
+  "+service_zone.fulfillment_set.type,+service_zone.fulfillment_set.location.id,+service_zone.fulfillment_set.location.name,+service_zone.fulfillment_set.location.address.*"
 
 function assertSafeMedusaId(id: string, label: string) {
   if (!SAFE_MEDUSA_ID_PATTERN.test(id)) {
@@ -359,20 +362,83 @@ export async function setShippingMethod({
   cartId: string
   shippingMethodId: string
 }) {
+  return setShippingMethods({
+    cartId,
+    shippingMethodIds: [shippingMethodId],
+  })
+}
+
+export async function setShippingMethods({
+  cartId,
+  shippingMethodIds,
+}: {
+  cartId: string
+  shippingMethodIds: string[]
+}) {
   assertSafeMedusaId(cartId, "Cart ID")
-  assertSafeMedusaId(shippingMethodId, "Shipping method ID")
+  const activeCartId = await getCartId()
+  if (activeCartId !== cartId) {
+    throw new Error("The active cart could not be verified.")
+  }
+  if (
+    !Array.isArray(shippingMethodIds) ||
+    shippingMethodIds.length < 1 ||
+    shippingMethodIds.length > 10 ||
+    new Set(shippingMethodIds).size !== shippingMethodIds.length
+  ) {
+    throw new Error("Select valid, unique fulfillment methods.")
+  }
+  shippingMethodIds.forEach((id) => assertSafeMedusaId(id, "Shipping method ID"))
+
   const headers = {
     ...(await getAuthHeaders()),
   }
 
-  return sdk.store.cart
-    .addShippingMethod(cartId, { option_id: shippingMethodId }, {}, headers)
+  const [cart, optionsResponse] = await Promise.all([
+    retrieveCart(cartId),
+    sdk.client.fetch<{
+      shipping_options: HttpTypes.StoreCartShippingOption[]
+    }>("/store/shipping-options", {
+      query: { cart_id: cartId, fields: FULFILLMENT_OPTION_FIELDS },
+      headers,
+      cache: "no-store",
+    }),
+  ])
+  if (!cart) {
+    throw new Error("The cart could not be refreshed.")
+  }
+
+  const plan = buildFulfillmentPlan(cart, optionsResponse.shipping_options ?? [])
+  const selectedProfiles = new Set<string>()
+  for (const optionId of shippingMethodIds) {
+    const group = plan.groups.find((candidate) =>
+      candidate.eligibleOptions.some((option) => option.id === optionId)
+    )
+    if (!group) {
+      throw new Error("A selected fulfillment method is unavailable for this cart.")
+    }
+    if (selectedProfiles.has(group.profileId)) {
+      throw new Error("Select only one fulfillment method for each item group.")
+    }
+    selectedProfiles.add(group.profileId)
+  }
+
+  return sdk.client
+    .fetch<HttpTypes.StoreCartResponse>(`/store/carts/${cartId}/shipping-methods`, {
+      method: "POST",
+      body: shippingMethodIds.map((optionId) => ({ option_id: optionId })),
+      query: { fields: CART_TOTAL_FIELDS },
+      headers,
+      cache: "no-store",
+    })
     .then(async (response) => {
       await calculateCartTaxesWhenReady(response.cart)
-      await revalidateCacheTag("carts")
+      await revalidateCartData()
       return retrieveCart(cartId)
     })
-    .catch(medusaError)
+    .catch((error) => {
+      throw safeCheckoutError(error, "Could not set the fulfillment method.")
+    })
 }
 
 export async function initiatePaymentSession(
@@ -718,6 +784,7 @@ export async function placeOrder(input?: string | {
   validatePaymentProviderId(providerId)
   await assertProviderEligibleForCart(refreshedCart, providerId)
   assertCheckoutReady(refreshedCart)
+  await assertCheckoutFulfillmentReady(refreshedCart)
 
   const activeSession = activePaymentSession(refreshedCart)
   const sessionAmount = sessionAmountValue(activeSession)
@@ -741,6 +808,7 @@ export async function placeOrder(input?: string | {
     throw new Error("Checkout could not be refreshed. Please try again.")
   }
   assertCheckoutReady(finalCart)
+  await assertCheckoutFulfillmentReady(finalCart)
 
   const cartRes = await sdk.store.cart
     .complete(id, {}, headers)
@@ -829,6 +897,29 @@ function assertCheckoutReady(cart: HttpTypes.StoreCart) {
   }
 }
 
+async function assertCheckoutFulfillmentReady(cart: HttpTypes.StoreCart) {
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+  const { shipping_options } = await sdk.client.fetch<{
+    shipping_options: HttpTypes.StoreCartShippingOption[]
+  }>("/store/shipping-options", {
+    query: { cart_id: cart.id, fields: FULFILLMENT_OPTION_FIELDS },
+    headers,
+    cache: "no-store",
+  })
+  const plan = buildFulfillmentPlan(cart, shipping_options ?? [])
+  if (!plan.isComplete) {
+    const configurationError = plan.groups.find(
+      (group) => group.configurationError
+    )?.configurationError
+    throw new Error(
+      configurationError ||
+        "Select a fulfillment method for every item group before placing the order."
+    )
+  }
+}
+
 function activePaymentSession(cart: HttpTypes.StoreCart) {
   return cart.payment_collection?.payment_sessions?.find(
     (session) => session.status === "pending"
@@ -897,7 +988,7 @@ export async function listCartOptions() {
   return await sdk.client.fetch<{
     shipping_options: HttpTypes.StoreCartShippingOption[]
   }>("/store/shipping-options", {
-    query: { cart_id: cartId },
+    query: { cart_id: cartId, fields: FULFILLMENT_OPTION_FIELDS },
     next,
     headers,
     cache: "no-store",

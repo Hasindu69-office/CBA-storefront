@@ -1,6 +1,7 @@
 import { paymentInfoMap } from "@lib/constants"
 import { getAuthHeaders } from "@lib/data/cookies"
 import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
+import { resolveFulfillmentMode } from "@lib/util/fulfillment-plan"
 import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
@@ -31,7 +32,11 @@ type InstallmentPaymentSummary = {
 
 function numberValue(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value
-  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) {
+  if (
+    typeof value === "string" &&
+    value.trim() &&
+    Number.isFinite(Number(value))
+  ) {
     return Number(value)
   }
   if (value && typeof value === "object") {
@@ -66,7 +71,10 @@ function formatAmount(order: HttpTypes.StoreOrder, amount?: number | null) {
   })
 }
 
-function formatPaymentAmount(order: HttpTypes.StoreOrder, amount?: number | null) {
+function formatPaymentAmount(
+  order: HttpTypes.StoreOrder,
+  amount?: number | null
+) {
   return convertToLocale({
     amount: amount ?? 0,
     currency_code: order.currency_code,
@@ -120,7 +128,9 @@ function formatAddress(order: HttpTypes.StoreOrder) {
   }
 
   const name = [address.first_name, address.last_name].filter(Boolean).join(" ")
-  const street = [address.address_1, address.address_2].filter(Boolean).join(", ")
+  const street = [address.address_1, address.address_2]
+    .filter(Boolean)
+    .join(", ")
   const cityLine = [address.city, address.province, address.postal_code]
     .filter(Boolean)
     .join(", ")
@@ -131,8 +141,9 @@ function formatAddress(order: HttpTypes.StoreOrder) {
 
 function getInstallmentPaymentSummary(order: HttpTypes.StoreOrder) {
   const payments =
-    order.payment_collections?.flatMap((collection) => collection.payments ?? []) ??
-    []
+    order.payment_collections?.flatMap(
+      (collection) => collection.payments ?? []
+    ) ?? []
 
   for (const payment of payments) {
     const data = (payment.data ?? {}) as Record<string, unknown>
@@ -148,10 +159,10 @@ function getInstallmentPaymentSummary(order: HttpTypes.StoreOrder) {
       stringValue(plan.bankName) ??
       "Selected bank"
     const tenorMonths = numberValue(plan.tenor_months ?? plan.tenorMonths)
-    const feePercentage = numberValue(
-      plan.fee_percentage ?? plan.feePercentage
+    const feePercentage = numberValue(plan.fee_percentage ?? plan.feePercentage)
+    const baseAmount = numberValue(
+      data.base_amount ?? plan.base_amount ?? order.total
     )
-    const baseAmount = numberValue(data.base_amount ?? plan.base_amount ?? order.total)
     const chargeAmount = numberValue(
       data.installment_charge_amount ??
         plan.installment_charge_amount ??
@@ -195,12 +206,17 @@ function getPaymentMethod(order: HttpTypes.StoreOrder) {
     return fallbackText
   }
 
-  return paymentInfoMap[payment.provider_id]?.title ?? formatStatus(payment.provider_id)
+  return (
+    paymentInfoMap[payment.provider_id]?.title ??
+    formatStatus(payment.provider_id)
+  )
 }
 
 function getShippingInfo(order: HttpTypes.StoreOrder) {
-  const method = order.shipping_methods?.[0]
-  const methodName = method?.name
+  const methodName = order.shipping_methods
+    ?.map((method) => method.name)
+    .filter(Boolean)
+    .join(" + ")
   const status = formatStatus(order.fulfillment_status)
 
   if (methodName && status !== fallbackText) {
@@ -227,8 +243,22 @@ function CheckCircleIcon({ className }: IconProps) {
       viewBox="0 0 96 96"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <circle className="order-success-icon__core" cx="48" cy="48" r="30" fill="#35A825" />
-      <circle className="order-success-icon__halo" cx="48" cy="48" r="41" stroke="#35A825" strokeOpacity=".12" strokeWidth="14" />
+      <circle
+        className="order-success-icon__core"
+        cx="48"
+        cy="48"
+        r="30"
+        fill="#35A825"
+      />
+      <circle
+        className="order-success-icon__halo"
+        cx="48"
+        cy="48"
+        r="41"
+        stroke="#35A825"
+        strokeOpacity=".12"
+        strokeWidth="14"
+      />
       <path
         className="order-success-icon__check"
         d="m33 49 10 10 21-24"
@@ -237,43 +267,115 @@ function CheckCircleIcon({ className }: IconProps) {
         strokeLinejoin="round"
         strokeWidth="7"
       />
-      <path d="M16 35h2M78 36h2M25 19l1 2M72 20l-1 2M20 73l2-1M75 73l-2-1" stroke="#20A126" strokeLinecap="round" strokeWidth="3" />
-      <path d="M32 12v2M84 25l-1 2" stroke="#FF5C0E" strokeLinecap="round" strokeWidth="3" />
+      <path
+        d="M16 35h2M78 36h2M25 19l1 2M72 20l-1 2M20 73l2-1M75 73l-2-1"
+        stroke="#20A126"
+        strokeLinecap="round"
+        strokeWidth="3"
+      />
+      <path
+        d="M32 12v2M84 25l-1 2"
+        stroke="#FF5C0E"
+        strokeLinecap="round"
+        strokeWidth="3"
+      />
     </svg>
   )
 }
 
 function ClipboardIcon({ className }: IconProps) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
-      <path d="M9 4h6l1 2h2v14H6V6h2l1-2Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
-      <path d="M9 10h6M9 14h4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="M9 4h6l1 2h2v14H6V6h2l1-2Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M9 10h6M9 14h4"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
     </svg>
   )
 }
 
 function CalendarIcon({ className }: IconProps) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
-      <path d="M7 3v4M17 3v4M4 9h16M6 5h12a2 2 0 0 1 2 2v13H4V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="M7 3v4M17 3v4M4 9h16M6 5h12a2 2 0 0 1 2 2v13H4V7a2 2 0 0 1 2-2Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
     </svg>
   )
 }
 
 function CardIcon({ className }: IconProps) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
-      <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M3 10h18M7 15h4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <rect
+        x="3"
+        y="5"
+        width="18"
+        height="14"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M3 10h18M7 15h4"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
     </svg>
   )
 }
 
 function TruckIcon({ className }: IconProps) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
-      <path d="M10 17h4V6H3v11h2" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
-      <path d="M14 9h4l3 4v4h-2" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="M10 17h4V6H3v11h2"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M14 9h4l3 4v4h-2"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
       <circle cx="7" cy="17" r="2" stroke="currentColor" strokeWidth="1.8" />
       <circle cx="17" cy="17" r="2" stroke="currentColor" strokeWidth="1.8" />
     </svg>
@@ -282,8 +384,18 @@ function TruckIcon({ className }: IconProps) {
 
 function MapPinIcon({ className }: IconProps) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
-      <path d="M12 21s7-5.2 7-12A7 7 0 0 0 5 9c0 6.8 7 12 7 12Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="M12 21s7-5.2 7-12A7 7 0 0 0 5 9c0 6.8 7 12 7 12Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
       <circle cx="12" cy="9" r="2.4" stroke="currentColor" strokeWidth="1.8" />
     </svg>
   )
@@ -291,35 +403,93 @@ function MapPinIcon({ className }: IconProps) {
 
 function PackageIcon({ className }: IconProps) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
-      <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
-      <path d="m4.5 8 7.5 4 7.5-4M12 12v8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="m4.5 8 7.5 4 7.5-4M12 12v8"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
     </svg>
   )
 }
 
 function BagIcon({ className }: IconProps) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
-      <path d="M6 8h12l-1 12H7L6 8Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
-      <path d="M9 8a3 3 0 0 1 6 0" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="M6 8h12l-1 12H7L6 8Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M9 8a3 3 0 0 1 6 0"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
     </svg>
   )
 }
 
 function MailIcon({ className }: IconProps) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
-      <path d="M4 6h16v12H4V6Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
-      <path d="m5 7 7 6 7-6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="M4 6h16v12H4V6Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="m5 7 7 6 7-6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
     </svg>
   )
 }
 
 function ArrowRightIcon({ className }: IconProps) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
-      <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="M5 12h14M13 6l6 6-6 6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
     </svg>
   )
 }
@@ -383,15 +553,25 @@ export default async function OrderCompletedTemplate({
     : "/track-order"
   const items = order.items ?? []
   const addressLines = formatAddress(order)
-  const itemCount = items.reduce((total, item) => total + (item.quantity ?? 0), 0)
+  const itemCount = items.reduce(
+    (total, item) => total + (item.quantity ?? 0),
+    0
+  )
   const mappedTotals = mapAuthoritativeTotals(
     {
       ...order,
-      discount_total: (order.discount_total ?? 0) + (order.gift_card_total ?? 0),
+      discount_total:
+        (order.discount_total ?? 0) + (order.gift_card_total ?? 0),
       items: order.items as never,
       shipping_methods: order.shipping_methods as never,
     },
-    { itemCount }
+    {
+      itemCount,
+      fulfillmentMode: resolveFulfillmentMode({
+        items: order.items as never,
+        shippingMethods: order.shipping_methods,
+      }),
+    }
   )
   const installmentPayment = getInstallmentPaymentSummary(order)
   const displayTotal = installmentPayment
@@ -494,7 +674,10 @@ export default async function OrderCompletedTemplate({
                   <span className="text-right">Price</span>
                 </div>
 
-                <div className="divide-y divide-[#eceef0]" data-testid="products-table">
+                <div
+                  className="divide-y divide-[#eceef0]"
+                  data-testid="products-table"
+                >
                   {items.length ? (
                     items.map((item) => {
                       const quantity = item.quantity ?? 0
@@ -552,7 +735,8 @@ export default async function OrderCompletedTemplate({
                               </p>
                               {quantity > 1 && (
                                 <p className="mt-1 text-[13px] text-[#6b7280]">
-                                  {formatAmount(order, lineTotal / quantity)} each
+                                  {formatAmount(order, lineTotal / quantity)}{" "}
+                                  each
                                 </p>
                               )}
                             </div>
@@ -571,9 +755,25 @@ export default async function OrderCompletedTemplate({
               <div className="mt-8 flex flex-col gap-5 rounded-[8px] bg-[#fff7f1] px-5 py-5 small:flex-row small:items-center small:justify-between small:px-7">
                 <div className="flex items-center gap-4">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white text-brand shadow-sm">
-                    <svg aria-hidden="true" className="h-8 w-8" fill="none" viewBox="0 0 24 24">
-                      <path d="M3 18v-6a9 9 0 0 1 18 0v6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
-                      <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3v5ZM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3v5Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
+                    <svg
+                      aria-hidden="true"
+                      className="h-8 w-8"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M3 18v-6a9 9 0 0 1 18 0v6"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.8"
+                      />
+                      <path
+                        d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3v5ZM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3v5Z"
+                        stroke="currentColor"
+                        strokeLinejoin="round"
+                        strokeWidth="1.8"
+                      />
                     </svg>
                   </div>
                   <div>
@@ -606,7 +806,8 @@ export default async function OrderCompletedTemplate({
                     {items.map((item) => {
                       const quantity = item.quantity ?? 0
                       const lineTotal = item.total ?? 0
-                      const unitPrice = quantity > 0 ? lineTotal / quantity : lineTotal
+                      const unitPrice =
+                        quantity > 0 ? lineTotal / quantity : lineTotal
 
                       return (
                         <div
@@ -632,30 +833,33 @@ export default async function OrderCompletedTemplate({
                 )}
 
                 <div className="space-y-4 pt-5">
-                {mappedTotals.rows
-                  .filter((row) => row.key !== "tax" || row.amount > 0)
-                  .map((row) => (
-                    row.key === "discount" ? (
-                  <SummaryRow
-                    key={row.key}
-                    label="Discount"
-                    value={`- ${row.display}`}
-                    tone="discount"
-                  />
-                    ) : (
-                  <SummaryRow
-                    key={row.key}
-                    label={row.label}
-                    value={row.display}
-                  />
-                    )
-                  ))}
-                {installmentPayment?.feeAmount ? (
-                  <SummaryRow
-                    label={`Installment fee (${installmentPayment.feePercentage}%)`}
-                    value={formatPaymentAmount(order, installmentPayment.feeAmount)}
-                  />
-                ) : null}
+                  {mappedTotals.rows
+                    .filter((row) => row.key !== "tax" || row.amount > 0)
+                    .map((row) =>
+                      row.key === "discount" ? (
+                        <SummaryRow
+                          key={row.key}
+                          label="Discount"
+                          value={`- ${row.display}`}
+                          tone="discount"
+                        />
+                      ) : (
+                        <SummaryRow
+                          key={row.key}
+                          label={row.label}
+                          value={row.display}
+                        />
+                      )
+                    )}
+                  {installmentPayment?.feeAmount ? (
+                    <SummaryRow
+                      label={`Installment fee (${installmentPayment.feePercentage}%)`}
+                      value={formatPaymentAmount(
+                        order,
+                        installmentPayment.feeAmount
+                      )}
+                    />
+                  ) : null}
                 </div>
               </div>
 
@@ -673,15 +877,21 @@ export default async function OrderCompletedTemplate({
                 <div className="mt-4 rounded-[8px] border border-[#ffd8d1] bg-[#fff7f5] px-4 py-3 text-[13px] leading-5 text-[#6b4d44]">
                   <p className="font-semibold text-[#1f2933]">
                     {installmentPayment.tenorMonths} x{" "}
-                    {formatPaymentAmount(order, installmentPayment.monthlyAmount)} with{" "}
-                    {installmentPayment.bankName}
+                    {formatPaymentAmount(
+                      order,
+                      installmentPayment.monthlyAmount
+                    )}{" "}
+                    with {installmentPayment.bankName}
                   </p>
                   <p className="mt-1">
                     Base order total is{" "}
                     {formatPaymentAmount(order, installmentPayment.baseAmount)}.
                     WebXPay charged{" "}
-                    {formatPaymentAmount(order, installmentPayment.chargeAmount)} after
-                    the bank installment fee.
+                    {formatPaymentAmount(
+                      order,
+                      installmentPayment.chargeAmount
+                    )}{" "}
+                    after the bank installment fee.
                   </p>
                 </div>
               )}
