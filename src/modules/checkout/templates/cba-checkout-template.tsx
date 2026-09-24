@@ -360,6 +360,11 @@ export default function CbaCheckoutTemplate({
 
     setAddressFieldErrors({})
     setAddressFormError(null)
+    if (result.addressSaveWarning) {
+      notify.warning(result.addressSaveWarning, { id: "checkout-address-save" })
+    } else {
+      notify.dismiss("checkout-address-save")
+    }
     notify.dismiss("checkout-details")
     return null
   }, [focusAddressField])
@@ -481,9 +486,35 @@ function ShippingInformationForm({
   ) => void
   pickupOnly: boolean
 }) {
+  const defaultShippingAddress = customer?.addresses?.find(
+    (address) => address.is_default_shipping
+  )
+  const defaultBillingAddress = customer?.addresses?.find(
+    (address) => address.is_default_billing
+  )
+  // Account defaults are the checkout starting point. A cart retains an
+  // address snapshot from earlier visits, which may be a stale manual address
+  // and must not mask a newer default selected in the Address Book.
+  const shippingAddress = defaultShippingAddress ?? cart.shipping_address
+  const billingAddress = cart.billing_address?.address_1
+    ? cart.billing_address
+    : defaultBillingAddress
+  const [selectedBillingAddressId, setSelectedBillingAddressId] = useState(
+    billingAddress?.id ?? ""
+  )
+  // An empty selection is an explicit request for a new billing address, not
+  // a fallback to the previously selected/default address.
+  const selectedBillingAddress = selectedBillingAddressId
+    ? customer?.addresses?.find(
+        (address) => address.id === selectedBillingAddressId
+      )
+    : undefined
+  // Billing normally follows shipping. Customers may opt out explicitly when
+  // they need a different invoice address.
+  const [sameAsShipping, setSameAsShipping] = useState(true)
   const initialFullName = [
-    cart.shipping_address?.first_name,
-    cart.shipping_address?.last_name,
+    shippingAddress?.first_name,
+    shippingAddress?.last_name,
   ]
     .filter(Boolean)
     .join(" ")
@@ -536,7 +567,7 @@ function ShippingInformationForm({
         <SriLankanPhoneInput
           label="Phone Number"
           name="shipping_address.phone"
-          defaultValue={cart.shipping_address?.phone ?? ""}
+          defaultValue={shippingAddress?.phone ?? ""}
           required
           error={fieldErrors["shipping_address.phone"]}
           onValueChange={(internationalValue) =>
@@ -567,7 +598,7 @@ function ShippingInformationForm({
           label="Street Address"
           name="shipping_address.address_1"
           placeholder="Enter your street address"
-          defaultValue={cart.shipping_address?.address_1 ?? ""}
+          defaultValue={shippingAddress?.address_1 ?? ""}
           required
           className="medium:col-span-2"
           error={fieldErrors["shipping_address.address_1"]}
@@ -580,14 +611,14 @@ function ShippingInformationForm({
           label="Apartment, suite, unit, etc. (optional)"
           name="shipping_address.address_2"
           placeholder="Enter apartment, suite, unit, etc."
-          defaultValue={cart.shipping_address?.address_2 ?? ""}
+          defaultValue={shippingAddress?.address_2 ?? ""}
           className="medium:col-span-2"
         />
         <Field
           label="City"
           name="shipping_address.city"
           placeholder="Select city"
-          defaultValue={cart.shipping_address?.city ?? ""}
+          defaultValue={shippingAddress?.city ?? ""}
           required
           error={fieldErrors["shipping_address.city"]}
           onChange={(event) => onFieldChange("shipping_address.city", event)}
@@ -597,7 +628,7 @@ function ShippingInformationForm({
           label="District"
           name="shipping_address.province"
           placeholder="Select district"
-          defaultValue={cart.shipping_address?.province ?? ""}
+          defaultValue={shippingAddress?.province ?? ""}
           required
           error={fieldErrors["shipping_address.province"]}
           onChange={(event) =>
@@ -609,7 +640,7 @@ function ShippingInformationForm({
           label="Postal Code"
           name="shipping_address.postal_code"
           placeholder="Enter postal code"
-          defaultValue={cart.shipping_address?.postal_code ?? ""}
+          defaultValue={shippingAddress?.postal_code ?? ""}
           required
           maxLength={5}
           inputMode="numeric"
@@ -658,15 +689,64 @@ function ShippingInformationForm({
           )}
         </label>
       </div>
-      <div className="mt-4 flex flex-col gap-3 small:flex-row small:items-center small:justify-between">
+      <div className="mt-6 border-t border-gray-100 pt-5">
         <label className="flex items-center gap-2 text-[13px] font-medium text-[#4b5260]">
           <input
             type="checkbox"
-            name="save_address"
+            name="same_as_billing"
+            checked={sameAsShipping}
+            onChange={(event) => setSameAsShipping(event.currentTarget.checked)}
             className="h-4 w-4 rounded border-gray-300 accent-brand"
           />
-          Save this address for future orders
+          Billing address is the same as shipping address
         </label>
+        {!sameAsShipping && (
+          <div
+            key={selectedBillingAddressId || "manual-billing-address"}
+            className="mt-4 grid grid-cols-1 gap-4 medium:grid-cols-2"
+          >
+            <input type="hidden" name="billing_address.country_code" value="lk" />
+            {customer && customer.addresses.length > 0 && (
+              <label className="flex flex-col gap-1.5 medium:col-span-2">
+                <span className="text-[12px] font-semibold text-[#252a33]">Use a saved billing address</span>
+                <select
+                  name="billing_address_id"
+                  value={selectedBillingAddressId}
+                  onChange={(event) => setSelectedBillingAddressId(event.currentTarget.value)}
+                  className="h-11 rounded-md border border-gray-200 bg-white px-3 text-[13px] outline-none focus:border-brand"
+                >
+                  <option value="">Enter a different billing address below</option>
+                  {customer.addresses.map((address) => (
+                    <option key={address.id} value={address.id}>
+                      {address.first_name} {address.last_name} — {address.address_1}, {address.city}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <Field label="Billing first name" name="billing_address.first_name" placeholder="Enter first name" defaultValue={selectedBillingAddress?.first_name ?? ""} required />
+            <Field label="Billing last name" name="billing_address.last_name" placeholder="Enter last name" defaultValue={selectedBillingAddress?.last_name ?? ""} required />
+            <Field label="Billing street address" name="billing_address.address_1" placeholder="Enter street address" defaultValue={selectedBillingAddress?.address_1 ?? ""} required className="medium:col-span-2" />
+            <Field label="Apartment, suite, unit, etc. (optional)" name="billing_address.address_2" placeholder="Enter apartment, suite, unit, etc." defaultValue={selectedBillingAddress?.address_2 ?? ""} className="medium:col-span-2" />
+            <Field label="Billing city" name="billing_address.city" placeholder="Enter city" defaultValue={selectedBillingAddress?.city ?? ""} required />
+            <Field label="Billing district" name="billing_address.province" placeholder="Enter district" defaultValue={selectedBillingAddress?.province ?? ""} required />
+            <Field label="Billing company (optional)" name="billing_address.company" placeholder="Enter company" defaultValue={selectedBillingAddress?.company ?? ""} />
+            <Field label="Billing postal code" name="billing_address.postal_code" placeholder="Enter postal code" defaultValue={selectedBillingAddress?.postal_code ?? ""} required maxLength={5} inputMode="numeric" />
+            <SriLankanPhoneInput label="Billing phone number" name="billing_address.phone" defaultValue={selectedBillingAddress?.phone ?? ""} required />
+          </div>
+        )}
+      </div>
+      <div className="mt-4 flex flex-col gap-3 small:flex-row small:items-center small:justify-between">
+        {customer && (
+          <label className="flex items-center gap-2 text-[13px] font-medium text-[#4b5260]">
+            <input
+              type="checkbox"
+              name="save_address"
+              className="h-4 w-4 rounded border-gray-300 accent-brand"
+            />
+            Save this address for future orders
+          </label>
+        )}
         {(isSaving || isPending) && (
           <span className="text-[13px] font-semibold text-[#6b7280]">
             Saving delivery details...

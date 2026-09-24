@@ -59,12 +59,36 @@ export const retrieveCustomer =
       .fetch<{ customer: HttpTypes.StoreCustomer }>(`/store/customers/me`, {
         method: "GET",
         query: {
-          fields: "*orders",
+          // Explicit field selection replaces Medusa's default selection. Include
+          // addresses here so account pages and checkout see addresses created by
+          // the CBA address API immediately after revalidation.
+          fields: "*addresses,*orders",
         },
         headers: authHeaders,
         cache: "no-store",
       })
-      .then(({ customer }) => customer)
+      .then(async ({ customer }) => {
+        // The CBA address API is the storefront's mutation authority. Read the
+        // address book from the same contract instead of depending on a
+        // relation expansion on /customers/me, which can omit addresses when
+        // Medusa query fields change.
+        const addressBook = await sdk.client
+          .fetch<{ addresses: HttpTypes.StoreCustomerAddress[] }>(
+            "/store/cba/v1/account/addresses",
+            {
+              method: "GET",
+              query: { limit: 20, offset: 0 },
+              headers: authHeaders,
+              cache: "no-store",
+            }
+          )
+          .catch(() => null)
+
+        return {
+          ...customer,
+          addresses: addressBook?.addresses ?? customer.addresses ?? [],
+        }
+      })
       .catch(() => null)
   }
 
@@ -861,11 +885,16 @@ export const addCustomerAddress = async (
     ...(await getAuthHeaders()),
   }
 
-  return sdk.store.customer
-    .createAddress(address, {}, headers)
-    .then(async ({ customer }) => {
+  return sdk.client
+    .fetch<{ address: HttpTypes.StoreCustomerAddress }>("/store/cba/v1/account/addresses", {
+      method: "POST",
+      body: address,
+      headers,
+    })
+    .then(async () => {
       const customerCacheTag = await getCacheTag("customers")
-      revalidateTag(customerCacheTag)
+      if (customerCacheTag) revalidateTag(customerCacheTag)
+      revalidatePath("/[countryCode]/account", "layout")
       return { success: true, error: null }
     })
     .catch((err) => {
@@ -884,11 +913,15 @@ export const deleteCustomerAddress = async (
     ...(await getAuthHeaders()),
   }
 
-  return await sdk.store.customer
-    .deleteAddress(addressId, headers)
+  return await sdk.client
+    .fetch<{ id: string; deleted: boolean }>(
+      `/store/cba/v1/account/addresses/${addressId}`,
+      { method: "DELETE", headers }
+    )
     .then(async () => {
       const customerCacheTag = await getCacheTag("customers")
-      revalidateTag(customerCacheTag)
+      if (customerCacheTag) revalidateTag(customerCacheTag)
+      revalidatePath("/[countryCode]/account", "layout")
       return { success: true, error: null }
     })
     .catch((err) => {
@@ -919,6 +952,15 @@ export const updateCustomerAddress = async (
     country_code: text(formData.get("country_code")).toLowerCase(),
   } as HttpTypes.StoreUpdateCustomerAddress
 
+  // The Profile billing editor owns the billing role. Address Book edits do
+  // not provide these values, so their defaults remain unchanged.
+  if (currentState.isDefaultBilling === true) {
+    address.is_default_billing = true
+  }
+  if (currentState.isDefaultShipping === true) {
+    address.is_default_shipping = true
+  }
+
   const phone = text(formData.get("phone"))
 
   if (phone) {
@@ -941,11 +983,15 @@ export const updateCustomerAddress = async (
     ...(await getAuthHeaders()),
   }
 
-  return sdk.store.customer
-    .updateAddress(addressId, address, {}, headers)
+  return sdk.client
+    .fetch<{ address: HttpTypes.StoreCustomerAddress }>(
+      `/store/cba/v1/account/addresses/${addressId}`,
+      { method: "PATCH", body: address, headers }
+    )
     .then(async () => {
       const customerCacheTag = await getCacheTag("customers")
-      revalidateTag(customerCacheTag)
+      if (customerCacheTag) revalidateTag(customerCacheTag)
+      revalidatePath("/[countryCode]/account", "layout")
       return { success: true, error: null }
     })
     .catch((err) => {
@@ -999,13 +1045,41 @@ function validateCustomerAddressFields(address: {
   }
   const postalCodeError = validateSriLankanPostalCode(address.postal_code ?? "")
   if (postalCodeError) fieldErrors.postal_code = postalCodeError
-  const phoneError = validateSriLankanPhone(address.phone ?? "", {
-    required: false,
-  })
+  const phoneError = validateSriLankanPhone(address.phone ?? "")
   if (phoneError) {
     fieldErrors.phone = phoneError
   }
   return fieldErrors
+}
+
+export async function setCustomerAddressDefault(
+  addressId: string,
+  role: "shipping" | "billing",
+  value: boolean
+): Promise<{ success: boolean; error: string | null }> {
+  if (!SAFE_MEDUSA_ID_PATTERN.test(addressId)) {
+    return { success: false, error: "Address ID is invalid" }
+  }
+
+  try {
+    const headers = await getAuthHeaders()
+    await sdk.client.fetch<{ address: HttpTypes.StoreCustomerAddress }>(
+      `/store/cba/v1/account/addresses/${addressId}`,
+      {
+        method: "PATCH",
+        body: {
+          [role === "shipping" ? "is_default_shipping" : "is_default_billing"]: value,
+        },
+        headers,
+      }
+    )
+    const customerCacheTag = await getCacheTag("customers")
+    if (customerCacheTag) revalidateTag(customerCacheTag)
+    revalidatePath("/[countryCode]/account", "layout")
+    return { success: true, error: null }
+  } catch {
+    return { success: false, error: "Could not update the address default." }
+  }
 }
 
 function firstFieldError(fieldErrors: Record<string, string>) {
