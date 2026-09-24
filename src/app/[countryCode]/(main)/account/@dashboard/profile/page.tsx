@@ -8,7 +8,7 @@ import ProfilePassword from "@modules/account/components/profile-password"
 
 import { notFound } from "next/navigation"
 import { listRegions } from "@lib/data/regions"
-import { retrieveCustomer } from "@lib/data/customer"
+import { retrieveAccountSecurity, retrieveCustomer } from "@lib/data/customer"
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -16,8 +16,11 @@ export const metadata: Metadata = {
 }
 
 export default async function Profile() {
-  const customer = await retrieveCustomer()
-  const regions = await listRegions()
+  const [customer, regions, security] = await Promise.all([
+    retrieveCustomer(),
+    listRegions(),
+    retrieveAccountSecurity(),
+  ])
 
   if (!customer || !regions) {
     notFound()
@@ -40,8 +43,8 @@ export default async function Profile() {
         <Divider />
         <ProfilePhone customer={customer} />
         <Divider />
-        {/* <ProfilePassword customer={customer} />
-        <Divider /> */}
+        <ProfilePassword security={security} />
+        <Divider />
         <ProfileBillingAddress customer={customer} regions={regions} />
       </div>
     </div>

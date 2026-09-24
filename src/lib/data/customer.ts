@@ -27,6 +27,12 @@ import {
   setAuthToken,
   setCartId,
 } from "./cookies"
+import {
+  ACCOUNT_PASSWORD_PROVIDERS,
+  type AccountSecurity,
+  passwordChangeErrorMessage,
+  validatePasswordChange,
+} from "@lib/util/account-password"
 
 const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
 const OAUTH_PROVIDERS = ["google", "facebook", "apple"] as const
@@ -81,6 +87,93 @@ export const updateCustomer = async (body: HttpTypes.StoreUpdateCustomer) => {
   revalidateTag(cacheTag)
 
   return updateRes
+}
+
+export async function retrieveAccountSecurity(): Promise<AccountSecurity | null> {
+  const authHeaders = await getAuthHeaders()
+  if (!("authorization" in authHeaders) || !authHeaders.authorization) {
+    return null
+  }
+
+  return sdk.client
+    .fetch<{ security: { password_enabled: boolean; linked_providers: string[] } }>(
+      "/store/cba/v1/account/security",
+      { method: "GET", headers: authHeaders, cache: "no-store" }
+    )
+    .then(({ security }) => ({
+      password_enabled: security.password_enabled === true,
+      linked_providers: security.linked_providers.filter(
+        (provider): provider is AccountSecurity["linked_providers"][number] =>
+          ACCOUNT_PASSWORD_PROVIDERS.includes(
+            provider as AccountSecurity["linked_providers"][number]
+          )
+      ),
+    }))
+    .catch(() => null)
+}
+
+export type PasswordChangeActionState = {
+  success: boolean
+  error: string | null
+  fieldErrors: Record<string, string>
+}
+
+export async function updateCustomerPassword(
+  _currentState: PasswordChangeActionState,
+  formData: FormData
+): Promise<PasswordChangeActionState> {
+  const values = {
+    current_password: text(formData.get("current_password")),
+    new_password: text(formData.get("new_password")),
+    confirm_password: text(formData.get("confirm_password")),
+  }
+  const fieldErrors = validatePasswordChange(values)
+  if (Object.keys(fieldErrors).length) {
+    return {
+      success: false,
+      error: Object.values(fieldErrors)[0] ?? "Please check the highlighted fields.",
+      fieldErrors,
+    }
+  }
+
+  const authHeaders = await getAuthHeaders()
+  if (!("authorization" in authHeaders) || !authHeaders.authorization) {
+    return { success: false, error: "Please sign in again.", fieldErrors: {} }
+  }
+
+  try {
+    const response = await fetch(`${MEDUSA_BACKEND_URL}/store/cba/v1/account/password`, {
+      method: "POST",
+      headers: {
+        ...authHeaders,
+        ...publishableKeyHeader(),
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        current_password: values.current_password,
+        new_password: values.new_password,
+      }),
+      cache: "no-store",
+    })
+    const payload = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: { code?: string } }
+      | null
+    if (!response.ok || payload?.success !== true) {
+      return {
+        success: false,
+        error: passwordChangeErrorMessage(payload?.error?.code),
+        fieldErrors: {},
+      }
+    }
+    return { success: true, error: null, fieldErrors: {} }
+  } catch {
+    return {
+      success: false,
+      error: passwordChangeErrorMessage("SERVICE_UNAVAILABLE"),
+      fieldErrors: {},
+    }
+  }
 }
 
 export async function signup(_currentState: unknown, formData: FormData) {

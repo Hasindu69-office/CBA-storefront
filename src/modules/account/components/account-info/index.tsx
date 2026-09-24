@@ -13,6 +13,9 @@ type AccountInfoProps = {
   errorMessage?: string
   clearState: () => void
   children?: React.ReactNode
+  editLabel?: string
+  submitLabel?: string
+  successMessage?: string
   'data-testid'?: string
 }
 
@@ -24,6 +27,9 @@ const AccountInfo = ({
   clearState,
   errorMessage = "An error occurred, please try again",
   children,
+  editLabel = "Edit",
+  submitLabel = "Save changes",
+  successMessage,
   'data-testid': dataTestid
 }: AccountInfoProps) => {
   const { state, close, toggle } = useToggleState()
@@ -63,7 +69,7 @@ const AccountInfo = ({
             data-testid="edit-button"
             data-active={state}
           >
-            {state ? "Cancel" : "Edit"}
+            {state ? "Cancel" : editLabel}
           </Button>
         </div>
       </div>
@@ -80,9 +86,11 @@ const AccountInfo = ({
             }
           )}
           data-testid="success-message"
+          role="status"
+          aria-live="polite"
         >
           <Badge className="p-2 my-4" color="green">
-            <span>{label} updated succesfully</span>
+            <span>{successMessage ?? `${label} updated successfully`}</span>
           </Badge>
         </Disclosure.Panel>
       </Disclosure>
@@ -99,6 +107,7 @@ const AccountInfo = ({
             }
           )}
           data-testid="error-message"
+          role="alert"
         >
           <Badge className="p-2 my-4" color="red">
             <span>{errorMessage}</span>
@@ -126,7 +135,7 @@ const AccountInfo = ({
                 type="submit"
                 data-testid="save-button"
               >
-                Save changes
+                {submitLabel}
               </Button>
             </div>
           </div>
