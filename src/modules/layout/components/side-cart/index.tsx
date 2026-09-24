@@ -16,6 +16,7 @@ import {
 } from "@lib/util/coupon-promotions"
 import { convertToLocale } from "@lib/util/money"
 import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
+import { maxQuantityForVariant } from "@lib/util/cart-quantity"
 import { deriveFulfillmentModeFromItems } from "@lib/util/fulfillment-plan"
 import {
   PROMOTION_CODE_MAX_COUNT,
@@ -64,7 +65,6 @@ type SideCartProps = {
 type CartPromotion = NonNullable<HttpTypes.StoreCart["promotions"]>[number]
 
 const MIN_QUANTITY = 1
-const MAX_QUANTITY = 99
 
 function money(amount: number | null | undefined, currencyCode: string) {
   return convertToLocale({
@@ -85,12 +85,12 @@ function getCheckoutStep(cart: HttpTypes.StoreCart) {
     : "payment"
 }
 
-function clampQuantity(quantity: number) {
+function clampQuantity(quantity: number, maxQuantity: number) {
   if (!Number.isInteger(quantity)) {
     return MIN_QUANTITY
   }
 
-  return Math.min(Math.max(quantity, MIN_QUANTITY), MAX_QUANTITY)
+  return Math.min(Math.max(quantity, MIN_QUANTITY), maxQuantity)
 }
 
 function productSubtitle(item: HttpTypes.StoreCartLineItem) {
@@ -576,6 +576,10 @@ function SideCartItem({
   const mutationInFlight = useRef(false)
   const mutationVersion = useRef(0)
   const subtitle = productSubtitle(item)
+  const maxQuantity = Math.max(
+    item.quantity,
+    maxQuantityForVariant(item.variant, 0)
+  )
 
   useEffect(() => {
     setDraftQuantity(item.quantity)
@@ -632,7 +636,7 @@ function SideCartItem({
   }
 
   const changeQuantity = (nextQuantity: number) => {
-    const quantity = clampQuantity(nextQuantity)
+    const quantity = clampQuantity(nextQuantity, maxQuantity)
 
     if (quantity === item.quantity || isPending || mutationInFlight.current) {
       setDraftQuantity(quantity)
@@ -739,7 +743,7 @@ function SideCartItem({
                   type="button"
                   onClick={() => changeQuantity(draftQuantity + 1)}
                   disabled={
-                    disabled || isPending || draftQuantity >= MAX_QUANTITY
+                    disabled || isPending || draftQuantity >= maxQuantity
                   }
                   className="flex w-7 items-center justify-center text-[#4b5563] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300 small:w-8"
                   aria-label={`Increase quantity of ${item.product_title}`}

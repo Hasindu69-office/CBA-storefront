@@ -94,7 +94,6 @@ const CategoryShowcase = ({ sections }: CategoryShowcaseProps) => {
               item,
               index,
               categories,
-              primaryCategory,
               heroTitle,
               heroDescription,
               heroTextAlign,
@@ -105,18 +104,10 @@ const CategoryShowcase = ({ sections }: CategoryShowcaseProps) => {
                 key={item.id ?? item.reference_id ?? index}
                 className="overflow-hidden rounded-[8px] border border-[#d8d8de] bg-white px-7 py-7"
               >
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-4">
                   <h2 className="line-clamp-2 text-[18px] font-bold uppercase leading-6 tracking-normal text-black">
                     {item.title}
                   </h2>
-                  {primaryCategory && (
-                    <LocalizedClientLink
-                      href={viewAllHref}
-                      className="mt-1 flex-shrink-0 text-[13px] leading-5 text-[#666666] transition-colors hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-                    >
-                      {stringValue(item.config?.view_all_label) || "View All"}
-                    </LocalizedClientLink>
-                  )}
                 </div>
 
                 <LocalizedClientLink

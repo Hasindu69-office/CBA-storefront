@@ -93,6 +93,12 @@
     animation: none;
   }
 
+  .deals-nav-link--active {
+    animation: none;
+    background-color: #ff5c0e;
+    border-color: #ff5c0e;
+  }
+
   .order-success-icon__check {
     stroke-dasharray: 44;
     stroke-dashoffset: 44;
@@ -162,21 +168,12 @@
   30% { opacity: 1; transform: translateY(-3px); }
 }
 
-@keyframes cba-chatbot-launcher-float {
-  0%, 100% { transform: translateY(0) rotate(-1deg); }
-  50% { transform: translateY(-5px) rotate(1deg); }
-}
-
 @keyframes cba-chatbot-launcher-bubble-rise {
   0%, 12% { opacity: 0; transform: translate(8px, 7px) rotate(10deg) scale(.45); }
   26% { opacity: 1; transform: translate(2px, 2px) rotate(5deg) scale(.88); }
   44%, 58% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
   68% { opacity: 0; transform: translate(-1px, -2px) rotate(-4deg) scale(1.2); }
   100% { opacity: 0; transform: translate(-1px, -2px) rotate(-4deg) scale(1.2); }
-}
-
-.cba-chatbot-launcher:not(:focus-visible):not(:hover) {
-  animation: cba-chatbot-launcher-float 3.4s ease-in-out infinite;
 }
 
 .cba-chatbot-launcher--open {
@@ -256,8 +253,7 @@
     transition-duration: 0.01ms !important;
   }
 
-  .cba-chatbot-launcher,
-  .cba-chatbot-launcher:not(:focus-visible):not(:hover) {
+  .cba-chatbot-launcher {
     animation: none !important;
   }
 

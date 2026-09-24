@@ -31,6 +31,8 @@ const sortOptions: Array<{ value: StoreSearchSort; label: string }> = [
   { value: "newest", label: "Newest" },
   { value: "title", label: "Name A-Z" },
   { value: "-title", label: "Name Z-A" },
+  { value: "price_asc", label: "Price: Low to High" },
+  { value: "price_desc", label: "Price: High to Low" },
 ]
 
 const FILTER_OPTION_LIST_CLASS =
@@ -754,18 +756,18 @@ export function ShopSortSelect({ sortBy }: { sortBy: StoreSearchSort }) {
   }
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex w-full items-center gap-3 small:w-auto">
       <label
         htmlFor="shop-sort"
-        className="text-[14px] leading-5 text-[#7a7a80]"
+        className="shrink-0 text-[14px] leading-5 text-[#7a7a80]"
       >
-        Show item
+        Sort by
       </label>
       <select
         id="shop-sort"
         value={sortBy}
         onChange={(event) => setSort(event.target.value as StoreSearchSort)}
-        className="h-8 w-[124px] rounded-[5px] border border-[#e7e8f0] bg-[#f1f2f7] px-3 text-[12px] font-semibold leading-4 text-[#2d2d35] outline-none focus:ring-2 focus:ring-brand/35"
+        className="h-10 min-w-0 flex-1 rounded-[6px] border border-[#e1e3ec] bg-[#f5f6fa] px-3 text-[14px] font-medium leading-5 text-[#20212a] outline-none transition-colors hover:border-[#c9ccd8] focus:border-brand focus:ring-2 focus:ring-brand/25 small:w-[210px] small:flex-none"
       >
         {sortOptions.map((option) => (
           <option key={option.value} value={option.value}>

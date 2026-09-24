@@ -1,8 +1,10 @@
 "use client"
 
-import { applyPromotionsSafe, updateLineItem } from "@lib/data/cart"
+import { applyPromotionsSafe, updateLineItemSafe } from "@lib/data/cart"
 import { manualCodesWithNewCoupon } from "@lib/util/coupon-promotions"
+import { notify } from "@lib/notifications"
 import { HttpTypes } from "@medusajs/types"
+import { MAX_CART_QUANTITY, maxQuantityForVariant } from "@lib/util/cart-quantity"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { ArrowPath, ArrowLeft } from "@medusajs/icons"
 import { useRouter } from "next/navigation"
@@ -27,7 +29,6 @@ export default function CartItemsPanel({ cart }: CartItemsPanelProps) {
         (cart.items ?? []).map((item) => [item.id, item.quantity])
       )
   )
-  const [error, setError] = useState<string | null>(null)
 
   const sortedItems = useMemo(
     () =>
@@ -42,15 +43,22 @@ export default function CartItemsPanel({ cart }: CartItemsPanelProps) {
     .map((item) => item.id)
   const hasInvalidQuantity = sortedItems.some((item) => {
     const quantity = draftQuantities[item.id]
-    return !Number.isInteger(quantity) || quantity < 1 || quantity > 99
+    const maxQuantity = Math.max(
+      item.quantity,
+      maxQuantityForVariant(item.variant, 0)
+    )
+    return !Number.isInteger(quantity) || quantity < 1 || quantity > maxQuantity
   })
   const hasDirtyQuantities = dirtyLineIds.length > 0
 
   const setDraftQuantity = (lineId: string, quantity: number) => {
-    setError(null)
+    const item = sortedItems.find((candidate) => candidate.id === lineId)
+    const maxQuantity = item
+      ? Math.max(item.quantity, maxQuantityForVariant(item.variant, 0))
+      : MAX_CART_QUANTITY
     setDraftQuantities((current) => ({
       ...current,
-      [lineId]: Math.min(Math.max(quantity, 1), 99),
+      [lineId]: Math.min(Math.max(quantity, 1), maxQuantity),
     }))
   }
 
@@ -59,21 +67,28 @@ export default function CartItemsPanel({ cart }: CartItemsPanelProps) {
       return
     }
 
-    setError(null)
     startTransition(async () => {
       try {
         for (const item of sortedItems) {
           const nextQuantity = draftQuantities[item.id]
           if (nextQuantity !== item.quantity) {
-            await updateLineItem({
+            const result = await updateLineItemSafe({
               lineId: item.id,
               quantity: nextQuantity,
             })
+            if (!result.success) {
+              notify.error(result.error, "Could not update your cart.", {
+                id: "cart-update",
+              })
+              return
+            }
           }
         }
         router.refresh()
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not update cart.")
+        notify.error(err, "Could not update your cart.", {
+          id: "cart-update",
+        })
       }
     })
   }
@@ -139,14 +154,6 @@ export default function CartItemsPanel({ cart }: CartItemsPanelProps) {
             </LocalizedClientLink>
           </div>
         </div>
-        {error && (
-          <p
-            className="mt-4 text-small-regular text-red-600"
-            data-testid="cart-update-error"
-          >
-            {error}
-          </p>
-        )}
       </section>
 
       <aside className="flex flex-col gap-4">

@@ -1,6 +1,6 @@
 "use client"
 
-import { addToCart } from "@lib/data/cart"
+import { addToCartSafe, getCartLineQuantity } from "@lib/data/cart"
 import { requestBackInStock } from "@lib/data/back-in-stock"
 import { executeRecaptcha } from "@lib/recaptcha-client"
 import { RECAPTCHA_FORM_FIELD } from "@lib/recaptcha"
@@ -23,6 +23,7 @@ import { kokoInstallmentCardLabelFromAmount } from "@lib/util/koko-installments"
 import { convertToLocale } from "@lib/util/money"
 import { normalizeEmail, validateEmail } from "@lib/util/storefront-form-validation"
 import { openSideCart } from "@lib/util/side-cart-event"
+import { finiteVariantQuantity, maxQuantityForVariant } from "@lib/util/cart-quantity"
 import {
   addProductToCompareStorage,
   DEFAULT_COMPARE_LIMIT,
@@ -128,6 +129,7 @@ export default function CbaProductDetail({
     initialOptions(product, selectedVariantId)
   )
   const [quantity, setQuantity] = useState(1)
+  const [quantityAlreadyInCart, setQuantityAlreadyInCart] = useState(0)
   const [activeTab, setActiveTab] = useState("description")
   const [actionState, setActionState] = useState<ActionState>({
     type: null,
@@ -176,11 +178,31 @@ export default function CbaProductDetail({
 
   const displayOptions = visibleProductOptions(product.options)
   const hasPrice = hasPurchasablePrice(selectedVariant)
+  const maxQuantity = maxQuantityForVariant(selectedVariant, quantityAlreadyInCart)
 
   useEffect(() => {
     setOptions(initialOptions(product, selectedVariantId))
     setQuantity(1)
   }, [product, selectedVariantId])
+
+  useEffect(() => {
+    let alive = true
+    setQuantityAlreadyInCart(0)
+
+    if (!selectedVariant?.id) return
+
+    getCartLineQuantity(selectedVariant.id)
+      .then((value) => {
+        if (alive) setQuantityAlreadyInCart(value)
+      })
+      .catch(() => {
+        // The add-to-cart action remains authoritative if the cart cannot be read.
+      })
+
+    return () => {
+      alive = false
+    }
+  }, [selectedVariant?.id])
 
   const inStock = useMemo(() => {
     if (selectedVariant && !selectedVariant.manage_inventory) return true
@@ -265,12 +287,19 @@ export default function CbaProductDetail({
   }
 
   function clampQuantity(value: number) {
-    setQuantity(Math.min(99, Math.max(1, Number.isFinite(value) ? Math.trunc(value) : 1)))
+    const upperBound = Math.max(1, maxQuantity)
+    setQuantity(Math.min(upperBound, Math.max(1, Number.isFinite(value) ? Math.trunc(value) : 1)))
   }
 
   function submitAddToCart() {
-    if (!hasPrice || !Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
-      notify.error(!hasPrice ? "Price unavailable for this product." : "Enter a quantity from 1 to 99.")
+    if (!hasPrice || !Number.isInteger(quantity) || quantity < 1 || quantity > maxQuantity) {
+      notify.error(
+        !hasPrice
+          ? "Price unavailable for this product."
+          : maxQuantity === 0
+            ? "You already have the available stock in your cart."
+            : `Only ${maxQuantity} more unit${maxQuantity === 1 ? "" : "s"} can be added.`
+      )
       return
     }
     if (!selectedVariant?.id || !isValidVariant) {
@@ -278,7 +307,7 @@ export default function CbaProductDetail({
       setActionState({ type: "error", message: "Select a valid product option." })
       return
     }
-    if (!inStock) {
+    if (!inStock || maxQuantity === 0) {
       notify.error("This selection is out of stock.")
       setActionState({ type: "error", message: "This selection is out of stock." })
       return
@@ -289,11 +318,13 @@ export default function CbaProductDetail({
       const toastId = `pdp-add-to-cart:${selectedVariant.id}`
       notify.loading("Adding item to cart...", { id: toastId })
       try {
-        const cart = await addToCart({
+        const result = await addToCartSafe({
           variantId: selectedVariant.id,
           quantity,
           countryCode,
         })
+        if (!result.success) throw new Error(result.error)
+        const cart = result.cart
         setActionState({ type: "success", message: "Added to cart." })
         openSideCart({ cart, refresh: true })
         notify.success("Item added to cart.", { id: toastId })
@@ -633,13 +664,15 @@ export default function CbaProductDetail({
                 onChange={(event) => clampQuantity(Number(event.target.value))}
                 className="h-11 w-full border-x border-gray-200 text-center text-sm font-bold outline-none"
                 inputMode="numeric"
+                min={1}
+                max={Math.max(1, maxQuantity)}
                 aria-label="Quantity"
               />
               <button
                 type="button"
                 className="h-11 text-xl font-bold"
                 onClick={() => clampQuantity(quantity + 1)}
-                disabled={isPending}
+                disabled={isPending || quantity >= maxQuantity}
                 aria-label="Increase quantity"
               >
                 +
@@ -648,12 +681,21 @@ export default function CbaProductDetail({
             <button
               type="button"
               onClick={submitAddToCart}
-              disabled={!selectedVariant || !isValidVariant || !inStock || !hasPrice || isPending}
+              disabled={!selectedVariant || !isValidVariant || !inStock || !hasPrice || maxQuantity === 0 || isPending}
               className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-base border border-brand bg-white text-xs font-bold uppercase text-brand transition hover:bg-brand hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ShoppingCartIcon size={16} />
               Add to cart
             </button>
+            {finiteVariantQuantity(selectedVariant) !== null && maxQuantity > 0 && (
+              <p className="mt-2 text-xs text-gray-500">
+                {quantityAlreadyInCart > 0
+                  ? `Only ${maxQuantity} more unit${maxQuantity === 1 ? "" : "s"} can be added.`
+                  : finiteVariantQuantity(selectedVariant)! <= 5
+                    ? `Only ${finiteVariantQuantity(selectedVariant)} left.`
+                    : `Available quantity: ${finiteVariantQuantity(selectedVariant)}`}
+              </p>
+            )}
             {!inStock && selectedVariant?.id && isValidVariant && (
               <div className="mt-4 rounded-base border border-gray-200 bg-white p-4">
                 <p className="text-xs font-black uppercase text-gray-700">
