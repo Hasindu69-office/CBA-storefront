@@ -8,12 +8,14 @@ import CartMismatchBanner from "@modules/layout/components/cart-mismatch-banner"
 import Footer from "@modules/layout/templates/footer"
 import Nav from "@modules/layout/templates/nav"
 import FreeShippingPriceNudge from "@modules/shipping/components/free-shipping-price-nudge"
+import CbaPopupProvider from "@modules/popups/components/popup-provider"
 
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
 }
 
-export default async function PageLayout(props: { children: React.ReactNode }) {
+export default async function PageLayout(props: { children: React.ReactNode; params: Promise<{ countryCode: string }> }) {
+  const { countryCode } = await props.params
   const customer = await retrieveCustomer()
   const cart = await retrieveCart()
   let shippingOptions: StoreCartShippingOption[] = []
@@ -48,6 +50,7 @@ export default async function PageLayout(props: { children: React.ReactNode }) {
       <div className="cba-site-chrome">
         <Footer />
       </div>
+      <CbaPopupProvider countryCode={countryCode} />
     </>
   )
 }
