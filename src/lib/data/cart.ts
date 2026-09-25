@@ -3,7 +3,7 @@
 import { sdk } from "@lib/config"
 import medusaError from "@lib/util/medusa-error"
 import { HttpTypes } from "@medusajs/types"
-import { revalidateTag } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
 import { getStoreCountryCode, localizedPath } from "@lib/util/routes"
 import { listProductCardsByIds } from "@lib/data/tabbed-sale-products"
@@ -18,6 +18,9 @@ import {
 } from "@lib/util/promotions"
 import {
   validateEmail,
+  validatePersonName,
+  validatePlaceName,
+  validateSafeAddressText,
   validateSriLankanPhone,
   validateSriLankanPostalCode,
 } from "@lib/util/storefront-form-validation"
@@ -81,7 +84,7 @@ async function refreshCartAfterMutation(cartId: string) {
   return taxReadyCart
 }
 
-function checkoutAddressData(formData: FormData) {
+async function checkoutAddressData(formData: FormData) {
   const validation = validateCheckoutAddressFormData(formData)
 
   if (!validation.ok) {
@@ -115,6 +118,48 @@ function checkoutAddressData(formData: FormData) {
         }
       : undefined,
   } as any
+
+  if (formData.get("same_as_billing")) {
+    return cartData
+  }
+
+  const savedBillingAddressId = String(formData.get("billing_address_id") ?? "")
+  if (savedBillingAddressId) {
+    if (!SAFE_MEDUSA_ID_PATTERN.test(savedBillingAddressId)) {
+      throw new Error("The selected billing address is invalid.")
+    }
+    const headers = await getAuthHeaders()
+    const { address } = await sdk.client.fetch<{ address: typeof payload }>(
+      `/store/cba/v1/account/addresses/${savedBillingAddressId}`,
+      { method: "GET", headers }
+    )
+    cartData.billing_address = address
+    return cartData
+  }
+
+  const billing = {
+    first_name: String(formData.get("billing_address.first_name") ?? "").trim(),
+    last_name: String(formData.get("billing_address.last_name") ?? "").trim(),
+    address_1: String(formData.get("billing_address.address_1") ?? "").trim(),
+    address_2: String(formData.get("billing_address.address_2") ?? "").trim(),
+    company: String(formData.get("billing_address.company") ?? "").trim(),
+    postal_code: String(formData.get("billing_address.postal_code") ?? "").trim(),
+    city: String(formData.get("billing_address.city") ?? "").trim(),
+    country_code: String(formData.get("billing_address.country_code") ?? "lk").trim().toLowerCase(),
+    province: String(formData.get("billing_address.province") ?? "").trim(),
+    phone: String(formData.get("billing_address.phone") ?? "").trim(),
+  }
+  const billingError =
+    validatePersonName(billing.first_name, "Billing first name") ||
+    validatePersonName(billing.last_name, "Billing last name") ||
+    validateSafeAddressText(billing.address_1, "Billing street address") ||
+    validatePlaceName(billing.city, "Billing city") ||
+    validatePlaceName(billing.province, "Billing district") ||
+    validateSriLankanPostalCode(billing.postal_code) ||
+    validateSriLankanPhone(billing.phone) ||
+    (billing.country_code !== "lk" ? "Billing country must be Sri Lanka." : null)
+  if (billingError) throw new Error(billingError)
+  cartData.billing_address = billing
 
   return cartData
 }
@@ -644,7 +689,12 @@ export async function saveCheckoutDetails(
 }
 
 export type SaveCheckoutDetailsResult =
-  | { success: true; error: null; fieldErrors: Record<string, never> }
+  | {
+      success: true
+      error: null
+      fieldErrors: Record<string, never>
+      addressSaveWarning?: string
+    }
   | {
       success: false
       error: string
@@ -657,9 +707,13 @@ export async function saveCheckoutDetailsDetailed(
 ): Promise<SaveCheckoutDetailsResult> {
   void currentState
   try {
-    const cart = await updateCart(checkoutAddressData(formData))
+    const cart = await updateCart(await checkoutAddressData(formData))
     await calculateCartTaxesWhenReady(cart)
-    return { success: true, error: null, fieldErrors: {} }
+    const addressSaveWarning = await saveCheckoutShippingAddressIfRequested(
+      formData,
+      cart
+    )
+    return { success: true, error: null, fieldErrors: {}, addressSaveWarning: addressSaveWarning ?? undefined }
   } catch (e: any) {
     const fieldErrors =
       e && typeof e === "object" && "fieldErrors" in e
@@ -673,6 +727,87 @@ export async function saveCheckoutDetailsDetailed(
   }
 }
 
+async function saveCheckoutShippingAddressIfRequested(
+  formData: FormData,
+  cart: HttpTypes.StoreCart
+): Promise<string | null> {
+  if (!formData.get("save_address")) return null
+
+  // The form control is not an authorization boundary. Guests (or forged
+  // requests) cannot create address-book records without customer auth.
+  const headers = await getAuthHeaders()
+  if (!("authorization" in headers)) return null
+
+  const shipping = cart.shipping_address
+  if (!shipping) return "Your delivery details were saved, but the address could not be saved."
+
+  try {
+    const address = {
+      first_name: String(shipping.first_name ?? "").trim(),
+      last_name: String(shipping.last_name ?? "").trim(),
+      company: String(shipping.company ?? "").trim(),
+      address_1: String(shipping.address_1 ?? "").trim(),
+      address_2: String(shipping.address_2 ?? "").trim(),
+      city: String(shipping.city ?? "").trim(),
+      postal_code: String(shipping.postal_code ?? "").trim(),
+      province: String(shipping.province ?? "").trim(),
+      country_code: String(shipping.country_code ?? "").trim().toLowerCase(),
+      phone: String(shipping.phone ?? "").trim(),
+    }
+    const { addresses } = await sdk.client.fetch<{
+      addresses: Array<typeof address>
+    }>("/store/cba/v1/account/addresses", {
+      method: "GET",
+      query: { limit: 20, offset: 0 },
+      headers,
+      cache: "no-store",
+    })
+
+    if (addresses.some((saved) => addressesMatch(saved, address))) return null
+
+    const isFirstAddress = addresses.length === 0
+    await sdk.client.fetch("/store/cba/v1/account/addresses", {
+      method: "POST",
+      body: {
+        ...address,
+        is_default_shipping: isFirstAddress,
+        is_default_billing: isFirstAddress && Boolean(formData.get("same_as_billing")),
+      },
+      headers,
+    })
+    await revalidateCacheTag("customers")
+    revalidatePath("/[countryCode]/account", "layout")
+    return null
+  } catch {
+    return "Your delivery details were saved, but we could not save this address for future orders."
+  }
+}
+
+function addressesMatch(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>
+) {
+  const fields = [
+    "first_name",
+    "last_name",
+    "company",
+    "address_1",
+    "address_2",
+    "city",
+    "postal_code",
+    "province",
+    "country_code",
+    "phone",
+  ]
+  return fields.every(
+    (field) => normalizeAddressComparison(left[field]) === normalizeAddressComparison(right[field])
+  )
+}
+
+function normalizeAddressComparison(value: unknown) {
+  return String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase()
+}
+
 // TODO: Pass a POJO instead of a form entity here
 export async function setAddresses(currentState: unknown, formData: FormData) {
   try {
@@ -684,7 +819,7 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
       throw new Error("No existing cart found when setting addresses")
     }
 
-    const cart = await updateCart(checkoutAddressData(formData))
+    const cart = await updateCart(await checkoutAddressData(formData))
     await calculateCartTaxesWhenReady(cart)
   } catch (e: any) {
     return e.message

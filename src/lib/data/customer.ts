@@ -27,6 +27,12 @@ import {
   setAuthToken,
   setCartId,
 } from "./cookies"
+import {
+  ACCOUNT_PASSWORD_PROVIDERS,
+  type AccountSecurity,
+  passwordChangeErrorMessage,
+  validatePasswordChange,
+} from "@lib/util/account-password"
 
 const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
 const OAUTH_PROVIDERS = ["google", "facebook", "apple"] as const
@@ -53,12 +59,36 @@ export const retrieveCustomer =
       .fetch<{ customer: HttpTypes.StoreCustomer }>(`/store/customers/me`, {
         method: "GET",
         query: {
-          fields: "*orders",
+          // Explicit field selection replaces Medusa's default selection. Include
+          // addresses here so account pages and checkout see addresses created by
+          // the CBA address API immediately after revalidation.
+          fields: "*addresses,*orders",
         },
         headers: authHeaders,
         cache: "no-store",
       })
-      .then(({ customer }) => customer)
+      .then(async ({ customer }) => {
+        // The CBA address API is the storefront's mutation authority. Read the
+        // address book from the same contract instead of depending on a
+        // relation expansion on /customers/me, which can omit addresses when
+        // Medusa query fields change.
+        const addressBook = await sdk.client
+          .fetch<{ addresses: HttpTypes.StoreCustomerAddress[] }>(
+            "/store/cba/v1/account/addresses",
+            {
+              method: "GET",
+              query: { limit: 20, offset: 0 },
+              headers: authHeaders,
+              cache: "no-store",
+            }
+          )
+          .catch(() => null)
+
+        return {
+          ...customer,
+          addresses: addressBook?.addresses ?? customer.addresses ?? [],
+        }
+      })
       .catch(() => null)
   }
 
@@ -81,6 +111,93 @@ export const updateCustomer = async (body: HttpTypes.StoreUpdateCustomer) => {
   revalidateTag(cacheTag)
 
   return updateRes
+}
+
+export async function retrieveAccountSecurity(): Promise<AccountSecurity | null> {
+  const authHeaders = await getAuthHeaders()
+  if (!("authorization" in authHeaders) || !authHeaders.authorization) {
+    return null
+  }
+
+  return sdk.client
+    .fetch<{ security: { password_enabled: boolean; linked_providers: string[] } }>(
+      "/store/cba/v1/account/security",
+      { method: "GET", headers: authHeaders, cache: "no-store" }
+    )
+    .then(({ security }) => ({
+      password_enabled: security.password_enabled === true,
+      linked_providers: security.linked_providers.filter(
+        (provider): provider is AccountSecurity["linked_providers"][number] =>
+          ACCOUNT_PASSWORD_PROVIDERS.includes(
+            provider as AccountSecurity["linked_providers"][number]
+          )
+      ),
+    }))
+    .catch(() => null)
+}
+
+export type PasswordChangeActionState = {
+  success: boolean
+  error: string | null
+  fieldErrors: Record<string, string>
+}
+
+export async function updateCustomerPassword(
+  _currentState: PasswordChangeActionState,
+  formData: FormData
+): Promise<PasswordChangeActionState> {
+  const values = {
+    current_password: text(formData.get("current_password")),
+    new_password: text(formData.get("new_password")),
+    confirm_password: text(formData.get("confirm_password")),
+  }
+  const fieldErrors = validatePasswordChange(values)
+  if (Object.keys(fieldErrors).length) {
+    return {
+      success: false,
+      error: Object.values(fieldErrors)[0] ?? "Please check the highlighted fields.",
+      fieldErrors,
+    }
+  }
+
+  const authHeaders = await getAuthHeaders()
+  if (!("authorization" in authHeaders) || !authHeaders.authorization) {
+    return { success: false, error: "Please sign in again.", fieldErrors: {} }
+  }
+
+  try {
+    const response = await fetch(`${MEDUSA_BACKEND_URL}/store/cba/v1/account/password`, {
+      method: "POST",
+      headers: {
+        ...authHeaders,
+        ...publishableKeyHeader(),
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        current_password: values.current_password,
+        new_password: values.new_password,
+      }),
+      cache: "no-store",
+    })
+    const payload = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: { code?: string } }
+      | null
+    if (!response.ok || payload?.success !== true) {
+      return {
+        success: false,
+        error: passwordChangeErrorMessage(payload?.error?.code),
+        fieldErrors: {},
+      }
+    }
+    return { success: true, error: null, fieldErrors: {} }
+  } catch {
+    return {
+      success: false,
+      error: passwordChangeErrorMessage("SERVICE_UNAVAILABLE"),
+      fieldErrors: {},
+    }
+  }
 }
 
 export async function signup(_currentState: unknown, formData: FormData) {
@@ -768,11 +885,16 @@ export const addCustomerAddress = async (
     ...(await getAuthHeaders()),
   }
 
-  return sdk.store.customer
-    .createAddress(address, {}, headers)
-    .then(async ({ customer }) => {
+  return sdk.client
+    .fetch<{ address: HttpTypes.StoreCustomerAddress }>("/store/cba/v1/account/addresses", {
+      method: "POST",
+      body: address,
+      headers,
+    })
+    .then(async () => {
       const customerCacheTag = await getCacheTag("customers")
-      revalidateTag(customerCacheTag)
+      if (customerCacheTag) revalidateTag(customerCacheTag)
+      revalidatePath("/[countryCode]/account", "layout")
       return { success: true, error: null }
     })
     .catch((err) => {
@@ -791,11 +913,15 @@ export const deleteCustomerAddress = async (
     ...(await getAuthHeaders()),
   }
 
-  return await sdk.store.customer
-    .deleteAddress(addressId, headers)
+  return await sdk.client
+    .fetch<{ id: string; deleted: boolean }>(
+      `/store/cba/v1/account/addresses/${addressId}`,
+      { method: "DELETE", headers }
+    )
     .then(async () => {
       const customerCacheTag = await getCacheTag("customers")
-      revalidateTag(customerCacheTag)
+      if (customerCacheTag) revalidateTag(customerCacheTag)
+      revalidatePath("/[countryCode]/account", "layout")
       return { success: true, error: null }
     })
     .catch((err) => {
@@ -826,6 +952,15 @@ export const updateCustomerAddress = async (
     country_code: text(formData.get("country_code")).toLowerCase(),
   } as HttpTypes.StoreUpdateCustomerAddress
 
+  // The Profile billing editor owns the billing role. Address Book edits do
+  // not provide these values, so their defaults remain unchanged.
+  if (currentState.isDefaultBilling === true) {
+    address.is_default_billing = true
+  }
+  if (currentState.isDefaultShipping === true) {
+    address.is_default_shipping = true
+  }
+
   const phone = text(formData.get("phone"))
 
   if (phone) {
@@ -848,11 +983,15 @@ export const updateCustomerAddress = async (
     ...(await getAuthHeaders()),
   }
 
-  return sdk.store.customer
-    .updateAddress(addressId, address, {}, headers)
+  return sdk.client
+    .fetch<{ address: HttpTypes.StoreCustomerAddress }>(
+      `/store/cba/v1/account/addresses/${addressId}`,
+      { method: "PATCH", body: address, headers }
+    )
     .then(async () => {
       const customerCacheTag = await getCacheTag("customers")
-      revalidateTag(customerCacheTag)
+      if (customerCacheTag) revalidateTag(customerCacheTag)
+      revalidatePath("/[countryCode]/account", "layout")
       return { success: true, error: null }
     })
     .catch((err) => {
@@ -906,13 +1045,41 @@ function validateCustomerAddressFields(address: {
   }
   const postalCodeError = validateSriLankanPostalCode(address.postal_code ?? "")
   if (postalCodeError) fieldErrors.postal_code = postalCodeError
-  const phoneError = validateSriLankanPhone(address.phone ?? "", {
-    required: false,
-  })
+  const phoneError = validateSriLankanPhone(address.phone ?? "")
   if (phoneError) {
     fieldErrors.phone = phoneError
   }
   return fieldErrors
+}
+
+export async function setCustomerAddressDefault(
+  addressId: string,
+  role: "shipping" | "billing",
+  value: boolean
+): Promise<{ success: boolean; error: string | null }> {
+  if (!SAFE_MEDUSA_ID_PATTERN.test(addressId)) {
+    return { success: false, error: "Address ID is invalid" }
+  }
+
+  try {
+    const headers = await getAuthHeaders()
+    await sdk.client.fetch<{ address: HttpTypes.StoreCustomerAddress }>(
+      `/store/cba/v1/account/addresses/${addressId}`,
+      {
+        method: "PATCH",
+        body: {
+          [role === "shipping" ? "is_default_shipping" : "is_default_billing"]: value,
+        },
+        headers,
+      }
+    )
+    const customerCacheTag = await getCacheTag("customers")
+    if (customerCacheTag) revalidateTag(customerCacheTag)
+    revalidatePath("/[countryCode]/account", "layout")
+    return { success: true, error: null }
+  } catch {
+    return { success: false, error: "Could not update the address default." }
+  }
 }
 
 function firstFieldError(fieldErrors: Record<string, string>) {
