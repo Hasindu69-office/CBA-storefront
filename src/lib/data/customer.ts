@@ -33,6 +33,11 @@ import {
   passwordChangeErrorMessage,
   validatePasswordChange,
 } from "@lib/util/account-password"
+import {
+  emailChangeErrorMessage,
+  type EmailChangeFieldErrors,
+  validateEmailChange,
+} from "@lib/util/account-email"
 
 const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
 const OAUTH_PROVIDERS = ["google", "facebook", "apple"] as const
@@ -140,6 +145,132 @@ export type PasswordChangeActionState = {
   success: boolean
   error: string | null
   fieldErrors: Record<string, string>
+}
+
+export type EmailChangeActionState = {
+  success: boolean
+  error: string | null
+  fieldErrors: EmailChangeFieldErrors
+  maskedEmail: string | null
+  expiresAt: string | null
+}
+
+export async function requestCustomerEmailChange(
+  currentEmail: string,
+  _currentState: EmailChangeActionState,
+  formData: FormData
+): Promise<EmailChangeActionState> {
+  const values = {
+    current_email: normalizeEmail(currentEmail),
+    new_email: normalizeEmail(formData.get("new_email")),
+    confirm_email: normalizeEmail(formData.get("confirm_email")),
+    current_password: text(formData.get("current_password")),
+  }
+  const fieldErrors = validateEmailChange(values)
+  if (Object.keys(fieldErrors).length) {
+    return {
+      success: false,
+      error: Object.values(fieldErrors)[0] ?? "Please check the highlighted fields.",
+      fieldErrors,
+      maskedEmail: null,
+      expiresAt: null,
+    }
+  }
+  const authHeaders = await getAuthHeaders()
+  if (!("authorization" in authHeaders) || !authHeaders.authorization) {
+    return emailChangeFailure("SESSION_REVOKED")
+  }
+  try {
+    const response = await fetch(`${MEDUSA_BACKEND_URL}/store/cba/v1/account/email-change/request`, {
+      method: "POST",
+      headers: {
+        ...authHeaders,
+        ...publishableKeyHeader(),
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        new_email: values.new_email,
+        current_password: values.current_password,
+        country_code: text(formData.get("country_code")).toLowerCase() || "lk",
+      }),
+      cache: "no-store",
+    })
+    const payload = (await response.json().catch(() => null)) as
+      | {
+          success?: boolean
+          expires_at?: string
+          masked_email?: string
+          error?: { code?: string }
+        }
+      | null
+    if (!response.ok || payload?.success !== true) {
+      return emailChangeFailure(payload?.error?.code)
+    }
+    return {
+      success: true,
+      error: null,
+      fieldErrors: {},
+      maskedEmail: payload.masked_email ?? null,
+      expiresAt: payload.expires_at ?? null,
+    }
+  } catch {
+    return emailChangeFailure("SERVICE_UNAVAILABLE")
+  }
+}
+
+export type EmailChangeConfirmState = { error: string | null }
+
+export async function confirmCustomerEmailChange(
+  countryCode: string,
+  _currentState: EmailChangeConfirmState,
+  formData: FormData
+): Promise<EmailChangeConfirmState> {
+  const token = text(formData.get("token"))
+  if (!/^[A-Za-z0-9_-]{20,2048}$/.test(token)) {
+    return { error: emailChangeErrorMessage("EMAIL_VERIFICATION_INVALID") }
+  }
+  const authHeaders = await getAuthHeaders()
+  if (!("authorization" in authHeaders) || !authHeaders.authorization) {
+    return { error: emailChangeErrorMessage("SESSION_REVOKED") }
+  }
+
+  let code: string | undefined
+  try {
+    const response = await fetch(`${MEDUSA_BACKEND_URL}/store/cba/v1/account/email-change/confirm`, {
+      method: "POST",
+      headers: {
+        ...authHeaders,
+        ...publishableKeyHeader(),
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({ token }),
+      cache: "no-store",
+    })
+    const payload = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: { code?: string } }
+      | null
+    if (!response.ok || payload?.success !== true) code = payload?.error?.code
+  } catch {
+    code = "SERVICE_UNAVAILABLE"
+  }
+  if (code) return { error: emailChangeErrorMessage(code) }
+
+  await removeAuthToken()
+  const customerCacheTag = await getCacheTag("customers")
+  revalidateTag(customerCacheTag)
+  redirect(localizedPath(`/${countryCode}/account?email_changed=1`))
+}
+
+function emailChangeFailure(code?: string): EmailChangeActionState {
+  return {
+    success: false,
+    error: emailChangeErrorMessage(code),
+    fieldErrors: {},
+    maskedEmail: null,
+    expiresAt: null,
+  }
 }
 
 export async function updateCustomerPassword(

@@ -27,6 +27,7 @@ const LoginTemplate = ({ settings, countryCode }: Props) => {
   const searchParams = useSearchParams()
   const isForgotPassword = pathname.endsWith("/account/forgot-password")
   const isResetPassword = pathname.endsWith("/account/reset-password")
+  const isEmailChangeConfirmation = pathname.endsWith("/account/email-change/confirm")
 
   return (
     <div
@@ -50,6 +51,16 @@ const LoginTemplate = ({ settings, countryCode }: Props) => {
                 className="h-auto w-full object-contain object-left"
               />
             </LocalizedClientLink>
+            {isEmailChangeConfirmation && (
+              <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900" role="status">
+                Sign in with your current email, then reopen the verification link before it expires.
+              </div>
+            )}
+            {searchParams.get("email_changed") === "1" && (
+              <div className="mb-6 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900" role="status">
+                Your email was updated successfully. Sign in with your new email and existing password.
+              </div>
+            )}
             {isForgotPassword ? (
               <ForgotPasswordForm countryCode={countryCode} />
             ) : isResetPassword ? (
