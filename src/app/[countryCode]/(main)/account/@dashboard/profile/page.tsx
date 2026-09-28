@@ -15,7 +15,8 @@ export const metadata: Metadata = {
   description: "View and edit your Ebiz profile.",
 }
 
-export default async function Profile() {
+export default async function Profile({ params }: { params: Promise<{ countryCode: string }> }) {
+  const { countryCode } = await params
   const [customer, regions, security] = await Promise.all([
     retrieveCustomer(),
     listRegions(),
@@ -39,7 +40,7 @@ export default async function Profile() {
       <div className="flex flex-col gap-y-8 w-full">
         <ProfileName customer={customer} />
         <Divider />
-        <ProfileEmail customer={customer} />
+        <ProfileEmail customer={customer} security={security} countryCode={countryCode} />
         <Divider />
         <ProfilePhone customer={customer} />
         <Divider />
