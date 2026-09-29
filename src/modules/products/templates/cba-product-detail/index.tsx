@@ -17,6 +17,9 @@ import type {
   ProductReviewsResponse,
 } from "@lib/data/product-detail"
 import { notify } from "@lib/notifications"
+import type { CustomerReview, EligibleReviewPurchase } from "@lib/data/reviews"
+import ReviewModal from "@modules/reviews/components/review-modal"
+import ProductReviews from "@modules/reviews/components/product-reviews"
 import { getProductPrice } from "@lib/util/get-product-price"
 import { hasPurchasablePrice, variantOptionsMap, visibleProductOptions } from "@lib/util/product-options"
 import { kokoInstallmentCardLabelFromAmount } from "@lib/util/koko-installments"
@@ -69,6 +72,9 @@ type CbaProductDetailProps = {
   kokoBranding?: KokoCheckoutBranding | null
   kokoAvailable?: boolean
   selectedVariantId?: string
+  reviewPurchase: EligibleReviewPurchase | null
+  customerReview: CustomerReview | null
+  signedIn: boolean
 }
 
 type ActionState = {
@@ -120,6 +126,9 @@ export default function CbaProductDetail({
   kokoBranding,
   kokoAvailable = false,
   selectedVariantId,
+  reviewPurchase,
+  customerReview,
+  signedIn,
 }: CbaProductDetailProps) {
   const galleryImages = images.length ? images : product.thumbnail
     ? [{ id: "thumbnail", url: product.thumbnail } as HttpTypes.StoreProductImage]
@@ -842,6 +851,11 @@ export default function CbaProductDetail({
           product={product}
           detail={detail}
           reviews={reviews}
+          productId={product.id}
+          countryCode={countryCode}
+          reviewPurchase={reviewPurchase}
+          customerReview={customerReview}
+          signedIn={signedIn}
         />
 
         <RelatedProductsSection
@@ -1425,12 +1439,22 @@ function ProductTabs({
   product,
   detail,
   reviews,
+  productId,
+  countryCode,
+  reviewPurchase,
+  customerReview,
+  signedIn,
 }: {
   activeTab: string
   setActiveTab: (value: string) => void
   product: HttpTypes.StoreProduct
   detail: ProductDetailResponse | null
   reviews: ProductReviewsResponse
+  productId: string
+  countryCode: string
+  reviewPurchase: EligibleReviewPurchase | null
+  customerReview: CustomerReview | null
+  signedIn: boolean
 }) {
   const tabs = [
     { key: "description", label: "Description" },
@@ -1463,7 +1487,7 @@ function ProductTabs({
         )}
         {activeTab === "specifications" && <SpecificationsContent detail={detail} />}
         {activeTab === "additional" && <AdditionalContent detail={detail} />}
-        {activeTab === "reviews" && <ReviewsContent detail={detail} reviews={reviews} />}
+        {activeTab === "reviews" && <ReviewsContent productId={productId} countryCode={countryCode} reviews={reviews} reviewPurchase={reviewPurchase} customerReview={customerReview} signedIn={signedIn} />}
       </div>
     </section>
   )
@@ -1518,81 +1542,34 @@ function findRichDescription(detail: ProductDetailResponse | null) {
 }
 
 function ReviewsContent({
-  detail,
+  productId,
+  countryCode,
   reviews,
+  reviewPurchase,
+  customerReview,
+  signedIn,
 }: {
-  detail: ProductDetailResponse | null
+  productId: string
+  countryCode: string
   reviews: ProductReviewsResponse
+  reviewPurchase: EligibleReviewPurchase | null
+  customerReview: CustomerReview | null
+  signedIn: boolean
 }) {
-  const summary = detail?.review_summary ?? reviews.summary
-  const items = reviews.reviews ?? []
+  const [modalOpen, setModalOpen] = useState(false)
+  const [submitted, setSubmitted] = useState<CustomerReview | null>(customerReview)
 
   return (
-    <div className="grid gap-5 small:grid-cols-[280px_1fr]">
-      <div className="h-fit rounded-rounded bg-gray-50 p-6">
-        <p className="text-2xl font-black">
-          {summary?.average_rating ? summary.average_rating.toFixed(1) : "No ratings yet"}
-        </p>
-        <p className="mt-1 text-sm text-gray-600">
-          {(summary?.total_reviews ?? 0).toLocaleString()} approved customer reviews
-        </p>
-        <div className="mt-5 space-y-2">
-          {[5, 4, 3, 2, 1].map((rating) => (
-            <div key={rating} className="grid grid-cols-[32px_1fr_36px] items-center gap-2 text-xs">
-              <span>{rating} star</span>
-              <span className="h-2 overflow-hidden rounded-circle bg-gray-200">
-                <span
-                  className="block h-full bg-brand"
-                  style={{
-                    width: reviewPercentage(
-                      summary?.rating_counts?.[String(rating)] ?? 0,
-                      summary?.total_reviews ?? 0
-                    ),
-                  }}
-                />
-              </span>
-              <span className="text-right text-gray-500">
-                {summary?.rating_counts?.[String(rating)] ?? 0}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {items.length ? (
-          items.map((review) => (
-            <article
-              key={review.id}
-              className="rounded-rounded border border-gray-100 p-5"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <Stars rating={review.rating} />
-                <span className="text-sm font-bold">
-                  {review.rating.toFixed(1)}
-                </span>
-                {review.verified_purchase && (
-                  <span className="rounded-base bg-green-50 px-2 py-1 text-[11px] font-bold uppercase text-green-700">
-                    Verified purchase
-                  </span>
-                )}
-              </div>
-              {review.title && (
-                <h3 className="mt-3 text-base font-black">{review.title}</h3>
-              )}
-              <p className="mt-2 text-sm leading-6 text-gray-700">{review.content}</p>
-              <p className="mt-3 text-xs text-gray-500">
-                {review.customer_display_name ?? "Customer"}
-                {review.created_at ? ` - ${formatReviewDate(review.created_at)}` : ""}
-              </p>
-            </article>
-          ))
-        ) : (
-          <div className="rounded-rounded border border-dashed border-gray-200 p-6 text-sm text-gray-500">
-            No approved reviews are available for this product yet.
-          </div>
-        )}
-      </div>
+    <div>
+      {!submitted && <div className="mb-6 flex flex-col gap-3 rounded-lg bg-orange-50 p-5 small:flex-row small:items-center small:justify-between">
+        <div>{reviewPurchase ? <><p className="font-bold">Purchased this product?</p><p className="text-sm text-gray-600">Share your experience as a verified customer.</p></>
+          : signedIn ? <><p className="font-bold">Verified purchases only</p><p className="text-sm text-gray-600">You can review this product after an eligible order is delivered.</p></>
+          : <><p className="font-bold">Want to write a review?</p><p className="text-sm text-gray-600">Sign in with the account used for your purchase.</p></>}</div>
+        {reviewPurchase ? <button onClick={()=>setModalOpen(true)} className="rounded-md bg-[#ff5c0e] px-5 py-2.5 font-semibold text-white">Write a review</button>
+          : !signedIn ? <LocalizedClientLink href="/account" className="rounded-md bg-[#ff5c0e] px-5 py-2.5 text-center font-semibold text-white">Sign in</LocalizedClientLink> : null}
+      </div>}
+      <ProductReviews productId={productId} initial={reviews} yourReviewId={submitted?.id} />
+      {reviewPurchase && <ReviewModal purchase={reviewPurchase} open={modalOpen} onClose={()=>setModalOpen(false)} onSubmitted={(result)=>result.review && setSubmitted(result.review)} />}
     </div>
   )
 }

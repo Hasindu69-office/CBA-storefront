@@ -10,6 +10,8 @@ import {
   retrieveKokoPaymentAvailability,
 } from "@lib/data/koko-branding"
 import { retrieveWishlistedProductIds } from "@lib/data/wishlist"
+import { retrieveCustomer } from "@lib/data/customer"
+import { listCustomerReviews, listReviewEligibility } from "@lib/data/reviews"
 import CbaProductDetail from "@modules/products/templates/cba-product-detail"
 import { WishlistProductProvider } from "@modules/wishlist/components/wishlist-product-button"
 import { notFound } from "next/navigation"
@@ -40,6 +42,9 @@ export default async function ProductTemplate({
     wishlistedProductIds,
     kokoBranding,
     kokoAvailable,
+    customer,
+    reviewEligibility,
+    customerReviews,
   ] = await Promise.all([
     getProductDetail(product.id, selectedVariantId),
     getProductReviews(product.id, { limit: 5 }),
@@ -49,6 +54,9 @@ export default async function ProductTemplate({
     }),
     retrieveKokoCheckoutBranding(),
     retrieveKokoPaymentAvailability(region.id),
+    retrieveCustomer().catch(() => null),
+    listReviewEligibility({ product_id: product.id, limit: 1 }),
+    listCustomerReviews({ limit: 100 }),
   ])
 
   const [crossSellProducts, accessoryProducts, upSellProducts, relatedProducts] =
@@ -78,6 +86,9 @@ export default async function ProductTemplate({
         kokoBranding={kokoBranding}
         kokoAvailable={kokoAvailable}
         selectedVariantId={selectedVariantId}
+        reviewPurchase={reviewEligibility.purchases?.[0] ?? null}
+        customerReview={customerReviews.reviews?.find((review) => review.product_id === product.id) ?? null}
+        signedIn={Boolean(customer)}
       />
     </WishlistProductProvider>
   )
