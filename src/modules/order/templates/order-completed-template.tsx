@@ -27,7 +27,6 @@ type InstallmentPaymentSummary = {
   baseAmount: number
   chargeAmount: number
   feeAmount: number
-  monthlyAmount: number
 }
 
 function numberValue(value: unknown) {
@@ -168,6 +167,9 @@ function getInstallmentPaymentSummary(order: HttpTypes.StoreOrder) {
         plan.installment_charge_amount ??
         payment.amount
     )
+    const storedFeeAmount = numberValue(
+      data.installment_fee_amount ?? plan.installment_fee_amount
+    )
 
     if (
       !tenorMonths ||
@@ -179,7 +181,7 @@ function getInstallmentPaymentSummary(order: HttpTypes.StoreOrder) {
       continue
     }
 
-    const feeAmount = Math.max(0, chargeAmount - baseAmount)
+    const feeAmount = storedFeeAmount ?? Math.max(0, chargeAmount - baseAmount)
     return {
       bankName,
       tenorMonths,
@@ -187,7 +189,6 @@ function getInstallmentPaymentSummary(order: HttpTypes.StoreOrder) {
       baseAmount,
       chargeAmount,
       feeAmount,
-      monthlyAmount: chargeAmount / tenorMonths,
     }
   }
 
@@ -876,22 +877,9 @@ export default async function OrderCompletedTemplate({
               {installmentPayment && (
                 <div className="mt-4 rounded-[8px] border border-[#ffd8d1] bg-[#fff7f5] px-4 py-3 text-[13px] leading-5 text-[#6b4d44]">
                   <p className="font-semibold text-[#1f2933]">
-                    {installmentPayment.tenorMonths} x{" "}
-                    {formatPaymentAmount(
-                      order,
-                      installmentPayment.monthlyAmount
-                    )}{" "}
-                    with {installmentPayment.bankName}
-                  </p>
-                  <p className="mt-1">
-                    Base order total is{" "}
-                    {formatPaymentAmount(order, installmentPayment.baseAmount)}.
-                    Total{" "}
-                    {formatPaymentAmount(
-                      order,
-                      installmentPayment.chargeAmount
-                    )}{" "}
-                    after the bank installment fee.
+                    {installmentPayment.tenorMonths}-month installment plan with{" "}
+                    {installmentPayment.bankName} at{" "}
+                    {installmentPayment.feePercentage}%
                   </p>
                 </div>
               )}

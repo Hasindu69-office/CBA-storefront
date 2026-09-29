@@ -28,7 +28,7 @@ import type { WebxpayCheckoutBranding } from "@lib/data/webxpay-branding"
 import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
-import { calculateInstallmentChargeAmount } from "@lib/util/installment-totals"
+import { calculateCartInstallmentPricing } from "@lib/util/installment-totals"
 import {
   firstCheckoutAddressErrorField,
   validateCheckoutAddressFormData,
@@ -1179,7 +1179,12 @@ function PaymentMethodSelector({
 
   useEffect(() => {
     let alive = true
-    listInstallmentPlans({ amount: cart.total ?? 0, cartId: cart.id })
+    listInstallmentPlans({
+      cartId: cart.id,
+      cartTotal: cart.total,
+      itemTotal: cart.item_total,
+      itemTaxTotal: cart.item_tax_total,
+    })
       .then((result) => {
         if (!alive) return
         setInstallmentPlans(result.installment_plans)
@@ -1203,7 +1208,14 @@ function PaymentMethodSelector({
     return () => {
       alive = false
     }
-  }, [cart.id, cart.total])
+  }, [
+    cart.id,
+    cart.total,
+    cart.item_total,
+    cart.item_tax_total,
+    cart.shipping_total,
+    cart.discount_total,
+  ])
 
   useEffect(() => {
     setSelectedPlanId(selectedInstallmentPlanId(cart))
@@ -1492,9 +1504,9 @@ function InstallmentPaymentOption({
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-bold">
                   {plan.tenor_months} Months
-                  {plan.monthly_amount !== undefined
+                  {plan.installment_charge_amount !== undefined
                     ? ` (${installmentMoney(
-                        plan.monthly_amount,
+                        plan.installment_charge_amount,
                         currencyCode
                       )})`
                     : ""}{" "}
@@ -1581,15 +1593,17 @@ function CheckoutOrderSummary({
   const activeInstallment = isInstallmentMethod(selectedPaymentMethod)
     ? selectedInstallment
     : null
-  const installmentTotal = activeInstallment
-    ? calculateInstallmentChargeAmount(
-        Number(cart.total ?? 0),
-        Number(activeInstallment.fee_percentage)
-      )
+  const installmentPricing = activeInstallment
+    ? calculateCartInstallmentPricing({
+        baseAmount: Number(cart.total ?? 0),
+        itemTotal: Number(cart.item_total ?? 0),
+        itemTaxTotal: Number(cart.item_tax_total ?? 0),
+        feePercentage: Number(activeInstallment.fee_percentage),
+        tenorMonths: Number(activeInstallment.tenor_months),
+      })
     : null
-  const installmentFee = installmentTotal === null
-    ? null
-    : Math.round((installmentTotal - Number(cart.total ?? 0)) * 100) / 100
+  const installmentTotal = installmentPricing?.installment_charge_amount ?? null
+  const installmentFee = installmentPricing?.installment_fee_amount ?? null
 
   const applyCheckoutCoupon = async (code: string) => {
     const result = await applyPromotionsSafe(
