@@ -11,6 +11,7 @@ import {
   Lifebuoy,
   MapPin as MedusaMapPin,
   Receipt,
+  Star,
   User as MedusaUser,
 } from "@medusajs/icons"
 import { useParams, usePathname } from "next/navigation"
@@ -47,6 +48,13 @@ const primaryAccountLinks = [
     label: "Invoices",
     testId: "invoices-link",
     icon: Receipt,
+  },
+  {
+    href: "/account/reviews",
+    label: "My Reviews",
+    shortLabel: "Reviews",
+    testId: "reviews-link",
+    icon: Star,
   },
   {
     href: "/account/support",

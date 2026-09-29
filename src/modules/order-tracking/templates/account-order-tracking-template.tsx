@@ -15,6 +15,8 @@ import OrderDetailsSidebar from "../components/order-details-sidebar"
 import OrderStatusBadge from "../components/order-status-badge"
 import OrderTimelineHorizontal from "../components/order-timeline-horizontal"
 import OrderTrackingSupportBar from "../components/order-tracking-support-bar"
+import OrderReviewActions from "@modules/reviews/components/order-review-actions"
+import type { CustomerReview, EligibleReviewPurchase } from "@lib/data/reviews"
 import ShipmentCard from "../components/shipment-card"
 import { OrderTrackingEmptyState } from "../components/order-tracking-states"
 
@@ -25,6 +27,8 @@ type AccountOrderTrackingTemplateProps = {
   returnEligibility?: CbaReturnEligibility
   documents?: CbaOrderDocument[]
   orderId?: string
+  reviewPurchases?: EligibleReviewPurchase[]
+  submittedReviews?: CustomerReview[]
 }
 
 export default function AccountOrderTrackingTemplate({
@@ -34,6 +38,8 @@ export default function AccountOrderTrackingTemplate({
   returnEligibility,
   documents,
   orderId,
+  reviewPurchases = [],
+  submittedReviews = [],
 }: AccountOrderTrackingTemplateProps) {
   const { order, fulfillments, timeline, next_expected_step } = tracking
   const isCancelled = order.status === "canceled"
@@ -172,6 +178,8 @@ export default function AccountOrderTrackingTemplate({
           </aside>
         </div>
       </section>
+
+      <OrderReviewActions purchases={reviewPurchases} reviews={submittedReviews} />
 
       <OrderTrackingSupportBar
         orderId={order.id}
