@@ -18,7 +18,9 @@ describe("mapAuthoritativeTotals shipping display", () => {
     assert.equal(mapped.shippingVisible, false)
     assert.equal(mapped.shippingIsFree, false)
     assert.notEqual(mapped.shippingDisplay, "Free")
-    assert.equal(mapped.shippingDisplay, "")
+    assert.equal(mapped.shippingDisplay, "Calculated at checkout")
+    assert.equal(mapped.shippingSummaryLabel, "Delivery")
+    assert.equal(mapped.totalLabel, "Estimated total")
     assert.equal(
       mapped.rows.some((row) => row.key === "shipping"),
       false
@@ -42,6 +44,7 @@ describe("mapAuthoritativeTotals shipping display", () => {
     assert.equal(mapped.shippingIsFree, true)
     assert.equal(mapped.shippingDisplay, "Free")
     assert.equal(mapped.shippingLabel, "Delivery Fee")
+    assert.equal(mapped.totalLabel, "Total")
     assert.equal(
       mapped.rows.some((row) => row.key === "shipping"),
       true
@@ -138,7 +141,7 @@ describe("mapAuthoritativeTotals shipping display", () => {
       shipping_total: 500,
       shipping_subtotal: 500,
       total: 600,
-      shipping_methods: [{}],
+      shipping_methods: [{ name: "Domex Standard" }],
       shipping_address: { address_1: "123 Main St" },
     })
 
@@ -148,6 +151,25 @@ describe("mapAuthoritativeTotals shipping display", () => {
     assert.notEqual(mapped.shippingDisplay, "Free")
     assert.match(mapped.shippingDisplay, /500/)
     assert.equal(mapped.rows.find((row) => row.key === "shipping")?.amount, 500)
+    assert.equal(mapped.shippingSummaryLabel, "Delivery — Domex Standard")
+    assert.deepEqual(mapped.selectedShippingMethodNames, ["Domex Standard"])
+  })
+
+  it("summarizes multiple selected fulfillment methods", () => {
+    const mapped = mapAuthoritativeTotals(
+      {
+        currency_code: "lkr",
+        item_subtotal: 100,
+        shipping_total: 50,
+        total: 150,
+        shipping_methods: [{ name: "Domex" }, { name: "Store pickup" }],
+        shipping_address: { address_1: "123 Main St" },
+      },
+      { fulfillmentMode: "mixed" }
+    )
+
+    assert.equal(mapped.shippingSummaryLabel, "Delivery (2 methods)")
+    assert.deepEqual(mapped.selectedShippingMethodNames, ["Domex", "Store pickup"])
   })
 
   it("keeps strike-through free shipping when a method is selected with discount", () => {

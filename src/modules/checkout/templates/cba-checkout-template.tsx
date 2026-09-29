@@ -62,7 +62,7 @@ import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-inp
 import Radio from "@modules/common/components/radio"
 import { CardElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   useCallback,
   useEffect,
@@ -858,6 +858,8 @@ function DeliveryMethodSelector({
   saveCurrentCheckoutDetails: () => Promise<string | null>
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const deliverySectionRef = useRef<HTMLDivElement>(null)
   const [isPending, startTransition] = useTransition()
   const [selectedByProfile, setSelectedByProfile] = useState<
     Record<string, string>
@@ -920,6 +922,25 @@ function DeliveryMethodSelector({
     }
   }, [cart.id, plan])
 
+  useEffect(() => {
+    if (
+      searchParams.get("section") !== "delivery" &&
+      window.location.hash !== "#delivery-methods"
+    ) {
+      return
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      deliverySectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      })
+      deliverySectionRef.current?.focus({ preventScroll: true })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [searchParams])
+
   const selectMethod = (profileId: string, methodId: string) => {
     const previous = selectedByProfile[profileId] ?? ""
     setActionError(null)
@@ -956,7 +977,13 @@ function DeliveryMethodSelector({
   }
 
   return (
-    <div className="border-b border-gray-100 py-6">
+    <div
+      id="delivery-methods"
+      ref={deliverySectionRef}
+      tabIndex={-1}
+      aria-label="Fulfillment Method"
+      className="scroll-mt-24 border-b border-gray-100 py-6 outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+    >
       <SectionTitle
         icon={<ShoppingBag className="text-brand" />}
         title="Fulfillment Method"

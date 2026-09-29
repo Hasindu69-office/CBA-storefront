@@ -11,6 +11,7 @@ type TotalLine = {
 }
 
 type TotalShippingMethod = {
+  name?: string | null
   is_tax_inclusive?: boolean | null
   tax_lines?: unknown[] | null
 }
@@ -71,6 +72,9 @@ export type TotalDisplay = {
   shippingDisplay: string
   shippingLabel: string
   shippingBeforeDiscountDisplay: string | null
+  selectedShippingMethodNames: string[]
+  shippingSummaryLabel: string
+  totalLabel: "Total" | "Estimated total"
   /** True when no shipping method is on the cart yet — fee is unknown, not free. */
   shippingIsPending: boolean
   /** True when a method is selected and its fee may be shown. */
@@ -167,12 +171,29 @@ export function mapAuthoritativeTotals(
     options.fulfillmentMode !== "pickup-only" &&
     shippingAfterDiscount <= 0
   const shippingVisible = shippingMethodSelected
+  const selectedShippingMethodNames = shippingMethodSelected
+    ? Array.from(
+        new Set(
+          (source?.shipping_methods ?? [])
+            .map((method) => method.name?.trim())
+            .filter((name): name is string => Boolean(name))
+        )
+      )
+    : []
   const shippingLabel =
     options.fulfillmentMode === "pickup-only"
       ? shippingIsSelfCollection
         ? "Collection"
         : "Collection fee"
       : "Delivery Fee"
+  const shippingSummaryLabel =
+    options.fulfillmentMode === "pickup-only"
+      ? shippingLabel
+      : selectedShippingMethodNames.length === 1
+      ? `Delivery — ${selectedShippingMethodNames[0]}`
+      : selectedShippingMethodNames.length > 1
+      ? `Delivery (${selectedShippingMethodNames.length} methods)`
+      : "Delivery"
 
   if (
     automaticTaxes &&
@@ -274,7 +295,9 @@ export function mapAuthoritativeTotals(
         : formatTotalAmount(shippingAfterDiscount, currencyCode, {
             compact: options.compactMoney,
           })
-      : "",
+      : options.fulfillmentMode === "pickup-only"
+      ? "Select a pickup location"
+      : "Calculated at checkout",
     shippingBeforeDiscountDisplay:
       shippingVisible && shippingDiscount > 0
         ? formatTotalAmount(shippingBeforeDiscount, currencyCode, {
@@ -286,6 +309,9 @@ export function mapAuthoritativeTotals(
     shippingIsFree,
     shippingIsSelfCollection,
     shippingLabel,
+    shippingSummaryLabel,
+    selectedShippingMethodNames,
+    totalLabel: shippingIsPending ? "Estimated total" : "Total",
     hasDiscount: itemDiscount > 0 || (shippingVisible && shippingDiscount > 0),
     discountLabel,
   }
