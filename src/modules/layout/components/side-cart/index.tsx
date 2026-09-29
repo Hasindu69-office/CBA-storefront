@@ -80,9 +80,9 @@ function getItemCount(cart?: HttpTypes.StoreCart | null) {
 }
 
 function getCheckoutStep(cart: HttpTypes.StoreCart) {
-  return !cart?.shipping_address?.address_1 || !cart.email
-    ? "address"
-    : "payment"
+  if (!cart?.shipping_address?.address_1 || !cart.email) return "address"
+  if (!(cart.shipping_methods?.length ?? 0)) return "delivery"
+  return "payment"
 }
 
 function clampQuantity(quantity: number, maxQuantity: number) {
@@ -982,6 +982,7 @@ function SideCartSummary({
   const subtotalRow = mapped.rows.find((row) => row.key === "subtotal")
   const discountRow = mapped.rows.find((row) => row.key === "discount")
   const taxRow = mapped.rows.find((row) => row.key === "tax")
+  const changeDeliveryHref = "/checkout?section=delivery#delivery-methods"
 
   return (
     <div>
@@ -1001,6 +1002,38 @@ function SideCartSummary({
             <span className="font-semibold">-{discountRow.display}</span>
           </div>
         )}
+        <div className="flex items-start justify-between gap-4">
+          <span className="min-w-0">
+            <span className="block break-words">{mapped.shippingSummaryLabel}</span>
+            {mapped.selectedShippingMethodNames.length > 1 && (
+              <span className="mt-0.5 block text-[10px] text-[#7a8190] small:text-[11px]">
+                {mapped.selectedShippingMethodNames.join(" + ")}
+              </span>
+            )}
+            {mapped.shippingVisible && (
+              <LocalizedClientLink
+                href={changeDeliveryHref}
+                onClick={onClose}
+                className="mt-0.5 inline-block font-semibold text-brand hover:underline"
+                aria-label="Change delivery method"
+              >
+                Change
+              </LocalizedClientLink>
+            )}
+          </span>
+          <span
+            className={`shrink-0 text-right font-medium ${
+              mapped.shippingIsFree ? "text-emerald-700" : ""
+            }`}
+          >
+            {mapped.shippingBeforeDiscountDisplay && (
+              <span className="block text-[10px] text-[#8b90a0] line-through">
+                {mapped.shippingBeforeDiscountDisplay}
+              </span>
+            )}
+            {mapped.shippingDisplay}
+          </span>
+        </div>
         {taxRow && (
           <div className="flex items-center justify-between gap-4">
             <span>{taxRow.label}</span>
@@ -1011,7 +1044,7 @@ function SideCartSummary({
 
       <div className="flex items-start justify-between gap-4 py-3">
         <span className="text-[16px] font-bold text-[#111827] small:text-[17px]">
-          Total
+          {mapped.totalLabel}
         </span>
         <span className="text-right">
           <span className="block text-[18px] font-bold text-brand small:text-[20px]">

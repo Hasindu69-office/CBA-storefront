@@ -14,9 +14,9 @@ type CartSummaryPanelProps = {
 }
 
 function getCheckoutStep(cart: HttpTypes.StoreCart) {
-  return !cart?.shipping_address?.address_1 || !cart.email
-    ? "address"
-    : "payment"
+  if (!cart?.shipping_address?.address_1 || !cart.email) return "address"
+  if (!(cart.shipping_methods?.length ?? 0)) return "delivery"
+  return "payment"
 }
 
 function money(amount: number | null | undefined, currencyCode: string) {
@@ -69,9 +69,24 @@ export default function CartSummaryPanel({
             </span>
           </div>
         )}
-        {mapped.shippingVisible && (
-          <div className="flex items-start justify-between gap-4">
-            <span className="text-[#111111]">{mapped.shippingLabel}</span>
+        <div className="flex items-start justify-between gap-4">
+            <span className="min-w-0 text-[#111111]">
+              <span className="block break-words">{mapped.shippingSummaryLabel}</span>
+              {mapped.selectedShippingMethodNames.length > 1 && (
+                <span className="mt-1 block text-[12px] text-[#7a8190]">
+                  {mapped.selectedShippingMethodNames.join(" + ")}
+                </span>
+              )}
+              {mapped.shippingVisible && (
+                <LocalizedClientLink
+                  href="/checkout?section=delivery#delivery-methods"
+                  className="mt-1 inline-block text-[12px] font-semibold text-brand hover:underline"
+                  aria-label="Change delivery method"
+                >
+                  Change
+                </LocalizedClientLink>
+              )}
+            </span>
             <span className="text-right">
               {mapped.shippingBeforeDiscountDisplay && (
                 <span className="block text-[13px] font-medium text-[#8b90a0] line-through">
@@ -94,7 +109,6 @@ export default function CartSummaryPanel({
               )}
             </span>
           </div>
-        )}
         {taxRow && (
           <div className="flex items-start justify-between gap-4">
             <span className="text-[#111111]">{taxRow.label}</span>
@@ -106,7 +120,9 @@ export default function CartSummaryPanel({
       <div className="my-7 h-px bg-gray-100" />
 
       <div className="flex items-start justify-between gap-4">
-        <span className="text-[16px] font-bold text-[#111111]">Total</span>
+        <span className="text-[16px] font-bold text-[#111111]">
+          {mapped.totalLabel}
+        </span>
         <span className="text-right">
           <span className="block text-[20px] font-bold text-brand">
             {mapped.total.display}

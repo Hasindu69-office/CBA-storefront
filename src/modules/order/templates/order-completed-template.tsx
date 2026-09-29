@@ -886,7 +886,7 @@ export default async function OrderCompletedTemplate({
                   <p className="mt-1">
                     Base order total is{" "}
                     {formatPaymentAmount(order, installmentPayment.baseAmount)}.
-                    WebXPay charged{" "}
+                    Total{" "}
                     {formatPaymentAmount(
                       order,
                       installmentPayment.chargeAmount

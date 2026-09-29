@@ -22,6 +22,7 @@ type CartTotalsProps = {
     shipping_discount_total?: number | null
     original_shipping_subtotal?: number | null
     shipping_methods?: Array<{
+      name?: string | null
       is_tax_inclusive?: boolean | null
       tax_lines?: unknown[] | null
     }> | null
@@ -57,9 +58,8 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
               convertToLocale({ amount: item_subtotal ?? 0, currency_code })}
           </span>
         </div>
-        {mapped.shippingVisible && (
-          <div className="flex items-center justify-between">
-            <span>{mapped.shippingLabel}</span>
+        <div className="flex items-start justify-between gap-4">
+            <span>{mapped.shippingSummaryLabel}</span>
             <span
               className="text-right"
               data-testid="cart-shipping"
@@ -81,7 +81,6 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
               </span>
             </span>
           </div>
-        )}
         {productDiscount > 0 && (
           <div className="flex items-center justify-between">
             <span>Discount</span>
@@ -104,7 +103,7 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
       </div>
       <div className="h-px w-full border-b border-gray-200 my-4" />
       <div className="flex items-center justify-between text-ui-fg-base mb-2 txt-medium ">
-        <span>Total</span>
+        <span>{mapped.totalLabel}</span>
         <span
           className="txt-xlarge-plus"
           data-testid="cart-total"

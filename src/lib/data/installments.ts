@@ -1,7 +1,6 @@
 "use server"
 
 import { MEDUSA_BACKEND_URL, sdk } from "@lib/config"
-import medusaError from "@lib/util/medusa-error"
 import { revalidateTag } from "next/cache"
 
 import { getAuthHeaders, getCacheTag } from "./cookies"
@@ -41,6 +40,13 @@ export type SelectedInstallmentPlanSnapshot = {
   fee_percentage: number
   logo_path: string | null
   selected_at: string
+}
+
+export type CheckoutPaymentSelection = {
+  payment_mode: "standard" | "installment"
+  provider_id: string
+  selected_installment_plan: SelectedInstallmentPlanSnapshot | null
+  payment_session: { id: string; provider_id: string; status: string }
 }
 
 type Envelope<T> =
@@ -102,70 +108,42 @@ function normalizeLogoUrl(value: string | null) {
   return value
 }
 
-export async function selectInstallmentPlan(cartId: string, planId: string) {
-  if (!SAFE_CART_ID_PATTERN.test(cartId) || !SAFE_PLAN_ID_PATTERN.test(planId)) {
-    throw new Error("Installment plan selection is invalid.")
+export async function selectCheckoutPayment(input: {
+  cartId: string
+  providerId: string
+  mode: "standard" | "installment"
+  installmentPlanId?: string | null
+}) {
+  if (
+    !SAFE_CART_ID_PATTERN.test(input.cartId) ||
+    !/^pp_[A-Za-z0-9_-]+$/.test(input.providerId) ||
+    (input.mode === "installment" &&
+      (!input.installmentPlanId || !SAFE_PLAN_ID_PATTERN.test(input.installmentPlanId))) ||
+    (input.mode === "standard" && input.installmentPlanId)
+  ) {
+    throw new Error("Payment selection is invalid.")
   }
 
-  const headers = {
-    ...(await getAuthHeaders()),
+  const headers = { ...(await getAuthHeaders()) }
+  const response = await sdk.client.fetch<Envelope<CheckoutPaymentSelection>>(
+    "/store/cba/v1/checkout/payment-selection",
+    {
+      method: "POST",
+      body: {
+        cart_id: input.cartId,
+        provider_id: input.providerId,
+        mode: input.mode,
+        ...(input.installmentPlanId
+          ? { installment_plan_id: input.installmentPlanId }
+          : {}),
+      },
+      headers,
+      cache: "no-store",
+    }
+  )
+  if (!response.success) {
+    throw new Error(response.error?.message ?? "Payment method could not be updated.")
   }
-
-  return sdk.client
-    .fetch<Envelope<{ selected_installment_plan: SelectedInstallmentPlanSnapshot }>>(
-      "/store/cba/v1/installments/selection",
-      {
-        method: "POST",
-        body: {
-          cart_id: cartId,
-          installment_plan_id: planId,
-        },
-        headers,
-        cache: "no-store",
-      }
-    )
-    .then(async (response) => {
-      if (!response.success) {
-        throw new Error(
-          response.error?.message ?? "Installment plan could not be selected."
-        )
-      }
-      await revalidateCartData()
-      return response.data.selected_installment_plan
-    })
-    .catch(medusaError)
-}
-
-export async function clearInstallmentPlan(cartId: string) {
-  if (!SAFE_CART_ID_PATTERN.test(cartId)) {
-    throw new Error("Cart is invalid.")
-  }
-
-  const headers = {
-    ...(await getAuthHeaders()),
-  }
-
-  return sdk.client
-    .fetch<Envelope<{ selected_installment_plan: null }>>(
-      "/store/cba/v1/installments/selection",
-      {
-        method: "POST",
-        body: {
-          cart_id: cartId,
-          installment_plan_id: null,
-        },
-        headers,
-        cache: "no-store",
-      }
-    )
-    .then(async (response) => {
-      if (!response.success) {
-        throw new Error(
-          response.error?.message ?? "Installment plan could not be cleared."
-        )
-      }
-      await revalidateCartData()
-      return null
-    })
-    .catch(medusaError)
+  await revalidateCartData()
+  return response.data
 }
