@@ -17,6 +17,8 @@ export type StoreInstallmentPlan = {
   fee_percentage: number
   logo_path: string | null
   monthly_amount?: number
+  installment_fee_amount?: number
+  installment_charge_amount?: number
 }
 
 export type StoreInstallmentEligibility = {
@@ -27,6 +29,8 @@ export type StoreInstallmentEligibility = {
 export type StoreInstallmentPlansResponse = {
   installment_plans: StoreInstallmentPlan[]
   amount?: number
+  base_amount?: number
+  installment_basis_amount?: number
   currency_code: string
   cart_eligibility?: StoreInstallmentEligibility
 }
@@ -63,9 +67,12 @@ async function revalidateCartData() {
 export async function listInstallmentPlans(input?: {
   amount?: number | null
   cartId?: string | null
+  cartTotal?: number | null
+  itemTotal?: number | null
+  itemTaxTotal?: number | null
 }) {
   const query: Record<string, string> = {}
-  if (Number.isFinite(Number(input?.amount)) && Number(input?.amount) >= 0) {
+  if (!input?.cartId && Number.isFinite(Number(input?.amount)) && Number(input?.amount) >= 0) {
     query.amount = String(input?.amount)
   }
   if (input?.cartId && SAFE_CART_ID_PATTERN.test(input.cartId)) {
@@ -85,6 +92,10 @@ export async function listInstallmentPlans(input?: {
     throw new Error(
       response.error?.message ?? "Installment plans could not be loaded."
     )
+  }
+
+  if (input?.cartId) {
+    validateCheckoutPricing(response.data, input)
   }
 
   return {
@@ -144,6 +155,46 @@ export async function selectCheckoutPayment(input: {
   if (!response.success) {
     throw new Error(response.error?.message ?? "Payment method could not be updated.")
   }
+
   await revalidateCartData()
   return response.data
+}
+
+function validateCheckoutPricing(
+  data: StoreInstallmentPlansResponse,
+  expected: {
+    cartTotal?: number | null
+    itemTotal?: number | null
+    itemTaxTotal?: number | null
+  }
+) {
+  const expectedBase = Number(expected.cartTotal)
+  const expectedBasis = Number(expected.itemTotal) - Number(expected.itemTaxTotal ?? 0)
+  const close = (left: number, right: number) => Math.abs(left - right) < 0.01
+
+  if (
+    !Number.isFinite(data.base_amount) ||
+    !Number.isFinite(data.installment_basis_amount) ||
+    !Number.isFinite(expectedBase) ||
+    !Number.isFinite(expectedBasis) ||
+    expectedBasis < 0 ||
+    !close(Number(data.base_amount), expectedBase) ||
+    !close(Number(data.installment_basis_amount), expectedBasis)
+  ) {
+    throw new Error("Installment pricing changed. Refresh checkout and try again.")
+  }
+
+  for (const plan of data.installment_plans) {
+    const fee = Number(plan.installment_fee_amount)
+    const charge = Number(plan.installment_charge_amount)
+    const monthly = Number(plan.monthly_amount)
+    if (
+      !Number.isFinite(fee) || fee < 0 ||
+      !Number.isFinite(charge) || charge < 0 ||
+      !Number.isFinite(monthly) || monthly < 0 ||
+      !close(charge, expectedBase + fee)
+    ) {
+      throw new Error("Installment plan pricing is unavailable. Please try again.")
+    }
+  }
 }
