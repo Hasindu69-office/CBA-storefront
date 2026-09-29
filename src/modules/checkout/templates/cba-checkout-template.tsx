@@ -1,7 +1,6 @@
 "use client"
 
 import {
-  initiatePaymentSession,
   applyPromotionsSafe,
   calculateCartTaxes,
   placeOrder,
@@ -9,9 +8,9 @@ import {
   setShippingMethod,
 } from "@lib/data/cart"
 import {
-  clearInstallmentPlan,
   listInstallmentPlans,
-  selectInstallmentPlan,
+  selectCheckoutPayment,
+  type SelectedInstallmentPlanSnapshot,
   type StoreInstallmentPlan,
 } from "@lib/data/installments"
 import { calculatePriceForShippingOption } from "@lib/data/fulfillment"
@@ -29,6 +28,7 @@ import type { WebxpayCheckoutBranding } from "@lib/data/webxpay-branding"
 import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
+import { calculateInstallmentChargeAmount } from "@lib/util/installment-totals"
 import {
   firstCheckoutAddressErrorField,
   validateCheckoutAddressFormData,
@@ -204,6 +204,18 @@ function selectedInstallmentPlanId(
   return typeof value === "string" && value.startsWith("cbaip_") ? value : ""
 }
 
+function selectedInstallmentSnapshot(
+  cart: CbaCheckoutCart | HttpTypes.StoreCart
+) {
+  const value = (cart as CbaCheckoutCart).metadata?.cba_installment_plan
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const snapshot = value as Partial<SelectedInstallmentPlanSnapshot>
+  return typeof snapshot.plan_id === "string" &&
+    Number.isFinite(Number(snapshot.fee_percentage))
+    ? (snapshot as SelectedInstallmentPlanSnapshot)
+    : null
+}
+
 function selectedCheckoutPaymentMethod(
   cart: CbaCheckoutCart | HttpTypes.StoreCart,
   paymentMethods: HttpTypes.StorePaymentProvider[]
@@ -246,6 +258,9 @@ export default function CbaCheckoutTemplate({
   )
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
     selectedCheckoutPaymentMethod(cart, paymentMethods)
+  )
+  const [selectedInstallment, setSelectedInstallment] = useState(
+    selectedInstallmentSnapshot(cart)
   )
   const [cardComplete, setCardComplete] = useState(false)
   const addressFormRef = useRef<HTMLFormElement>(null)
@@ -369,26 +384,6 @@ export default function CbaCheckoutTemplate({
     return null
   }, [focusAddressField])
 
-  useEffect(() => {
-    if (activeSession?.provider_id) {
-      const nextPaymentMethod = selectedCheckoutPaymentMethod(
-        cart,
-        paymentMethods
-      )
-      const keepPendingInstallmentChoice =
-        selectedPaymentMethod === CBA_INSTALLMENT_METHOD_ID &&
-        isWebxpay(activeSession.provider_id) &&
-        !selectedInstallmentPlanId(cart)
-
-      if (
-        !keepPendingInstallmentChoice &&
-        nextPaymentMethod !== selectedPaymentMethod
-      ) {
-        setSelectedPaymentMethod(nextPaymentMethod)
-      }
-    }
-  }, [activeSession?.provider_id, cart, paymentMethods, selectedPaymentMethod])
-
   return (
     <div className="content-container py-10 small:py-12">
       <h1 className="text-center text-[32px] small:text-[36px] font-bold leading-tight text-[#111111]">
@@ -420,6 +415,7 @@ export default function CbaCheckoutTemplate({
             paymentMethods={paymentMethods}
             selectedPaymentMethod={selectedPaymentMethod}
             setSelectedPaymentMethod={setSelectedPaymentMethod}
+            setSelectedInstallment={setSelectedInstallment}
             setCardComplete={setCardComplete}
             isSavingCheckoutDetails={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
@@ -455,6 +451,7 @@ export default function CbaCheckoutTemplate({
             webxpayBranding={webxpayBranding}
             kokoBranding={kokoBranding}
             fulfillmentPlan={fulfillmentPlan}
+            selectedInstallment={selectedInstallment}
           />
         </aside>
       </div>
@@ -1114,6 +1111,7 @@ function PaymentMethodSelector({
   paymentMethods,
   selectedPaymentMethod,
   setSelectedPaymentMethod,
+  setSelectedInstallment,
   setCardComplete,
   isSavingCheckoutDetails,
   saveCurrentCheckoutDetails,
@@ -1125,6 +1123,7 @@ function PaymentMethodSelector({
   paymentMethods: HttpTypes.StorePaymentProvider[]
   selectedPaymentMethod: string
   setSelectedPaymentMethod: (method: string) => void
+  setSelectedInstallment: (plan: SelectedInstallmentPlanSnapshot | null) => void
   setCardComplete: (complete: boolean) => void
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
@@ -1142,6 +1141,7 @@ function PaymentMethodSelector({
   const [installmentLoadError, setInstallmentLoadError] = useState("")
   const [actionError, setActionError] = useState<string | null>(null)
   const [cardError, setCardError] = useState<string | null>(null)
+  const paymentMutationRef = useRef(false)
   const [selectedPlanId, setSelectedPlanId] = useState(
     selectedInstallmentPlanId(cart)
   )
@@ -1183,8 +1183,16 @@ function PaymentMethodSelector({
   }, [cart])
 
   const selectPayment = (providerId: string) => {
+    if (paymentMutationRef.current || isPending || isSavingCheckoutDetails) return
+    paymentMutationRef.current = true
+    const previousMethod = selectedPaymentMethod
+    const previousPlanId = selectedPlanId
+    const previousInstallment = selectedInstallmentSnapshot(cart)
     setActionError(null)
     setCardComplete(false)
+    setSelectedPaymentMethod(providerId)
+    setSelectedPlanId("")
+    setSelectedInstallment(null)
     startTransition(async () => {
       try {
         const checkoutDetailsError = await saveCurrentCheckoutDetails()
@@ -1199,52 +1207,45 @@ function PaymentMethodSelector({
           return
         }
 
-        await clearInstallmentPlan(cart.id)
-        await initiatePaymentSession(cart, { provider_id: providerId })
-        setSelectedPaymentMethod(providerId)
+        const result = await selectCheckoutPayment({
+          cartId: cart.id,
+          providerId,
+          mode: "standard",
+        })
+        setSelectedPaymentMethod(result.provider_id)
+        setSelectedPlanId("")
+        setSelectedInstallment(null)
         router.refresh()
       } catch (err) {
+        setSelectedPaymentMethod(previousMethod)
+        setSelectedPlanId(previousPlanId)
+        setSelectedInstallment(previousInstallment)
         setActionError("Could not set payment method. Please try again.")
         notify.error(err, "Could not set payment method.", {
           id: "checkout-payment",
         })
+      } finally {
+        paymentMutationRef.current = false
       }
     })
   }
 
   const selectInstallmentPayment = () => {
+    if (isPending || isSavingCheckoutDetails) return
     setActionError(null)
     setCardComplete(false)
-    startTransition(async () => {
-      try {
-        const checkoutDetailsError = await saveCurrentCheckoutDetails()
-        if (checkoutDetailsError) {
-          setActionError("Complete the highlighted delivery details first.")
-          return
-        }
-        if (!hasSelectedDelivery) {
-          setActionError(
-            "Select a method for every fulfillment group before choosing payment."
-          )
-          return
-        }
-
-        if (webxpayMethod && !isWebxpay(activeSession?.provider_id)) {
-          await initiatePaymentSession(cart, { provider_id: webxpayMethod.id })
-        }
-        setSelectedPaymentMethod(CBA_INSTALLMENT_METHOD_ID)
-      } catch (err) {
-        setActionError("Could not set installment payment. Please try again.")
-        notify.error(err, "Could not set installment payment.", {
-          id: "checkout-payment",
-        })
-      }
-    })
+    setSelectedPaymentMethod(CBA_INSTALLMENT_METHOD_ID)
   }
 
   const selectPlan = (planId: string) => {
+    if (paymentMutationRef.current || isPending || isSavingCheckoutDetails || !webxpayMethod) return
+    paymentMutationRef.current = true
     const previousPlanId = selectedPlanId
+    const previousMethod = selectedPaymentMethod
+    const previousInstallment = selectedInstallmentSnapshot(cart)
     setActionError(null)
+    setSelectedPlanId(planId)
+    setSelectedPaymentMethod(CBA_INSTALLMENT_METHOD_ID)
     startTransition(async () => {
       try {
         const checkoutDetailsError = await saveCurrentCheckoutDetails()
@@ -1260,19 +1261,26 @@ function PaymentMethodSelector({
           return
         }
 
-        if (webxpayMethod && !isWebxpay(activeSession?.provider_id)) {
-          await initiatePaymentSession(cart, { provider_id: webxpayMethod.id })
-        }
-        await selectInstallmentPlan(cart.id, planId)
-        setSelectedPlanId(planId)
+        const result = await selectCheckoutPayment({
+          cartId: cart.id,
+          providerId: webxpayMethod.id,
+          mode: "installment",
+          installmentPlanId: planId,
+        })
+        setSelectedPlanId(result.selected_installment_plan?.plan_id ?? "")
+        setSelectedInstallment(result.selected_installment_plan)
         setSelectedPaymentMethod(CBA_INSTALLMENT_METHOD_ID)
         router.refresh()
       } catch (err) {
         setSelectedPlanId(previousPlanId)
+        setSelectedPaymentMethod(previousMethod)
+        setSelectedInstallment(previousInstallment)
         setActionError("Could not select installment plan. Please try again.")
         notify.error(err, "Could not select installment plan.", {
           id: "checkout-payment",
         })
+      } finally {
+        paymentMutationRef.current = false
       }
     })
   }
@@ -1503,6 +1511,7 @@ function CheckoutOrderSummary({
   webxpayBranding,
   kokoBranding,
   fulfillmentPlan,
+  selectedInstallment,
 }: {
   cart: CbaCheckoutCart
   selectedPaymentMethod: string
@@ -1514,6 +1523,7 @@ function CheckoutOrderSummary({
   webxpayBranding?: WebxpayCheckoutBranding | null
   kokoBranding?: KokoCheckoutBranding | null
   fulfillmentPlan: FulfillmentPlan
+  selectedInstallment: SelectedInstallmentPlanSnapshot | null
 }) {
   const router = useRouter()
   const [isRefreshingTotals, setIsRefreshingTotals] = useState(false)
@@ -1541,6 +1551,18 @@ function CheckoutOrderSummary({
   const taxRows = mapped.rows.filter((row) =>
     ["item-tax", "shipping-tax", "tax"].includes(row.key)
   )
+  const activeInstallment = isInstallmentMethod(selectedPaymentMethod)
+    ? selectedInstallment
+    : null
+  const installmentTotal = activeInstallment
+    ? calculateInstallmentChargeAmount(
+        Number(cart.total ?? 0),
+        Number(activeInstallment.fee_percentage)
+      )
+    : null
+  const installmentFee = installmentTotal === null
+    ? null
+    : Math.round((installmentTotal - Number(cart.total ?? 0)) * 100) / 100
 
   const applyCheckoutCoupon = async (code: string) => {
     const result = await applyPromotionsSafe(
@@ -1661,16 +1683,30 @@ function CheckoutOrderSummary({
           {taxRows.map((row) => (
             <SummaryLine key={row.key} label={row.label} value={row.display} />
           ))}
+          {installmentFee !== null && (
+            <SummaryLine
+              label={`Installment fee (${formatInstallmentRate(
+                activeInstallment!.fee_percentage
+              )})`}
+              value={installmentMoney(installmentFee, cart.currency_code)}
+            />
+          )}
         </div>
 
         <div className="mt-5 border-t border-gray-100 pt-5">
           <div className="flex items-start justify-between gap-4">
             <span className="text-[20px] font-bold text-[#111111]">
-              {fulfillmentPlan.isComplete ? "Total" : "Estimated total"}
+              {activeInstallment
+                ? "Installment total"
+                : fulfillmentPlan.isComplete
+                  ? "Total"
+                  : "Estimated total"}
             </span>
             <span className="text-right">
               <span className="block text-[24px] font-bold text-brand">
-                {mapped.total.display}
+                {installmentTotal === null
+                  ? mapped.total.display
+                  : installmentMoney(installmentTotal, cart.currency_code)}
               </span>
               {mapped.taxNote && (
                 <span
