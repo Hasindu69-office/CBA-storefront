@@ -3,6 +3,23 @@ import { describe, it } from "node:test"
 import { mapAuthoritativeTotals } from "../cart-totals"
 
 describe("mapAuthoritativeTotals shipping display", () => {
+  it("preserves fractional tax and total amounts", () => {
+    const mapped = mapAuthoritativeTotals({
+      currency_code: "lkr",
+      item_subtotal: 10,
+      item_tax_total: 0.5,
+      tax_total: 0.5,
+      total: 10.5,
+      shipping_methods: [],
+    })
+
+    assert.match(
+      mapped.rows.find((row) => row.key === "tax")?.display ?? "",
+      /0\.50/
+    )
+    assert.match(mapped.total.display, /10\.50/)
+  })
+
   it("shows tax-exclusive delivery and one combined tax row", () => {
     const mapped = mapAuthoritativeTotals({
       currency_code: "lkr",
