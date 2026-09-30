@@ -682,7 +682,7 @@ export default async function OrderCompletedTemplate({
                   {items.length ? (
                     items.map((item) => {
                       const quantity = item.quantity ?? 0
-                      const lineTotal = item.total ?? 0
+                      const lineTotal = item.subtotal ?? item.total ?? 0
 
                       return (
                         <div
@@ -806,7 +806,7 @@ export default async function OrderCompletedTemplate({
                   <div className="space-y-4 pb-5" data-testid="summary-items">
                     {items.map((item) => {
                       const quantity = item.quantity ?? 0
-                      const lineTotal = item.total ?? 0
+                      const lineTotal = item.subtotal ?? item.total ?? 0
                       const unitPrice =
                         quantity > 0 ? lineTotal / quantity : lineTotal
 
