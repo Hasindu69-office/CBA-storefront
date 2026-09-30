@@ -27,6 +27,7 @@ import {
   UserIcon,
 } from "@modules/layout/components/cba-icons"
 import Image from "next/image"
+import AuthAwareLink from "@modules/account/components/auth-aware-link"
 
 const fallbackNavLinks = [
   { label: "Printers & MFPs", href: "/store" },
@@ -283,8 +284,9 @@ export default async function Nav({
                   variant="mobile"
                 />
 
-                <LocalizedClientLink
+                <AuthAwareLink
                   href="/account"
+                  authenticated={Boolean(customer)}
                   className="flex min-w-[38px] flex-col items-center gap-0.5 text-black transition-opacity hover:opacity-80 xsmall:min-w-[42px]"
                 >
                   {customer ? (
@@ -305,7 +307,7 @@ export default async function Nav({
                   <span className="max-w-[58px] truncate leading-none">
                     {mobileAccountLabel}
                   </span>
-                </LocalizedClientLink>
+                </AuthAwareLink>
               </div>
             </div>
 
@@ -341,8 +343,9 @@ export default async function Nav({
                 variant="desktop"
               />
 
-              <LocalizedClientLink
+              <AuthAwareLink
                 href="/account"
+                authenticated={Boolean(customer)}
                 className="flex min-w-0 items-center gap-2.5 hover:opacity-80 transition-opacity"
               >
                 {customer ? (
@@ -376,7 +379,7 @@ export default async function Nav({
                     </div>
                   </>
                 )}
-              </LocalizedClientLink>
+              </AuthAwareLink>
             </div>
           </div>
         </div>
@@ -445,8 +448,9 @@ export default async function Nav({
                   variant="desktop"
                 />
 
-                <LocalizedClientLink
+                <AuthAwareLink
                   href="/account"
+                  authenticated={Boolean(customer)}
                   className="flex min-w-0 items-center gap-2.5 transition-opacity hover:opacity-80"
                 >
                   {customer ? (
@@ -480,7 +484,7 @@ export default async function Nav({
                       </div>
                     </>
                   )}
-                </LocalizedClientLink>
+                </AuthAwareLink>
               </div>
             </div>
           </div>
