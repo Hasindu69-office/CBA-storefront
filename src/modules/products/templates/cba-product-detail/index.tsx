@@ -36,6 +36,7 @@ import {
 } from "@lib/util/compare-products"
 import { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import AuthAwareLink from "@modules/account/components/auth-aware-link"
 import KokoInstallmentLine from "@modules/common/components/koko-installment-line"
 import ProductCompanionZone from "@modules/products/components/product-companion-zone"
 import RelatedProductsSection from "@modules/products/components/related-products-section"
@@ -1566,7 +1567,7 @@ function ReviewsContent({
           : signedIn ? <><p className="font-bold">Verified purchases only</p><p className="text-sm text-gray-600">You can review this product after an eligible order is delivered.</p></>
           : <><p className="font-bold">Want to write a review?</p><p className="text-sm text-gray-600">Sign in with the account used for your purchase.</p></>}</div>
         {reviewPurchase ? <button onClick={()=>setModalOpen(true)} className="rounded-md bg-[#ff5c0e] px-5 py-2.5 font-semibold text-white">Write a review</button>
-          : !signedIn ? <LocalizedClientLink href="/account" className="rounded-md bg-[#ff5c0e] px-5 py-2.5 text-center font-semibold text-white">Sign in</LocalizedClientLink> : null}
+          : !signedIn ? <AuthAwareLink href="/account" className="rounded-md bg-[#ff5c0e] px-5 py-2.5 text-center font-semibold text-white">Sign in</AuthAwareLink> : null}
       </div>}
       <ProductReviews productId={productId} initial={reviews} yourReviewId={submitted?.id} />
       {reviewPurchase && <ReviewModal purchase={reviewPurchase} open={modalOpen} onClose={()=>setModalOpen(false)} onSubmitted={(result)=>result.review && setSubmitted(result.review)} />}

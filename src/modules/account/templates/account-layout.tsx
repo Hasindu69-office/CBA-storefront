@@ -14,7 +14,7 @@ const AccountLayout: React.FC<AccountLayoutProps> = ({
 }) => {
   if (!customer) {
     return (
-      <div className="cba-auth-page flex-1 bg-white" data-testid="account-page">
+      <div className="flex-1 bg-[#f7f8fa]" data-testid="account-page">
         {children}
       </div>
     )

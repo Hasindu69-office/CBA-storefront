@@ -14,6 +14,17 @@ export default function CbaPopupProvider({ countryCode }: { countryCode: string 
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop")
 
   useEffect(() => {
+    const onAuthModal = (event: Event) => {
+      if ((event as CustomEvent<{ open?: boolean }>).detail?.open) {
+        setVisible(false)
+        setCampaign(null)
+      }
+    }
+    window.addEventListener("cba:auth-modal", onAuthModal)
+    return () => window.removeEventListener("cba:auth-modal", onAuthModal)
+  }, [])
+
+  useEffect(() => {
     setCampaign(null); setVisible(false)
     if (isPopupProtectedPath(popupPathname)) return
     const controller = new AbortController()

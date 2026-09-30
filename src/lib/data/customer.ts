@@ -26,7 +26,10 @@ import {
   removeCartId,
   setAuthToken,
   setCartId,
+  setAuthReturnPath,
+  takeAuthReturnPath,
 } from "./cookies"
+import { safeAuthDestination } from "@lib/util/auth-modal"
 import {
   ACCOUNT_PASSWORD_PROVIDERS,
   type AccountSecurity,
@@ -331,7 +334,16 @@ export async function updateCustomerPassword(
   }
 }
 
-export async function signup(_currentState: unknown, formData: FormData) {
+export type AuthActionState = {
+  status: "idle" | "success" | "error"
+  message: string | null
+}
+
+function authActionError(message: string): AuthActionState {
+  return { status: "error", message }
+}
+
+export async function signup(_currentState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const password = text(formData.get("password"))
   const confirmPassword = text(formData.get("confirm_password"))
   const customerForm = {
@@ -342,7 +354,7 @@ export async function signup(_currentState: unknown, formData: FormData) {
   }
   const validationError = validateSignup(customerForm, password, confirmPassword, formData)
   if (validationError) {
-    return validationError
+    return authActionError(validationError)
   }
 
   try {
@@ -375,20 +387,21 @@ export async function signup(_currentState: unknown, formData: FormData) {
       console.error("Customer signup succeeded, but cart transfer failed.", safeServerError(error))
     })
 
-    return createdCustomer
+    void createdCustomer
+    return { status: "success", message: null }
   } catch (error: any) {
     console.error("Customer signup failed.", safeServerError(error))
-    return authErrorMessage(error)
+    return authActionError(authErrorMessage(error))
   }
 }
 
-export async function login(_currentState: unknown, formData: FormData) {
+export async function login(_currentState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const email = normalizeEmail(formData.get("email"))
   const password = text(formData.get("password"))
 
   const validationError = validateLogin(email, password)
   if (validationError) {
-    return validationError
+    return authActionError(validationError)
   }
 
   try {
@@ -403,20 +416,21 @@ export async function login(_currentState: unknown, formData: FormData) {
       })
   } catch (error: any) {
     if (isAuthRateLimited(error)) {
-      return "Too many sign-in attempts. Please wait and try again later."
+      return authActionError("Too many sign-in attempts. Please wait and try again later.")
     }
-    return authErrorMessage(error)
+    return authActionError(authErrorMessage(error))
   }
 
   await transferCart().catch((error) => {
     console.error("Customer login succeeded, but cart transfer failed.", safeServerError(error))
   })
+  return { status: "success", message: null }
 }
 
-export async function requestPasswordReset(_currentState: unknown, formData: FormData) {
+export async function requestPasswordReset(_currentState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const email = normalizeEmail(formData.get("email"))
   if (validateEmail(email)) {
-    return "Enter a valid email address."
+    return authActionError("Enter a valid email address.")
   }
   try {
     await sdk.client.fetch("/auth/customer/emailpass/reset-password", {
@@ -427,28 +441,31 @@ export async function requestPasswordReset(_currentState: unknown, formData: For
     })
   } catch (error) {
     if (isAuthRateLimited(error)) {
-      return "Too many password reset requests. Please wait and try again later."
+      return authActionError("Too many password reset requests. Please wait and try again later.")
     }
     if (isAuthServiceUnavailable(error)) {
-      return "The account service is temporarily unavailable. Please try again later."
+      return authActionError("The account service is temporarily unavailable. Please try again later.")
     }
     console.error("Password reset request failed.", safeServerError(error))
   }
-  return "If an account exists for this email address, a password reset link will be sent."
+  return {
+    status: "success",
+    message: "If an account exists for this email address, a password reset link will be sent.",
+  }
 }
 
-export async function resetPassword(_currentState: unknown, formData: FormData) {
+export async function resetPassword(_currentState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const token = text(formData.get("token"))
   const password = text(formData.get("password"))
   const confirmPassword = text(formData.get("confirm_password"))
   if (!/^[A-Za-z0-9._-]{20,2048}$/.test(token)) {
-    return "This password reset link is invalid."
+    return authActionError("This password reset link is invalid.")
   }
   if (!isStrongPassword(password)) {
-    return "Password must be at least 8 characters and include letters and numbers."
+    return authActionError("Password must be at least 8 characters and include letters and numbers.")
   }
   if (password !== confirmPassword) {
-    return "Passwords do not match."
+    return authActionError("Passwords do not match.")
   }
   try {
     await sdk.client.fetch("/auth/customer/emailpass/update", {
@@ -457,22 +474,23 @@ export async function resetPassword(_currentState: unknown, formData: FormData) 
       body: { password },
       cache: "no-store",
     })
-    return "Password updated. You can sign in with your new password."
+    return { status: "success", message: "Password updated. You can sign in with your new password." }
   } catch (error) {
     if (isAuthRateLimited(error)) {
-      return "Too many password reset attempts. Please wait and try again later."
+      return authActionError("Too many password reset attempts. Please wait and try again later.")
     }
     if (isAuthServiceUnavailable(error)) {
-      return "The account service is temporarily unavailable. Please try again later."
+      return authActionError("The account service is temporarily unavailable. Please try again later.")
     }
     console.error("Password reset update failed.", safeServerError(error))
-    return "We could not update the password. Request a new reset link and try again."
+    return authActionError("We could not update the password. Request a new reset link and try again.")
   }
 }
 
 export async function startOAuthLogin(_currentState: unknown, formData: FormData) {
   const provider = text(formData.get("provider")) as OAuthProvider
   const countryCode = text(formData.get("country_code")) || "lk"
+  const returnTo = safeAuthDestination(text(formData.get("return_to"))) ?? "/account"
 
   if (!OAUTH_PROVIDERS.includes(provider)) {
     return "This sign-on provider is not supported."
@@ -482,6 +500,7 @@ export async function startOAuthLogin(_currentState: unknown, formData: FormData
   let location = ""
 
   try {
+    await setAuthReturnPath(returnTo)
     const result = await sdk.auth.login("customer", provider, {
       callback_url: callbackUrl,
     })
@@ -490,7 +509,7 @@ export async function startOAuthLogin(_currentState: unknown, formData: FormData
       await transferCart().catch((error) => {
         console.error("OAuth login succeeded, but cart transfer failed.", safeServerError(error))
       })
-      redirect(localizedPath(`/${countryCode}/account`))
+      redirect(localizedPath(returnTo))
     }
     if (!("location" in result) || !result.location) {
       return "This sign-on provider requires additional verification."
@@ -515,14 +534,16 @@ export async function completeOAuthLogin({
   query: Record<string, string>
   countryCode: string
 }) {
+  void countryCode
+  const returnTo = safeAuthDestination(await takeAuthReturnPath()) ?? "/account"
   if (!OAUTH_PROVIDERS.includes(provider as OAuthProvider)) {
-    redirect(localizedPath(`/${countryCode}/account?auth_error=unsupported_provider`))
+    redirect(authErrorReturn(returnTo, "unsupported_provider"))
   }
 
   try {
     const tokenResult = await sdk.auth.callback("customer", provider, query)
     if (typeof tokenResult !== "string") {
-      redirect(localizedPath(`/${countryCode}/account?auth_error=additional_verification_required`))
+      redirect(authErrorReturn(returnTo, "additional_verification_required"))
     }
 
     await setAuthToken(tokenResult)
@@ -532,7 +553,7 @@ export async function completeOAuthLogin({
       const profile = decodeAuthProfile(tokenResult)
       if (!profile.email) {
         await removeAuthToken()
-        redirect(localizedPath(`/${countryCode}/account?auth_error=missing_email`))
+        redirect(authErrorReturn(returnTo, "missing_email"))
       }
 
       const headers = {
@@ -560,14 +581,19 @@ export async function completeOAuthLogin({
     await transferCart().catch((error) => {
       console.error("OAuth login succeeded, but cart transfer failed.", safeServerError(error))
     })
-    redirect(localizedPath(`/${countryCode}/account`))
+    redirect(localizedPath(returnTo))
   } catch (error) {
     if (isNextRedirect(error)) {
       throw error
     }
     await removeAuthToken()
-    redirect(localizedPath(`/${countryCode}/account?auth_error=oauth_failed`))
+    redirect(authErrorReturn(returnTo, "oauth_failed"))
   }
+}
+
+function authErrorReturn(path: string, code: string) {
+  const separator = path.includes("?") ? "&" : "?"
+  return localizedPath(`${path}${separator}auth_error=${encodeURIComponent(code)}`)
 }
 
 export async function signout(countryCode: string) {
@@ -583,7 +609,7 @@ export async function signout(countryCode: string) {
   const cartCacheTag = await getCacheTag("carts")
   revalidateTag(cartCacheTag)
 
-  redirect(localizedPath(`/${countryCode}/account`))
+  redirect(localizedPath(`/${countryCode}/?signed_out=1`))
 }
 
 export async function transferCart(): Promise<CartTransferActionResult> {

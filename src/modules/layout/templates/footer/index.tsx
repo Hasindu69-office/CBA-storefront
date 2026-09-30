@@ -10,6 +10,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import NewsletterForm from "@modules/layout/components/newsletter-form"
 import Image from "next/image"
 import Link from "next/link"
+import AuthAwareLink from "@modules/account/components/auth-aware-link"
 
 const SocialIcon = ({
   d,
@@ -112,6 +113,10 @@ function FooterTextLink({
         {children}
       </Link>
     )
+  }
+
+  if (href === "/account" || href.startsWith("/account/")) {
+    return <AuthAwareLink href={href} className={className}>{children}</AuthAwareLink>
   }
 
   return (

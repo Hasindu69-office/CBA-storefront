@@ -390,10 +390,6 @@
 }
 
 @layer components {
-  main:has(.cba-auth-page) .cba-site-chrome {
-    display: none;
-  }
-
   .content-container {
     @apply w-[92%] small:w-[90%] max-w-[1920px] mx-auto;
   }
