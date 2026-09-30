@@ -70,8 +70,6 @@ function money(amount: number | null | undefined, currencyCode: string) {
   return convertToLocale({
     amount: amount ?? 0,
     currency_code: currencyCode,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
   })
 }
 
@@ -976,7 +974,6 @@ function SideCartSummary({
   const mapped = mapAuthoritativeTotals(cart, {
     itemCount,
     automaticPromotionApplied: hasAutomaticPromotions,
-    compactMoney: true,
     fulfillmentMode: deriveFulfillmentModeFromItems(cart.items),
   })
   const subtotalRow = mapped.rows.find((row) => row.key === "subtotal")

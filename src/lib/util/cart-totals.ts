@@ -403,7 +403,7 @@ function taxNoteFor(states: TotalsState[]) {
     return "Tax is included in the displayed total."
   }
   if (states.includes("exclusive")) {
-    return "Tax is added by the checkout total."
+    return "Tax included"
   }
   return null
 }
