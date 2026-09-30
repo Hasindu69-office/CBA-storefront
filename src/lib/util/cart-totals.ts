@@ -144,19 +144,25 @@ export function mapAuthoritativeTotals(
   }
 
   const subtotal = source?.item_subtotal ?? source?.subtotal ?? 0
-  const shippingBeforeDiscount =
+  const shippingTax = source?.shipping_tax_total ?? 0
+  const shippingSubtotal =
     source?.shipping_subtotal ??
-    source?.original_shipping_subtotal ??
-    source?.shipping_total ??
-    0
-  const shippingAfterDiscount = source?.shipping_total ?? shippingBeforeDiscount
+    Math.max((source?.shipping_total ?? 0) - shippingTax, 0)
+  const shippingBeforeDiscount =
+    source?.original_shipping_subtotal ?? shippingSubtotal
   const shippingDiscount =
     source?.shipping_discount_total ??
-    Math.max(shippingBeforeDiscount - shippingAfterDiscount, 0)
+    Math.max(
+      shippingBeforeDiscount -
+        Math.max((source?.shipping_total ?? shippingBeforeDiscount) - shippingTax, 0),
+      0
+    )
+  const shippingAfterDiscount = Math.max(
+    shippingSubtotal - shippingDiscount,
+    0
+  )
   const discountTotal = source?.discount_total ?? source?.discount_subtotal ?? 0
   const itemDiscount = Math.max(discountTotal - shippingDiscount, 0)
-  const itemTax = source?.item_tax_total ?? 0
-  const shippingTax = source?.shipping_tax_total ?? 0
   const taxTotal = source?.tax_total ?? 0
   const total = source?.total ?? 0
   const isInclusive = hasInclusivePricing(source)
@@ -264,14 +270,6 @@ export function mapAuthoritativeTotals(
     }
   }
 
-  if (itemTax > 0) {
-    rows.push(row("item-tax", "Item tax", itemTax, currencyCode, options))
-  }
-  if (shippingTax > 0) {
-    rows.push(
-      row("shipping-tax", "Delivery tax", shippingTax, currencyCode, options)
-    )
-  }
   if (
     taxTotal > 0 ||
     options.includeTaxWhenZero ||

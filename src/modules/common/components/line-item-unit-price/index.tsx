@@ -12,9 +12,11 @@ const LineItemUnitPrice = ({
   style = "default",
   currencyCode,
 }: LineItemUnitPriceProps) => {
-  const { total, original_total } = item
-  const currentTotal = total ?? 0
-  const originalTotal = original_total ?? currentTotal
+  const { subtotal, total, original_total } = item
+  const currentTotal = subtotal ?? total ?? 0
+  const originalTotal = original_total == null
+    ? currentTotal
+    : Math.max(original_total - Number(item.tax_total ?? 0), 0)
   const quantity = item.quantity || 1
   const hasReducedPrice = currentTotal < originalTotal
 

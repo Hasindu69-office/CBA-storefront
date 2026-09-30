@@ -1587,9 +1587,7 @@ function CheckoutOrderSummary({
   })
   const subtotalRow = mapped.rows.find((row) => row.key === "subtotal")
   const discountRow = mapped.rows.find((row) => row.key === "discount")
-  const taxRows = mapped.rows.filter((row) =>
-    ["item-tax", "shipping-tax", "tax"].includes(row.key)
-  )
+  const taxRows = mapped.rows.filter((row) => row.key === "tax")
   const activeInstallment = isInstallmentMethod(selectedPaymentMethod)
     ? selectedInstallment
     : null

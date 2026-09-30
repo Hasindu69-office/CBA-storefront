@@ -3,6 +3,27 @@ import { describe, it } from "node:test"
 import { mapAuthoritativeTotals } from "../cart-totals"
 
 describe("mapAuthoritativeTotals shipping display", () => {
+  it("shows tax-exclusive delivery and one combined tax row", () => {
+    const mapped = mapAuthoritativeTotals({
+      currency_code: "lkr",
+      item_subtotal: 10,
+      item_tax_total: 0.5,
+      shipping_subtotal: 50,
+      shipping_tax_total: 2.5,
+      shipping_total: 52.5,
+      tax_total: 3,
+      total: 63,
+      shipping_methods: [{ name: "Delivery" }],
+      shipping_address: { address_1: "123 Main St" },
+    })
+
+    assert.equal(mapped.rows.find((row) => row.key === "shipping")?.amount, 50)
+    assert.equal(mapped.rows.find((row) => row.key === "tax")?.amount, 3)
+    assert.equal(mapped.rows.some((row) => row.key === "item-tax"), false)
+    assert.equal(mapped.rows.some((row) => row.key === "shipping-tax"), false)
+    assert.equal(mapped.total.amount, 63)
+  })
+
   it("treats missing shipping method as pending, not free", () => {
     const mapped = mapAuthoritativeTotals({
       currency_code: "lkr",
