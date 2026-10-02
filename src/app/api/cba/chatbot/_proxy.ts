@@ -12,6 +12,8 @@ export async function proxy(req:NextRequest,path:string,method="POST"){
   const captcha=req.headers.get("x-cba-recaptcha-token")||""
   const r=await fetch(`${backend}${path}`,{method,body,cache:"no-store",headers:{"content-type":"application/json","x-publishable-api-key":publishableKey,"x-cba-chatbot-token":token||"","x-cba-chatbot-bff":secret,"x-cba-client-ip-hash":ipHash,"x-cba-recaptcha-token":captcha,...(hs.get("authorization")?{authorization:hs.get("authorization")!}:{})}})
   const data=r.status===204?null:await r.json().catch(()=>({error:{message:"Assistant unavailable."}}));const sessionToken=data?.token;if(data?.token)delete data.token;const out=data===null?new NextResponse(null,{status:r.status}):NextResponse.json(data,{status:r.status});out.headers.set("Cache-Control","no-store")
-  if(sessionToken){out.cookies.set(COOKIE,sessionToken,{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production",path:"/api/cba/chatbot",maxAge:60*60*24})}
+  const cookieOpts={httpOnly:true,sameSite:"lax" as const,secure:process.env.NODE_ENV==="production",path:"/api/cba/chatbot"}
+  if(sessionToken){out.cookies.set(COOKIE,sessionToken,{...cookieOpts,maxAge:60*60*24})}
+  else if(token&&data&&data.session===null&&Array.isArray(data.messages)&&data.messages.length===0){out.cookies.set(COOKIE,"",{...cookieOpts,maxAge:0})}
   return out
 }

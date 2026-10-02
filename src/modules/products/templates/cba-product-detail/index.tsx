@@ -28,6 +28,11 @@ import { normalizeEmail, validateEmail } from "@lib/util/storefront-form-validat
 import { openSideCart } from "@lib/util/side-cart-event"
 import { finiteVariantQuantity, maxQuantityForVariant } from "@lib/util/cart-quantity"
 import {
+  buildSingleProductParams,
+  trackAddToCart,
+} from "@lib/analytics/meta-pixel"
+import MetaViewContent from "@modules/analytics/meta-view-content"
+import {
   addProductToCompareStorage,
   DEFAULT_COMPARE_LIMIT,
   readStoredCompareIds,
@@ -335,6 +340,16 @@ export default function CbaProductDetail({
         })
         if (!result.success) throw new Error(result.error)
         const cart = result.cart
+        trackAddToCart(
+          buildSingleProductParams({
+            productId: product.id,
+            quantity,
+            currency: price?.currency_code,
+            contentName: product.title,
+            itemPrice: price?.calculated_price_number,
+            value: price?.calculated_price_number,
+          })
+        )
         setActionState({ type: "success", message: "Added to cart." })
         openSideCart({ cart, refresh: true })
         notify.success("Item added to cart.", { id: toastId })
@@ -494,6 +509,12 @@ export default function CbaProductDetail({
 
   return (
     <main className="overflow-x-clip bg-white text-[#191919]">
+      <MetaViewContent
+        productId={product.id}
+        contentName={product.title}
+        currency={price?.currency_code}
+        value={price?.calculated_price_number}
+      />
       <div className="content-container min-w-0 py-6 small:py-8">
         <Breadcrumbs product={product} />
 

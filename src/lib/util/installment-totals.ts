@@ -22,22 +22,12 @@ export type CartInstallmentPricing = {
 
 export function calculateCartInstallmentPricing(input: {
   baseAmount: number
-  itemTotal: number
-  itemTaxTotal: number
   feePercentage: number
   tenorMonths?: number
 }): CartInstallmentPricing {
-  const values = [
-    input.baseAmount,
-    input.itemTotal,
-    input.itemTaxTotal,
-    input.feePercentage,
-  ]
+  const values = [input.baseAmount, input.feePercentage]
   if (values.some((value) => !Number.isFinite(value) || value < 0)) {
     throw new Error("Installment pricing is invalid.")
-  }
-  if (input.itemTaxTotal > input.itemTotal) {
-    throw new Error("Installment product tax is invalid.")
   }
   if (
     input.tenorMonths !== undefined &&
@@ -46,7 +36,7 @@ export function calculateCartInstallmentPricing(input: {
     throw new Error("Installment tenor is invalid.")
   }
 
-  const basis = roundMoney(input.itemTotal - input.itemTaxTotal)
+  const basis = roundMoney(input.baseAmount)
   const fee = roundMoney(basis * (input.feePercentage / 100))
   const charge = roundMoney(input.baseAmount + fee)
   return {

@@ -75,7 +75,10 @@ export default function ChatbotWidget() {
 
   async function ensureSession() {
     const current = await fetch("/api/cba/chatbot/current", { cache: "no-store" })
-    if (current.ok) return
+    if (current.ok) {
+      const payload = await current.json() as CurrentChatbotResponse
+      if (payload.session?.status === "active") return
+    }
     const captcha = await executeRecaptcha("chatbot_session")
     const created = await fetch("/api/cba/chatbot/session", { method: "POST", headers: { "content-type": "application/json", "x-cba-recaptcha-token": captcha }, body: JSON.stringify({ locale: document.documentElement.lang || "en", source_page_url: location.pathname }) })
     if (!created.ok) throw new Error(await responseError(created, "Unable to start the assistant."))

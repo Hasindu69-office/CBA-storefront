@@ -42,6 +42,11 @@ export type ChatbotResponse = {
 }
 
 export type CurrentChatbotResponse = {
+  session?: {
+    reference?: string
+    status?: string
+    handover_status?: string
+  } | null
   messages: Array<{
     id: string
     role: "user" | "assistant"

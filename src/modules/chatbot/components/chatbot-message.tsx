@@ -6,6 +6,10 @@ import { useParams } from "next/navigation"
 import { addToCart } from "@lib/data/cart"
 import { notify } from "@lib/notifications"
 import { openSideCart } from "@lib/util/side-cart-event"
+import {
+  buildSingleProductParams,
+  trackAddToCart,
+} from "@lib/analytics/meta-pixel"
 import ChatbotMarkdown from "./chatbot-markdown"
 import type { ChatbotAction, ChatbotMessage as Message } from "./types"
 
@@ -22,6 +26,14 @@ export default function ChatbotMessage({ item }: { item: Message }) {
     openSideCart({ pendingMessage: "Adding item to cart.", refresh: false })
     try {
       const cart = await addToCart({ variantId: action.variant_id, quantity: 1, countryCode })
+      if (action.product_id) {
+        trackAddToCart(
+          buildSingleProductParams({
+            productId: action.product_id,
+            quantity: 1,
+          })
+        )
+      }
       openSideCart({ cart, refresh: true })
       notify.success("Item added to cart.", { id: toastId })
     } catch (error) {

@@ -87,6 +87,8 @@ import {
   isTestDeliveryOption,
   type FulfillmentPlan,
 } from "@lib/util/fulfillment-plan"
+import { linesFromCartLikeItems } from "@lib/analytics/meta-pixel"
+import MetaInitiateCheckout from "@modules/analytics/meta-initiate-checkout"
 
 type CbaCheckoutTemplateProps = {
   cart: HttpTypes.StoreCart
@@ -270,6 +272,11 @@ export default function CbaCheckoutTemplate({
     useState<CheckoutAddressFieldErrors>({})
   const [addressFormError, setAddressFormError] = useState<string | null>(null)
 
+  const metaCheckoutLines = useMemo(
+    () => linesFromCartLikeItems(cart.items),
+    [cart.items]
+  )
+
   const validateAddressField = useCallback(
     (
       field: CheckoutAddressFieldName,
@@ -386,6 +393,12 @@ export default function CbaCheckoutTemplate({
 
   return (
     <div className="content-container py-10 small:py-12">
+      <MetaInitiateCheckout
+        cartId={cart.id}
+        currency={cart.currency_code}
+        value={cart.total}
+        lines={metaCheckoutLines}
+      />
       <h1 className="text-center text-[32px] small:text-[36px] font-bold leading-tight text-[#111111]">
         Checkout
       </h1>
@@ -1182,8 +1195,6 @@ function PaymentMethodSelector({
     listInstallmentPlans({
       cartId: cart.id,
       cartTotal: cart.total,
-      itemTotal: cart.item_total,
-      itemTaxTotal: cart.item_tax_total,
     })
       .then((result) => {
         if (!alive) return
@@ -1211,8 +1222,6 @@ function PaymentMethodSelector({
   }, [
     cart.id,
     cart.total,
-    cart.item_total,
-    cart.item_tax_total,
     cart.shipping_total,
     cart.discount_total,
   ])
@@ -1594,8 +1603,6 @@ function CheckoutOrderSummary({
   const installmentPricing = activeInstallment
     ? calculateCartInstallmentPricing({
         baseAmount: Number(cart.total ?? 0),
-        itemTotal: Number(cart.item_total ?? 0),
-        itemTaxTotal: Number(cart.item_tax_total ?? 0),
         feePercentage: Number(activeInstallment.fee_percentage),
         tenorMonths: Number(activeInstallment.tenor_months),
       })

@@ -38,6 +38,7 @@ Optional variables:
 
 ```env
 NEXT_PUBLIC_DEFAULT_REGION=lk
+NEXT_PUBLIC_META_PIXEL_ID=1361822756100417
 NEXT_PUBLIC_STRIPE_KEY=replace-with-stripe-public-key
 NEXT_PUBLIC_MEDUSA_PAYMENTS_PUBLISHABLE_KEY=replace-with-medusa-payments-key
 NEXT_PUBLIC_MEDUSA_PAYMENTS_ACCOUNT_ID=replace-with-medusa-payments-account-id
