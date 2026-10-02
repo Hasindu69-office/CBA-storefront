@@ -87,6 +87,8 @@ import {
   isTestDeliveryOption,
   type FulfillmentPlan,
 } from "@lib/util/fulfillment-plan"
+import { linesFromCartLikeItems } from "@lib/analytics/meta-pixel"
+import MetaInitiateCheckout from "@modules/analytics/meta-initiate-checkout"
 
 type CbaCheckoutTemplateProps = {
   cart: HttpTypes.StoreCart
@@ -270,6 +272,11 @@ export default function CbaCheckoutTemplate({
     useState<CheckoutAddressFieldErrors>({})
   const [addressFormError, setAddressFormError] = useState<string | null>(null)
 
+  const metaCheckoutLines = useMemo(
+    () => linesFromCartLikeItems(cart.items),
+    [cart.items]
+  )
+
   const validateAddressField = useCallback(
     (
       field: CheckoutAddressFieldName,
@@ -386,6 +393,12 @@ export default function CbaCheckoutTemplate({
 
   return (
     <div className="content-container py-10 small:py-12">
+      <MetaInitiateCheckout
+        cartId={cart.id}
+        currency={cart.currency_code}
+        value={cart.total}
+        lines={metaCheckoutLines}
+      />
       <h1 className="text-center text-[32px] small:text-[36px] font-bold leading-tight text-[#111111]">
         Checkout
       </h1>

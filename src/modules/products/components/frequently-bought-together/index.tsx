@@ -6,6 +6,10 @@ import { addProductsToWishlist } from "@lib/data/wishlist"
 import { notify } from "@lib/notifications"
 import { openSideCart } from "@lib/util/side-cart-event"
 import { notifyWishlistCountUpdated } from "@lib/util/wishlist-count-event"
+import {
+  buildMetaEcommerceParams,
+  trackAddToCart,
+} from "@lib/analytics/meta-pixel"
 import BundleOfferPanel from "@modules/products/components/bundle-offer/bundle-offer-panel"
 import {
   buildSelectedItems,
@@ -109,6 +113,31 @@ export default function FrequentlyBoughtTogether({
           items: selectedItems,
           countryCode,
         })
+        trackAddToCart(
+          buildMetaEcommerceParams({
+            lines: selectedItems.map((item) => {
+              const companion = companions.find(
+                (entry) =>
+                  entry.product_id === item.productId || entry.id === item.productId
+              )
+              const itemPrice =
+                item.productId === product.id
+                  ? mainPrice
+                  : companion?.price.calculated_amount ?? null
+              return {
+                productId: item.productId,
+                quantity: item.quantity,
+                itemPrice,
+                title:
+                  item.productId === product.id
+                    ? product.title
+                    : companion?.title,
+              }
+            }),
+            currency: currencyCode,
+            value: total,
+          })
+        )
         onActionMessage?.({
           type: "success",
           message: "Bundle added to cart.",

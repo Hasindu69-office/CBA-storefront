@@ -9,6 +9,8 @@ import OnboardingCta from "@modules/order/components/onboarding-cta"
 import DownloadReceiptButton from "@modules/order/components/download-receipt-button"
 import Thumbnail from "@modules/products/components/thumbnail"
 import { cookies as nextCookies } from "next/headers"
+import { linesFromCartLikeItems } from "@lib/analytics/meta-pixel"
+import MetaPurchase from "@modules/analytics/meta-purchase"
 
 type OrderCompletedTemplateProps = {
   order: HttpTypes.StoreOrder
@@ -579,9 +581,19 @@ export default async function OrderCompletedTemplate({
     ? formatPaymentAmount(order, installmentPayment.chargeAmount)
     : mappedTotals.total.display
   const totalLabel = installmentPayment ? "Payment Total" : "Total"
+  const metaPurchaseValue = installmentPayment
+    ? installmentPayment.chargeAmount
+    : mappedTotals.total.amount
+  const metaPurchaseLines = linesFromCartLikeItems(items)
 
   return (
     <main className="bg-white py-10 small:py-14">
+      <MetaPurchase
+        orderId={order.id}
+        currency={order.currency_code}
+        value={metaPurchaseValue}
+        lines={metaPurchaseLines}
+      />
       <div className="content-container">
         {isOnboarding && (
           <div className="mb-8">

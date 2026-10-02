@@ -4,6 +4,10 @@ import { addToCart } from "@lib/data/cart"
 import { useIntersection } from "@lib/hooks/use-in-view"
 import { notify } from "@lib/notifications"
 import { openSideCart } from "@lib/util/side-cart-event"
+import {
+  buildSingleProductParams,
+  trackAddToCart,
+} from "@lib/analytics/meta-pixel"
 import { HttpTypes } from "@medusajs/types"
 import { Button } from "@medusajs/ui"
 import Divider from "@modules/common/components/divider"
@@ -135,6 +139,20 @@ export default function ProductActions({
         quantity: 1,
         countryCode,
       })
+
+      const unitPrice = selectedVariant.calculated_price?.calculated_amount
+      trackAddToCart(
+        buildSingleProductParams({
+          productId: product.id,
+          quantity: 1,
+          currency:
+            selectedVariant.calculated_price?.currency_code ??
+            product.variants?.[0]?.calculated_price?.currency_code,
+          contentName: product.title,
+          itemPrice: unitPrice,
+          value: unitPrice,
+        })
+      )
 
       openSideCart({ cart, refresh: true })
       notify.success("Item added to cart.", { id: toastId })
