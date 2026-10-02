@@ -1182,8 +1182,6 @@ function PaymentMethodSelector({
     listInstallmentPlans({
       cartId: cart.id,
       cartTotal: cart.total,
-      itemTotal: cart.item_total,
-      itemTaxTotal: cart.item_tax_total,
     })
       .then((result) => {
         if (!alive) return
@@ -1211,8 +1209,6 @@ function PaymentMethodSelector({
   }, [
     cart.id,
     cart.total,
-    cart.item_total,
-    cart.item_tax_total,
     cart.shipping_total,
     cart.discount_total,
   ])
@@ -1594,8 +1590,6 @@ function CheckoutOrderSummary({
   const installmentPricing = activeInstallment
     ? calculateCartInstallmentPricing({
         baseAmount: Number(cart.total ?? 0),
-        itemTotal: Number(cart.item_total ?? 0),
-        itemTaxTotal: Number(cart.item_tax_total ?? 0),
         feePercentage: Number(activeInstallment.fee_percentage),
         tenorMonths: Number(activeInstallment.tenor_months),
       })

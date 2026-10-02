@@ -18,34 +18,32 @@ describe("installment checkout totals", () => {
     assert.throws(() => calculateInstallmentChargeAmount(1000, Number.NaN))
   })
 
-  it("charges only discounted pre-tax merchandise", () => {
+  it("applies the fee to the cart grand total", () => {
     assert.deepEqual(calculateCartInstallmentPricing({
-      baseAmount: 405,
-      itemTotal: 5,
-      itemTaxTotal: 0,
-      feePercentage: 13.5,
-      tenorMonths: 12,
+      baseAmount: 10.5,
+      feePercentage: 6.5,
+      tenorMonths: 6,
     }), {
-      base_amount: 405,
-      installment_basis_amount: 5,
+      base_amount: 10.5,
+      installment_basis_amount: 10.5,
       installment_fee_amount: 0.68,
-      installment_charge_amount: 405.68,
-      monthly_amount: 33.81,
+      installment_charge_amount: 11.18,
+      monthly_amount: 1.86,
     })
   })
 
-  it("excludes product tax and rejects inconsistent totals", () => {
+  it("fees the full base amount including tax and shipping", () => {
     assert.equal(calculateCartInstallmentPricing({
       baseAmount: 1520,
-      itemTotal: 1020,
-      itemTaxTotal: 20,
       feePercentage: 10,
-    }).installment_fee_amount, 100)
+    }).installment_fee_amount, 152)
+  })
+
+  it("rejects invalid tenor", () => {
     assert.throws(() => calculateCartInstallmentPricing({
       baseAmount: 100,
-      itemTotal: 10,
-      itemTaxTotal: 11,
       feePercentage: 5,
+      tenorMonths: 0,
     }))
   })
 

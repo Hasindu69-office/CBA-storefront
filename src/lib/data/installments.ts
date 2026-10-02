@@ -68,8 +68,6 @@ export async function listInstallmentPlans(input?: {
   amount?: number | null
   cartId?: string | null
   cartTotal?: number | null
-  itemTotal?: number | null
-  itemTaxTotal?: number | null
 }) {
   const query: Record<string, string> = {}
   if (!input?.cartId && Number.isFinite(Number(input?.amount)) && Number(input?.amount) >= 0) {
@@ -164,22 +162,18 @@ function validateCheckoutPricing(
   data: StoreInstallmentPlansResponse,
   expected: {
     cartTotal?: number | null
-    itemTotal?: number | null
-    itemTaxTotal?: number | null
   }
 ) {
   const expectedBase = Number(expected.cartTotal)
-  const expectedBasis = Number(expected.itemTotal) - Number(expected.itemTaxTotal ?? 0)
   const close = (left: number, right: number) => Math.abs(left - right) < 0.01
 
   if (
     !Number.isFinite(data.base_amount) ||
     !Number.isFinite(data.installment_basis_amount) ||
     !Number.isFinite(expectedBase) ||
-    !Number.isFinite(expectedBasis) ||
-    expectedBasis < 0 ||
+    expectedBase < 0 ||
     !close(Number(data.base_amount), expectedBase) ||
-    !close(Number(data.installment_basis_amount), expectedBasis)
+    !close(Number(data.installment_basis_amount), expectedBase)
   ) {
     throw new Error("Installment pricing changed. Refresh checkout and try again.")
   }
