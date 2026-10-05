@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState, useActionState } from "react"
 import { PencilSquare as Edit, Trash } from "@medusajs/icons"
-import { Button, Heading, Text, clx } from "@medusajs/ui"
+import { Badge, Button, Heading, Text, clx } from "@medusajs/ui"
+import { useRouter } from "next/navigation"
 
 import useToggleState from "@lib/hooks/use-toggle-state"
 import CountrySelect from "@modules/checkout/components/country-select"
@@ -14,6 +15,7 @@ import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { HttpTypes } from "@medusajs/types"
 import {
   deleteCustomerAddress,
+  setCustomerAddressDefault,
   updateCustomerAddress,
 } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
@@ -30,7 +32,9 @@ const EditAddress: React.FC<EditAddressProps> = ({
   isActive = false,
 }) => {
   const [removing, setRemoving] = useState(false)
+  const [updatingRole, setUpdatingRole] = useState<"shipping" | "billing" | null>(null)
   const [successState, setSuccessState] = useState(false)
+  const router = useRouter()
   const { state, open, close: closeModal } = useToggleState(false)
 
   const [formState, formAction] = useActionState(updateCustomerAddress, {
@@ -54,13 +58,26 @@ const EditAddress: React.FC<EditAddressProps> = ({
   useEffect(() => {
     if (formState.success) {
       setSuccessState(true)
+      router.refresh()
       notify.success("Address updated.", { id: `edit-address:${address.id}` })
     } else if (formState.error) {
       notify.error(formState.error, "Could not update address.", {
         id: `edit-address:${address.id}`,
       })
     }
-  }, [formState])
+  }, [formState, router])
+
+  const updateDefault = async (role: "shipping" | "billing", value: boolean) => {
+    setUpdatingRole(role)
+    const result = await setCustomerAddressDefault(address.id, role, value)
+    if (result.success) {
+      notify.success(`Default ${role} address updated.`, { id: `address-role:${address.id}:${role}` })
+      router.refresh()
+    } else {
+      notify.error(result.error, "Could not update address default.", { id: `address-role:${address.id}:${role}` })
+    }
+    setUpdatingRole(null)
+  }
 
   const removeAddress = async () => {
     setRemoving(true)
@@ -106,6 +123,10 @@ const EditAddress: React.FC<EditAddressProps> = ({
               {address.company}
             </Text>
           )}
+          <div className="mt-2 flex flex-wrap gap-2" aria-label="Address roles">
+            {address.is_default_shipping && <Badge color="blue">Default shipping</Badge>}
+            {address.is_default_billing && <Badge color="green">Default billing</Badge>}
+          </div>
           <Text className="flex flex-col text-left text-base-regular mt-2">
             <span data-testid="address-address">
               {address.address_1}
@@ -118,6 +139,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
               {address.province && `${address.province}, `}
               {address.country_code?.toUpperCase()}
             </span>
+            {address.phone && <span data-testid="address-phone">{address.phone}</span>}
           </Text>
         </div>
         <div className="flex items-center gap-x-4">
@@ -137,6 +159,26 @@ const EditAddress: React.FC<EditAddressProps> = ({
             {removing ? <Spinner /> : <Trash />}
             Remove
           </button>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2 border-t pt-3">
+          <Button
+            type="button"
+            size="small"
+            variant={address.is_default_shipping ? "secondary" : "primary"}
+            isLoading={updatingRole === "shipping"}
+            onClick={() => updateDefault("shipping", !address.is_default_shipping)}
+          >
+            {address.is_default_shipping ? "Clear shipping default" : "Set as default shipping"}
+          </Button>
+          <Button
+            type="button"
+            size="small"
+            variant={address.is_default_billing ? "secondary" : "primary"}
+            isLoading={updatingRole === "billing"}
+            onClick={() => updateDefault("billing", !address.is_default_billing)}
+          >
+            {address.is_default_billing ? "Clear billing default" : "Set as default billing"}
+          </Button>
         </div>
       </div>
 
@@ -232,6 +274,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
               <SriLankanPhoneInput
                 label="Phone"
                 name="phone"
+                required
                 defaultValue={address.phone || undefined}
                 error={formState.fieldErrors?.phone}
                 data-testid="phone-input"

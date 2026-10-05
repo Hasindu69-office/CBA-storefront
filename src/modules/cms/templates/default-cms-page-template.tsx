@@ -124,7 +124,7 @@ function PolicyCmsPageTemplate({ content }: Props) {
         </nav>
 
         <div className="grid gap-8 large:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="h-fit rounded-[8px] border border-[#eeeeee] bg-white p-5 large:sticky large:top-6">
+          <aside className="h-fit rounded-[8px] border border-[#eeeeee] bg-white p-5 large:sticky large:top-24">
             <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#ff5c0e]">
               Information
             </p>

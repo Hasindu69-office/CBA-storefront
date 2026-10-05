@@ -2,7 +2,11 @@
 
 import { sdk } from "@lib/config"
 import medusaError from "@lib/util/medusa-error"
-import { getAuthHeaders, getCacheOptions, hasOrderConfirmationAccess } from "./cookies"
+import {
+  getAuthHeaders,
+  getCacheOptions,
+  hasOrderConfirmationAccess,
+} from "./cookies"
 import { HttpTypes } from "@medusajs/types"
 
 export const retrieveOrder = async (id: string) => {
@@ -23,7 +27,7 @@ export const retrieveOrder = async (id: string) => {
       method: "GET",
       query: {
         fields:
-          "id,display_id,email,currency_code,total,subtotal,item_total,item_subtotal,tax_total,shipping_total,shipping_subtotal,discount_total,payment_status,fulfillment_status,created_at,*payment_collections.payments,*items,*items.metadata,*items.variant,*items.product,*shipping_methods,*shipping_address,*billing_address",
+          "id,display_id,email,currency_code,total,subtotal,item_total,item_subtotal,tax_total,shipping_total,shipping_subtotal,discount_total,payment_status,fulfillment_status,created_at,*payment_collections.payments,*items,*items.metadata,*items.variant,*items.product,+items.product.shipping_profile.id,+items.product.shipping_profile.type,+items.variant.product.shipping_profile.id,+items.variant.product.shipping_profile.type,*shipping_methods,*shipping_address,*billing_address",
       },
       headers,
       next,

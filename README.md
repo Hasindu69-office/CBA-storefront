@@ -18,8 +18,11 @@ Create or update `.env.local`:
 ```env
 MEDUSA_BACKEND_URL=http://localhost:9000
 NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=replace-with-local-publishable-key
+NEXT_PUBLIC_RECAPTCHA_SITE_KEY=replace-with-local-v3-site-key
 NEXT_PUBLIC_BASE_URL=http://localhost:8000
 NEXT_PUBLIC_DEFAULT_REGION=lk
+NEXT_PUBLIC_META_PIXEL_ID=1361822756100417
+NEXT_PUBLIC_GTM_ID=GTM-WPLSJRPK
 ```
 
 Optional payment variables:

@@ -1,7 +1,6 @@
 "use client"
 
 import {
-  initiatePaymentSession,
   applyPromotionsSafe,
   calculateCartTaxes,
   placeOrder,
@@ -9,9 +8,9 @@ import {
   setShippingMethod,
 } from "@lib/data/cart"
 import {
-  clearInstallmentPlan,
   listInstallmentPlans,
-  selectInstallmentPlan,
+  selectCheckoutPayment,
+  type SelectedInstallmentPlanSnapshot,
   type StoreInstallmentPlan,
 } from "@lib/data/installments"
 import { calculatePriceForShippingOption } from "@lib/data/fulfillment"
@@ -29,6 +28,7 @@ import type { WebxpayCheckoutBranding } from "@lib/data/webxpay-branding"
 import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
+import { calculateCartInstallmentPricing } from "@lib/util/installment-totals"
 import {
   firstCheckoutAddressErrorField,
   validateCheckoutAddressFormData,
@@ -62,7 +62,7 @@ import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-inp
 import Radio from "@modules/common/components/radio"
 import { CardElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   useCallback,
   useEffect,
@@ -80,6 +80,15 @@ import {
   hasAutomaticPromotions,
   manualCodesWithNewCoupon,
 } from "@lib/util/coupon-promotions"
+import {
+  buildFulfillmentPlan,
+  deriveFulfillmentModeFromItems,
+  formatPickupAddress,
+  isTestDeliveryOption,
+  type FulfillmentPlan,
+} from "@lib/util/fulfillment-plan"
+import { linesFromCartLikeItems } from "@lib/analytics/meta-pixel"
+import MetaInitiateCheckout from "@modules/analytics/meta-initiate-checkout"
 
 type CbaCheckoutTemplateProps = {
   cart: HttpTypes.StoreCart
@@ -107,7 +116,10 @@ function money(amount: number | null | undefined, currencyCode: string) {
   })
 }
 
-function installmentMoney(amount: number | null | undefined, currencyCode: string) {
+function installmentMoney(
+  amount: number | null | undefined,
+  currencyCode: string
+) {
   return convertToLocale({
     amount: amount ?? 0,
     currency_code: currencyCode,
@@ -125,7 +137,11 @@ function formatInstallmentRate(value: number) {
   if (!Number.isFinite(rate)) {
     return ""
   }
-  return `${Number.isInteger(rate) ? rate.toFixed(0) : rate.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}%`
+  return `${
+    Number.isInteger(rate)
+      ? rate.toFixed(0)
+      : rate.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")
+  }%`
 }
 
 function paymentTitle(
@@ -183,9 +199,23 @@ function selectedPaymentSession(cart: HttpTypes.StoreCart) {
   )
 }
 
-function selectedInstallmentPlanId(cart: CbaCheckoutCart | HttpTypes.StoreCart) {
+function selectedInstallmentPlanId(
+  cart: CbaCheckoutCart | HttpTypes.StoreCart
+) {
   const value = (cart as CbaCheckoutCart).metadata?.cba_installment_plan_id
   return typeof value === "string" && value.startsWith("cbaip_") ? value : ""
+}
+
+function selectedInstallmentSnapshot(
+  cart: CbaCheckoutCart | HttpTypes.StoreCart
+) {
+  const value = (cart as CbaCheckoutCart).metadata?.cba_installment_plan
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const snapshot = value as Partial<SelectedInstallmentPlanSnapshot>
+  return typeof snapshot.plan_id === "string" &&
+    Number.isFinite(Number(snapshot.fee_percentage))
+    ? (snapshot as SelectedInstallmentPlanSnapshot)
+    : null
 }
 
 function selectedCheckoutPaymentMethod(
@@ -194,7 +224,10 @@ function selectedCheckoutPaymentMethod(
 ) {
   void paymentMethods
   const activeSession = selectedPaymentSession(cart as HttpTypes.StoreCart)
-  if (isWebxpay(activeSession?.provider_id) && selectedInstallmentPlanId(cart)) {
+  if (
+    isWebxpay(activeSession?.provider_id) &&
+    selectedInstallmentPlanId(cart)
+  ) {
     return CBA_INSTALLMENT_METHOD_ID
   }
   return activeSession?.provider_id ?? ""
@@ -221,8 +254,15 @@ export default function CbaCheckoutTemplate({
   kokoBranding = null,
 }: CbaCheckoutTemplateProps) {
   const activeSession = selectedPaymentSession(cart)
+  const fulfillmentPlan = useMemo(
+    () => buildFulfillmentPlan(cart, shippingMethods),
+    [cart, shippingMethods]
+  )
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
     selectedCheckoutPaymentMethod(cart, paymentMethods)
+  )
+  const [selectedInstallment, setSelectedInstallment] = useState(
+    selectedInstallmentSnapshot(cart)
   )
   const [cardComplete, setCardComplete] = useState(false)
   const addressFormRef = useRef<HTMLFormElement>(null)
@@ -232,8 +272,16 @@ export default function CbaCheckoutTemplate({
     useState<CheckoutAddressFieldErrors>({})
   const [addressFormError, setAddressFormError] = useState<string | null>(null)
 
+  const metaCheckoutLines = useMemo(
+    () => linesFromCartLikeItems(cart.items),
+    [cart.items]
+  )
+
   const validateAddressField = useCallback(
-    (field: CheckoutAddressFieldName, event?: FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    (
+      field: CheckoutAddressFieldName,
+      event?: FormEvent<HTMLInputElement | HTMLTextAreaElement>
+    ) => {
       const form = addressFormRef.current
       if (!form) return
 
@@ -246,7 +294,9 @@ export default function CbaCheckoutTemplate({
       }
 
       const validation = validateCheckoutAddressFormData(new FormData(form))
-      const fieldError = validation.ok ? null : validation.fieldErrors[field] ?? null
+      const fieldError = validation.ok
+        ? null
+        : validation.fieldErrors[field] ?? null
 
       setAddressFieldErrors((current) => {
         const next = { ...current }
@@ -266,16 +316,19 @@ export default function CbaCheckoutTemplate({
     []
   )
 
-  const focusAddressField = useCallback((field: CheckoutAddressFieldName | null) => {
-    if (!field) return
-    const element = addressFormRef.current?.querySelector<HTMLElement>(
-      `[data-phone-input-for="${field}"], [name="${field}"]`
-    )
-    if (element instanceof HTMLElement) {
-      element.focus()
-      element.scrollIntoView({ block: "center", behavior: "smooth" })
-    }
-  }, [])
+  const focusAddressField = useCallback(
+    (field: CheckoutAddressFieldName | null) => {
+      if (!field) return
+      const element = addressFormRef.current?.querySelector<HTMLElement>(
+        `[data-phone-input-for="${field}"], [name="${field}"]`
+      )
+      if (element instanceof HTMLElement) {
+        element.focus()
+        element.scrollIntoView({ block: "center", behavior: "smooth" })
+      }
+    },
+    []
+  )
 
   const saveCurrentCheckoutDetails = useCallback(async () => {
     const form = addressFormRef.current
@@ -289,7 +342,9 @@ export default function CbaCheckoutTemplate({
     if (!clientValidation.ok) {
       setAddressFieldErrors(clientValidation.fieldErrors)
       setAddressFormError(clientValidation.formError)
-      focusAddressField(firstCheckoutAddressErrorField(clientValidation.fieldErrors))
+      focusAddressField(
+        firstCheckoutAddressErrorField(clientValidation.fieldErrors)
+      )
       return clientValidation.formError
     }
 
@@ -304,7 +359,9 @@ export default function CbaCheckoutTemplate({
       result = {
         success: false,
         error:
-          err instanceof Error ? err.message : "Could not save delivery details.",
+          err instanceof Error
+            ? err.message
+            : "Could not save delivery details.",
       }
     } finally {
       setIsSavingCheckoutDetails(false)
@@ -325,26 +382,23 @@ export default function CbaCheckoutTemplate({
 
     setAddressFieldErrors({})
     setAddressFormError(null)
+    if (result.addressSaveWarning) {
+      notify.warning(result.addressSaveWarning, { id: "checkout-address-save" })
+    } else {
+      notify.dismiss("checkout-address-save")
+    }
     notify.dismiss("checkout-details")
     return null
   }, [focusAddressField])
 
-  useEffect(() => {
-    if (activeSession?.provider_id) {
-      const nextPaymentMethod = selectedCheckoutPaymentMethod(cart, paymentMethods)
-      const keepPendingInstallmentChoice =
-        selectedPaymentMethod === CBA_INSTALLMENT_METHOD_ID &&
-        isWebxpay(activeSession.provider_id) &&
-        !selectedInstallmentPlanId(cart)
-
-      if (!keepPendingInstallmentChoice && nextPaymentMethod !== selectedPaymentMethod) {
-        setSelectedPaymentMethod(nextPaymentMethod)
-      }
-    }
-  }, [activeSession?.provider_id, cart, paymentMethods, selectedPaymentMethod])
-
   return (
     <div className="content-container py-10 small:py-12">
+      <MetaInitiateCheckout
+        cartId={cart.id}
+        currency={cart.currency_code}
+        value={cart.total}
+        lines={metaCheckoutLines}
+      />
       <h1 className="text-center text-[32px] small:text-[36px] font-bold leading-tight text-[#111111]">
         Checkout
       </h1>
@@ -361,10 +415,11 @@ export default function CbaCheckoutTemplate({
             fieldErrors={addressFieldErrors}
             formError={addressFormError}
             onFieldChange={validateAddressField}
+            pickupOnly={fulfillmentPlan.mode === "pickup-only"}
           />
           <DeliveryMethodSelector
             cart={cart}
-            shippingMethods={shippingMethods}
+            plan={fulfillmentPlan}
             isSavingCheckoutDetails={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
           />
@@ -373,11 +428,13 @@ export default function CbaCheckoutTemplate({
             paymentMethods={paymentMethods}
             selectedPaymentMethod={selectedPaymentMethod}
             setSelectedPaymentMethod={setSelectedPaymentMethod}
+            setSelectedInstallment={setSelectedInstallment}
             setCardComplete={setCardComplete}
             isSavingCheckoutDetails={isSavingCheckoutDetails}
             saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
             webxpayBranding={webxpayBranding}
             kokoBranding={kokoBranding}
+            fulfillmentReady={fulfillmentPlan.isComplete}
           />
           <div className="hidden small:block">
             <PlaceOrderControl
@@ -390,6 +447,7 @@ export default function CbaCheckoutTemplate({
               setTermsAccepted={setTermsAccepted}
               webxpayBranding={webxpayBranding}
               kokoBranding={kokoBranding}
+              fulfillmentReady={fulfillmentPlan.isComplete}
             />
           </div>
         </section>
@@ -405,6 +463,8 @@ export default function CbaCheckoutTemplate({
             setTermsAccepted={setTermsAccepted}
             webxpayBranding={webxpayBranding}
             kokoBranding={kokoBranding}
+            fulfillmentPlan={fulfillmentPlan}
+            selectedInstallment={selectedInstallment}
           />
         </aside>
       </div>
@@ -421,6 +481,7 @@ function ShippingInformationForm({
   fieldErrors,
   formError,
   onFieldChange,
+  pickupOnly,
 }: {
   cart: HttpTypes.StoreCart
   customer: HttpTypes.StoreCustomer | null
@@ -433,10 +494,37 @@ function ShippingInformationForm({
     field: CheckoutAddressFieldName,
     event?: FormEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => void
+  pickupOnly: boolean
 }) {
+  const defaultShippingAddress = customer?.addresses?.find(
+    (address) => address.is_default_shipping
+  )
+  const defaultBillingAddress = customer?.addresses?.find(
+    (address) => address.is_default_billing
+  )
+  // Account defaults are the checkout starting point. A cart retains an
+  // address snapshot from earlier visits, which may be a stale manual address
+  // and must not mask a newer default selected in the Address Book.
+  const shippingAddress = defaultShippingAddress ?? cart.shipping_address
+  const billingAddress = cart.billing_address?.address_1
+    ? cart.billing_address
+    : defaultBillingAddress
+  const [selectedBillingAddressId, setSelectedBillingAddressId] = useState(
+    billingAddress?.id ?? ""
+  )
+  // An empty selection is an explicit request for a new billing address, not
+  // a fallback to the previously selected/default address.
+  const selectedBillingAddress = selectedBillingAddressId
+    ? customer?.addresses?.find(
+        (address) => address.id === selectedBillingAddressId
+      )
+    : undefined
+  // Billing normally follows shipping. Customers may opt out explicitly when
+  // they need a different invoice address.
+  const [sameAsShipping, setSameAsShipping] = useState(true)
   const initialFullName = [
-    cart.shipping_address?.first_name,
-    cart.shipping_address?.last_name,
+    shippingAddress?.first_name,
+    shippingAddress?.last_name,
   ]
     .filter(Boolean)
     .join(" ")
@@ -457,8 +545,14 @@ function ShippingInformationForm({
     >
       <SectionTitle
         icon={<MapPin className="text-brand" />}
-        title="Shipping Information"
-        subtitle="Enter your delivery details"
+        title={
+          pickupOnly ? "Customer & Billing Information" : "Shipping Information"
+        }
+        subtitle={
+          pickupOnly
+            ? "Enter your contact and billing address for this pickup order"
+            : "Enter your delivery details"
+        }
       />
       {formError && (
         <p
@@ -483,20 +577,18 @@ function ShippingInformationForm({
         <SriLankanPhoneInput
           label="Phone Number"
           name="shipping_address.phone"
-          defaultValue={cart.shipping_address?.phone ?? ""}
+          defaultValue={shippingAddress?.phone ?? ""}
           required
           error={fieldErrors["shipping_address.phone"]}
           onValueChange={(internationalValue) =>
-            onFieldChange(
-              "shipping_address.phone",
-              { currentTarget: { value: internationalValue } } as FormEvent<HTMLInputElement>
-            )
+            onFieldChange("shipping_address.phone", {
+              currentTarget: { value: internationalValue },
+            } as FormEvent<HTMLInputElement>)
           }
           onValueBlur={(internationalValue) =>
-            onFieldChange(
-              "shipping_address.phone",
-              { currentTarget: { value: internationalValue } } as FormEvent<HTMLInputElement>
-            )
+            onFieldChange("shipping_address.phone", {
+              currentTarget: { value: internationalValue },
+            } as FormEvent<HTMLInputElement>)
           }
         />
         <Field
@@ -516,7 +608,7 @@ function ShippingInformationForm({
           label="Street Address"
           name="shipping_address.address_1"
           placeholder="Enter your street address"
-          defaultValue={cart.shipping_address?.address_1 ?? ""}
+          defaultValue={shippingAddress?.address_1 ?? ""}
           required
           className="medium:col-span-2"
           error={fieldErrors["shipping_address.address_1"]}
@@ -529,14 +621,14 @@ function ShippingInformationForm({
           label="Apartment, suite, unit, etc. (optional)"
           name="shipping_address.address_2"
           placeholder="Enter apartment, suite, unit, etc."
-          defaultValue={cart.shipping_address?.address_2 ?? ""}
+          defaultValue={shippingAddress?.address_2 ?? ""}
           className="medium:col-span-2"
         />
         <Field
           label="City"
           name="shipping_address.city"
           placeholder="Select city"
-          defaultValue={cart.shipping_address?.city ?? ""}
+          defaultValue={shippingAddress?.city ?? ""}
           required
           error={fieldErrors["shipping_address.city"]}
           onChange={(event) => onFieldChange("shipping_address.city", event)}
@@ -546,7 +638,7 @@ function ShippingInformationForm({
           label="District"
           name="shipping_address.province"
           placeholder="Select district"
-          defaultValue={cart.shipping_address?.province ?? ""}
+          defaultValue={shippingAddress?.province ?? ""}
           required
           error={fieldErrors["shipping_address.province"]}
           onChange={(event) =>
@@ -558,7 +650,7 @@ function ShippingInformationForm({
           label="Postal Code"
           name="shipping_address.postal_code"
           placeholder="Enter postal code"
-          defaultValue={cart.shipping_address?.postal_code ?? ""}
+          defaultValue={shippingAddress?.postal_code ?? ""}
           required
           maxLength={5}
           inputMode="numeric"
@@ -607,15 +699,64 @@ function ShippingInformationForm({
           )}
         </label>
       </div>
-      <div className="mt-4 flex flex-col gap-3 small:flex-row small:items-center small:justify-between">
+      <div className="mt-6 border-t border-gray-100 pt-5">
         <label className="flex items-center gap-2 text-[13px] font-medium text-[#4b5260]">
           <input
             type="checkbox"
-            name="save_address"
+            name="same_as_billing"
+            checked={sameAsShipping}
+            onChange={(event) => setSameAsShipping(event.currentTarget.checked)}
             className="h-4 w-4 rounded border-gray-300 accent-brand"
           />
-          Save this address for future orders
+          Billing address is the same as shipping address
         </label>
+        {!sameAsShipping && (
+          <div
+            key={selectedBillingAddressId || "manual-billing-address"}
+            className="mt-4 grid grid-cols-1 gap-4 medium:grid-cols-2"
+          >
+            <input type="hidden" name="billing_address.country_code" value="lk" />
+            {customer && customer.addresses.length > 0 && (
+              <label className="flex flex-col gap-1.5 medium:col-span-2">
+                <span className="text-[12px] font-semibold text-[#252a33]">Use a saved billing address</span>
+                <select
+                  name="billing_address_id"
+                  value={selectedBillingAddressId}
+                  onChange={(event) => setSelectedBillingAddressId(event.currentTarget.value)}
+                  className="h-11 rounded-md border border-gray-200 bg-white px-3 text-[13px] outline-none focus:border-brand"
+                >
+                  <option value="">Enter a different billing address below</option>
+                  {customer.addresses.map((address) => (
+                    <option key={address.id} value={address.id}>
+                      {address.first_name} {address.last_name} — {address.address_1}, {address.city}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <Field label="Billing first name" name="billing_address.first_name" placeholder="Enter first name" defaultValue={selectedBillingAddress?.first_name ?? ""} required />
+            <Field label="Billing last name" name="billing_address.last_name" placeholder="Enter last name" defaultValue={selectedBillingAddress?.last_name ?? ""} required />
+            <Field label="Billing street address" name="billing_address.address_1" placeholder="Enter street address" defaultValue={selectedBillingAddress?.address_1 ?? ""} required className="medium:col-span-2" />
+            <Field label="Apartment, suite, unit, etc. (optional)" name="billing_address.address_2" placeholder="Enter apartment, suite, unit, etc." defaultValue={selectedBillingAddress?.address_2 ?? ""} className="medium:col-span-2" />
+            <Field label="Billing city" name="billing_address.city" placeholder="Enter city" defaultValue={selectedBillingAddress?.city ?? ""} required />
+            <Field label="Billing district" name="billing_address.province" placeholder="Enter district" defaultValue={selectedBillingAddress?.province ?? ""} required />
+            <Field label="Billing company (optional)" name="billing_address.company" placeholder="Enter company" defaultValue={selectedBillingAddress?.company ?? ""} />
+            <Field label="Billing postal code" name="billing_address.postal_code" placeholder="Enter postal code" defaultValue={selectedBillingAddress?.postal_code ?? ""} required maxLength={5} inputMode="numeric" />
+            <SriLankanPhoneInput label="Billing phone number" name="billing_address.phone" defaultValue={selectedBillingAddress?.phone ?? ""} required />
+          </div>
+        )}
+      </div>
+      <div className="mt-4 flex flex-col gap-3 small:flex-row small:items-center small:justify-between">
+        {customer && (
+          <label className="flex items-center gap-2 text-[13px] font-medium text-[#4b5260]">
+            <input
+              type="checkbox"
+              name="save_address"
+              className="h-4 w-4 rounded border-gray-300 accent-brand"
+            />
+            Save this address for future orders
+          </label>
+        )}
         {(isSaving || isPending) && (
           <span className="text-[13px] font-semibold text-[#6b7280]">
             Saving delivery details...
@@ -653,7 +794,15 @@ function Field({
   onChange?: (event: FormEvent<HTMLInputElement>) => void
   onBlur?: (event: FormEvent<HTMLInputElement>) => void
   maxLength?: number
-  inputMode?: "none" | "text" | "tel" | "url" | "email" | "numeric" | "decimal" | "search"
+  inputMode?:
+    | "none"
+    | "text"
+    | "tel"
+    | "url"
+    | "email"
+    | "numeric"
+    | "decimal"
+    | "search"
 }) {
   const errorId = `${name.replace(/[^A-Za-z0-9_-]+/g, "-")}-error`
   return (
@@ -681,9 +830,7 @@ function Field({
           onBlur={onBlur}
           className={`h-10 w-full rounded-md border px-4 text-[13px] outline-none transition placeholder:text-[#9aa1af] focus:border-brand ${
             icon ? "pl-10" : ""
-          } ${
-            error ? "border-rose-300 bg-rose-50/40" : "border-gray-200"
-          }`}
+          } ${error ? "border-rose-300 bg-rose-50/40" : "border-gray-200"}`}
         />
       </span>
       {error && (
@@ -697,7 +844,10 @@ function Field({
 
 function sanitizeCheckoutInput(field: CheckoutAddressFieldName, value: string) {
   if (field === "full_name") return sanitizePersonNameInput(value)
-  if (field === "shipping_address.city" || field === "shipping_address.province") {
+  if (
+    field === "shipping_address.city" ||
+    field === "shipping_address.province"
+  ) {
     return sanitizePlaceNameInput(value)
   }
   if (field === "shipping_address.phone") {
@@ -711,39 +861,50 @@ function sanitizeCheckoutInput(field: CheckoutAddressFieldName, value: string) {
 
 function DeliveryMethodSelector({
   cart,
-  shippingMethods,
+  plan,
   isSavingCheckoutDetails,
   saveCurrentCheckoutDetails,
 }: {
   cart: HttpTypes.StoreCart
-  shippingMethods: HttpTypes.StoreCartShippingOption[]
+  plan: FulfillmentPlan
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const deliverySectionRef = useRef<HTMLDivElement>(null)
   const [isPending, startTransition] = useTransition()
-  const [selected, setSelected] = useState(
-    cart.shipping_methods?.at(-1)?.shipping_option_id ?? ""
+  const [selectedByProfile, setSelectedByProfile] = useState<
+    Record<string, string>
+  >(() =>
+    Object.fromEntries(
+      plan.groups.map((group) => [
+        group.profileId,
+        group.selectedOption?.id ?? "",
+      ])
+    )
   )
   const [actionError, setActionError] = useState<string | null>(null)
-  const [calculatedPrices, setCalculatedPrices] = useState<Record<string, number>>(
-    {}
-  )
-  const deliveryMethods = useMemo(
-    () =>
-      shippingMethods.filter(
-        (method) => (method as any).service_zone?.fulfillment_set?.type !== "pickup"
-      ),
-    [shippingMethods]
-  )
+  const [calculatedPrices, setCalculatedPrices] = useState<
+    Record<string, number>
+  >({})
 
   useEffect(() => {
-    setSelected(cart.shipping_methods?.at(-1)?.shipping_option_id ?? "")
-  }, [cart.shipping_methods])
+    setSelectedByProfile(
+      Object.fromEntries(
+        plan.groups.map((group) => [
+          group.profileId,
+          group.selectedOption?.id ?? "",
+        ])
+      )
+    )
+  }, [plan])
 
   useEffect(() => {
-    const calculatedMethods = deliveryMethods.filter(
-      (method) => method.price_type === "calculated"
+    const calculatedMethods = plan.groups.flatMap((group) =>
+      group.eligibleOptions.filter(
+        (method) => method.price_type === "calculated"
+      )
     )
     if (!calculatedMethods.length) {
       setCalculatedPrices({})
@@ -772,100 +933,205 @@ function DeliveryMethodSelector({
     return () => {
       active = false
     }
-  }, [cart.id, deliveryMethods])
+  }, [cart.id, plan])
 
-  const selectMethod = (methodId: string) => {
+  useEffect(() => {
+    if (
+      searchParams.get("section") !== "delivery" &&
+      window.location.hash !== "#delivery-methods"
+    ) {
+      return
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      deliverySectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      })
+      deliverySectionRef.current?.focus({ preventScroll: true })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [searchParams])
+
+  const selectMethod = (profileId: string, methodId: string) => {
+    const previous = selectedByProfile[profileId] ?? ""
     setActionError(null)
+    setSelectedByProfile((current) => ({ ...current, [profileId]: methodId }))
     startTransition(async () => {
       try {
         const checkoutDetailsError = await saveCurrentCheckoutDetails()
         if (checkoutDetailsError) {
+          setSelectedByProfile((current) => ({
+            ...current,
+            [profileId]: previous,
+          }))
           setActionError("Complete the highlighted delivery details first.")
           return
         }
 
         await setShippingMethod({ cartId: cart.id, shippingMethodId: methodId })
-        setSelected(methodId)
         router.refresh()
       } catch (err) {
-        setSelected(cart.shipping_methods?.at(-1)?.shipping_option_id ?? "")
-        setActionError("Could not set delivery method. Please try again.")
-        notify.error(
-          err,
-          "Could not set delivery method.",
-          { id: "checkout-shipping" }
-        )
+        setSelectedByProfile((current) => ({
+          ...current,
+          [profileId]: previous,
+        }))
+        const message =
+          err instanceof Error && err.message
+            ? err.message
+            : "Could not set fulfillment method. Please try again."
+        setActionError(message)
+        notify.error(err, "Could not set fulfillment method.", {
+          id: "checkout-shipping",
+        })
       }
     })
   }
 
   return (
-    <div className="border-b border-gray-100 py-6">
+    <div
+      id="delivery-methods"
+      ref={deliverySectionRef}
+      tabIndex={-1}
+      aria-label="Fulfillment Method"
+      className="scroll-mt-24 border-b border-gray-100 py-6 outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+    >
       <SectionTitle
         icon={<ShoppingBag className="text-brand" />}
-        title="Delivery Method"
-        subtitle="Select your preferred delivery option"
+        title="Fulfillment Method"
+        subtitle={
+          plan.mode === "pickup-only"
+            ? "Confirm where you will collect your order"
+            : plan.mode === "mixed"
+            ? "Your order requires delivery and store pickup"
+            : "Select your preferred delivery option"
+        }
       />
-      <div
-        role="radiogroup"
-        aria-label="Delivery method"
-        className="mt-4 grid grid-cols-1 gap-3 medium:grid-cols-2"
-      >
-        {deliveryMethods.map((method, index) => {
-          const checked = selected === method.id
-          const price =
-            method.price_type === "flat"
-              ? method.amount ?? 0
-              : calculatedPrices[method.id]
-          const isFree = Number(price ?? 0) <= 0
-          const calculationUnavailable =
-            method.price_type === "calculated" && typeof price !== "number"
-
-          return (
-            <button
-              key={method.id}
-              type="button"
-              role="radio"
-              aria-checked={checked}
-              onClick={() => selectMethod(method.id)}
-              disabled={
-                isPending ||
-                isSavingCheckoutDetails ||
-                method.insufficient_inventory ||
-                calculationUnavailable
+      {(plan.mode === "pickup-only" || plan.mode === "mixed") && (
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+          <p className="font-bold">
+            {plan.mode === "mixed"
+              ? "This order will be fulfilled in two parts."
+              : "This order is not eligible for delivery."}
+          </p>
+          <p className="mt-1 font-medium">
+            Pickup-only products must be collected from the selected CBA
+            location. Collection and transport are the customer&apos;s
+            responsibility.
+          </p>
+        </div>
+      )}
+      <div className="mt-4 flex flex-col gap-5">
+        {plan.groups.map((group) => (
+          <div key={group.profileId}>
+            <div className="mb-3">
+              <p className="text-[13px] font-bold text-[#252a33]">
+                {group.kind === "pickup" ? "Store pickup" : "Domex delivery"}
+              </p>
+              <ul className="mt-1 list-inside list-disc text-[12px] text-[#6b7280]">
+                {group.items.map((item) => (
+                  <li key={item.id}>
+                    {item.product_title ?? item.title} × {item.quantity}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div
+              role="radiogroup"
+              aria-label={
+                group.kind === "pickup" ? "Pickup location" : "Delivery method"
               }
-              className={`flex min-h-[66px] items-center gap-4 rounded-md border px-4 text-left transition ${
-                checked
-                  ? "border-brand bg-brand/5"
-                  : "border-gray-200 hover:border-brand/60"
-              } disabled:cursor-not-allowed disabled:opacity-60`}
+              className="grid grid-cols-1 gap-3 medium:grid-cols-2"
             >
-              <Radio checked={checked} />
-              <span className="flex h-9 w-9 items-center justify-center text-[#7b8493]">
-                {index === 0 ? <ShoppingBag /> : <Bolt />}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-bold text-[#252a33]">
-                  {method.name}
-                </span>
-                <span className="block text-[12px] text-[#6b7280]">
-                  {index === 0 ? "2 - 4 business days" : "1 - 2 business days"}
-                </span>
-              </span>
-              <span
-                className={`text-[12px] font-bold ${
-                  isFree ? "text-[#25a244]" : "text-[#252a33]"
-                }`}
+              {group.options.map((method, index) => {
+                const checked = selectedByProfile[group.profileId] === method.id
+                const price =
+                  method.price_type === "flat"
+                    ? method.amount ?? 0
+                    : calculatedPrices[method.id]
+                const isPickup = group.kind === "pickup"
+                const isFree = !isPickup && Number(price ?? 0) <= 0
+                const isTestDelivery = isTestDeliveryOption(method)
+                const calculationUnavailable =
+                  method.price_type === "calculated" &&
+                  typeof price !== "number"
+                const isEligible = group.eligibleOptions.some(
+                  (option) => option.id === method.id
+                )
+                const address =
+                  group.kind === "pickup" ? formatPickupAddress(method) : ""
+
+                return (
+                  <button
+                    key={method.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={checked}
+                    onClick={() => selectMethod(group.profileId, method.id)}
+                    disabled={
+                      isPending ||
+                      isSavingCheckoutDetails ||
+                      !isEligible ||
+                      calculationUnavailable
+                    }
+                    className={`flex min-h-[76px] items-center gap-4 rounded-md border px-4 text-left transition ${
+                      checked
+                        ? "border-brand bg-brand/5"
+                        : "border-gray-200 hover:border-brand/60"
+                    } disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    <Radio checked={checked} />
+                    <span className="flex h-9 w-9 items-center justify-center text-[#7b8493]">
+                      {group.kind === "pickup" ? (
+                        <MapPin />
+                      ) : index === 0 ? (
+                        <ShoppingBag />
+                      ) : (
+                        <Bolt />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-bold text-[#252a33]">
+                        {method.name}
+                      </span>
+                      <span className="block text-[12px] text-[#6b7280]">
+                        {isPickup
+                          ? address
+                            ? `${address} · Collection and transport arranged by customer`
+                            : "Pickup address unavailable"
+                          : isTestDelivery
+                          ? "Test delivery option"
+                          : "Delivered by Domex"}
+                      </span>
+                    </span>
+                    <span
+                      className={`text-[12px] font-bold ${
+                        isFree ? "text-[#25a244]" : "text-[#252a33]"
+                      }`}
+                    >
+                      {isPickup
+                        ? "SELF COLLECTION"
+                        : price === undefined
+                        ? "Unavailable"
+                        : isFree
+                        ? "FREE"
+                        : money(price, cart.currency_code)}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            {group.configurationError && (
+              <p
+                className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] font-semibold text-rose-700"
+                role="alert"
               >
-                {price === undefined
-                  ? "Unavailable"
-                  : isFree
-                  ? "FREE"
-                  : money(price, cart.currency_code)}
-              </span>
-            </button>
-          )
-        })}
+                {group.configurationError}
+              </p>
+            )}
+          </div>
+        ))}
       </div>
       {actionError && (
         <p
@@ -885,41 +1151,51 @@ function PaymentMethodSelector({
   paymentMethods,
   selectedPaymentMethod,
   setSelectedPaymentMethod,
+  setSelectedInstallment,
   setCardComplete,
   isSavingCheckoutDetails,
   saveCurrentCheckoutDetails,
   webxpayBranding,
   kokoBranding,
+  fulfillmentReady,
 }: {
   cart: HttpTypes.StoreCart
   paymentMethods: HttpTypes.StorePaymentProvider[]
   selectedPaymentMethod: string
   setSelectedPaymentMethod: (method: string) => void
+  setSelectedInstallment: (plan: SelectedInstallmentPlanSnapshot | null) => void
   setCardComplete: (complete: boolean) => void
   isSavingCheckoutDetails: boolean
   saveCurrentCheckoutDetails: () => Promise<string | null>
   webxpayBranding?: WebxpayCheckoutBranding | null
   kokoBranding?: KokoCheckoutBranding | null
+  fulfillmentReady: boolean
 }) {
   const router = useRouter()
   const activeSession = selectedPaymentSession(cart)
   const [isPending, startTransition] = useTransition()
-  const [installmentPlans, setInstallmentPlans] = useState<StoreInstallmentPlan[]>([])
+  const [installmentPlans, setInstallmentPlans] = useState<
+    StoreInstallmentPlan[]
+  >([])
   const [installmentEligible, setInstallmentEligible] = useState(false)
   const [installmentLoadError, setInstallmentLoadError] = useState("")
   const [actionError, setActionError] = useState<string | null>(null)
   const [cardError, setCardError] = useState<string | null>(null)
+  const paymentMutationRef = useRef(false)
   const [selectedPlanId, setSelectedPlanId] = useState(
     selectedInstallmentPlanId(cart)
   )
   const webxpayMethod = paymentMethods.find((method) => isWebxpay(method.id))
   const showInstallments =
     Boolean(webxpayMethod) && installmentEligible && installmentPlans.length > 0
-  const hasSelectedDelivery = (cart.shipping_methods?.length ?? 0) > 0
+  const hasSelectedDelivery = fulfillmentReady
 
   useEffect(() => {
     let alive = true
-    listInstallmentPlans({ amount: cart.total ?? 0, cartId: cart.id })
+    listInstallmentPlans({
+      cartId: cart.id,
+      cartTotal: cart.total,
+    })
       .then((result) => {
         if (!alive) return
         setInstallmentPlans(result.installment_plans)
@@ -943,15 +1219,28 @@ function PaymentMethodSelector({
     return () => {
       alive = false
     }
-  }, [cart.id, cart.total])
+  }, [
+    cart.id,
+    cart.total,
+    cart.shipping_total,
+    cart.discount_total,
+  ])
 
   useEffect(() => {
     setSelectedPlanId(selectedInstallmentPlanId(cart))
   }, [cart])
 
   const selectPayment = (providerId: string) => {
+    if (paymentMutationRef.current || isPending || isSavingCheckoutDetails) return
+    paymentMutationRef.current = true
+    const previousMethod = selectedPaymentMethod
+    const previousPlanId = selectedPlanId
+    const previousInstallment = selectedInstallmentSnapshot(cart)
     setActionError(null)
     setCardComplete(false)
+    setSelectedPaymentMethod(providerId)
+    setSelectedPlanId("")
+    setSelectedInstallment(null)
     startTransition(async () => {
       try {
         const checkoutDetailsError = await saveCurrentCheckoutDetails()
@@ -960,54 +1249,51 @@ function PaymentMethodSelector({
           return
         }
         if (!hasSelectedDelivery) {
-          setActionError("Select a delivery method before choosing payment.")
+          setActionError(
+            "Select a method for every fulfillment group before choosing payment."
+          )
           return
         }
 
-        await clearInstallmentPlan(cart.id)
-        await initiatePaymentSession(cart, { provider_id: providerId })
-        setSelectedPaymentMethod(providerId)
+        const result = await selectCheckoutPayment({
+          cartId: cart.id,
+          providerId,
+          mode: "standard",
+        })
+        setSelectedPaymentMethod(result.provider_id)
+        setSelectedPlanId("")
+        setSelectedInstallment(null)
         router.refresh()
       } catch (err) {
+        setSelectedPaymentMethod(previousMethod)
+        setSelectedPlanId(previousPlanId)
+        setSelectedInstallment(previousInstallment)
         setActionError("Could not set payment method. Please try again.")
         notify.error(err, "Could not set payment method.", {
           id: "checkout-payment",
         })
+      } finally {
+        paymentMutationRef.current = false
       }
     })
   }
 
   const selectInstallmentPayment = () => {
+    if (isPending || isSavingCheckoutDetails) return
     setActionError(null)
     setCardComplete(false)
-    startTransition(async () => {
-      try {
-        const checkoutDetailsError = await saveCurrentCheckoutDetails()
-        if (checkoutDetailsError) {
-          setActionError("Complete the highlighted delivery details first.")
-          return
-        }
-        if (!hasSelectedDelivery) {
-          setActionError("Select a delivery method before choosing payment.")
-          return
-        }
-
-        if (webxpayMethod && !isWebxpay(activeSession?.provider_id)) {
-          await initiatePaymentSession(cart, { provider_id: webxpayMethod.id })
-        }
-        setSelectedPaymentMethod(CBA_INSTALLMENT_METHOD_ID)
-      } catch (err) {
-        setActionError("Could not set installment payment. Please try again.")
-        notify.error(err, "Could not set installment payment.", {
-          id: "checkout-payment",
-        })
-      }
-    })
+    setSelectedPaymentMethod(CBA_INSTALLMENT_METHOD_ID)
   }
 
   const selectPlan = (planId: string) => {
+    if (paymentMutationRef.current || isPending || isSavingCheckoutDetails || !webxpayMethod) return
+    paymentMutationRef.current = true
     const previousPlanId = selectedPlanId
+    const previousMethod = selectedPaymentMethod
+    const previousInstallment = selectedInstallmentSnapshot(cart)
     setActionError(null)
+    setSelectedPlanId(planId)
+    setSelectedPaymentMethod(CBA_INSTALLMENT_METHOD_ID)
     startTransition(async () => {
       try {
         const checkoutDetailsError = await saveCurrentCheckoutDetails()
@@ -1017,23 +1303,32 @@ function PaymentMethodSelector({
           return
         }
         if (!hasSelectedDelivery) {
-          setActionError("Select a delivery method before choosing an installment plan.")
+          setActionError(
+            "Select a method for every fulfillment group before choosing an installment plan."
+          )
           return
         }
 
-        if (webxpayMethod && !isWebxpay(activeSession?.provider_id)) {
-          await initiatePaymentSession(cart, { provider_id: webxpayMethod.id })
-        }
-        await selectInstallmentPlan(cart.id, planId)
-        setSelectedPlanId(planId)
+        const result = await selectCheckoutPayment({
+          cartId: cart.id,
+          providerId: webxpayMethod.id,
+          mode: "installment",
+          installmentPlanId: planId,
+        })
+        setSelectedPlanId(result.selected_installment_plan?.plan_id ?? "")
+        setSelectedInstallment(result.selected_installment_plan)
         setSelectedPaymentMethod(CBA_INSTALLMENT_METHOD_ID)
         router.refresh()
       } catch (err) {
         setSelectedPlanId(previousPlanId)
+        setSelectedPaymentMethod(previousMethod)
+        setSelectedInstallment(previousInstallment)
         setActionError("Could not select installment plan. Please try again.")
         notify.error(err, "Could not select installment plan.", {
           id: "checkout-payment",
         })
+      } finally {
+        paymentMutationRef.current = false
       }
     })
   }
@@ -1073,12 +1368,14 @@ function PaymentMethodSelector({
                   {paymentTitle(method.id, webxpayBranding, kokoBranding)}
                   {checked && isWebxpay(method.id) ? (
                     <span className="mt-1 block text-[11px] font-medium text-[#6b7280]">
-                      You will be redirected to WEBXPAY to complete payment securely.
+                      You will be redirected to WEBXPAY to complete payment
+                      securely.
                     </span>
                   ) : null}
                   {checked && isKoko(method.id) ? (
                     <span className="mt-1 block text-[11px] font-medium text-[#6b7280]">
-                      You will be redirected to Koko to complete payment securely.
+                      You will be redirected to Koko to complete payment
+                      securely.
                     </span>
                   ) : null}
                 </span>
@@ -1216,8 +1513,11 @@ function InstallmentPaymentOption({
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-bold">
                   {plan.tenor_months} Months
-                  {plan.monthly_amount !== undefined
-                    ? ` (${installmentMoney(plan.monthly_amount, currencyCode)})`
+                  {plan.installment_charge_amount !== undefined
+                    ? ` (${installmentMoney(
+                        plan.installment_charge_amount,
+                        currencyCode
+                      )})`
                     : ""}{" "}
                   {formatInstallmentRate(plan.fee_percentage)}
                 </span>
@@ -1258,6 +1558,8 @@ function CheckoutOrderSummary({
   setTermsAccepted,
   webxpayBranding,
   kokoBranding,
+  fulfillmentPlan,
+  selectedInstallment,
 }: {
   cart: CbaCheckoutCart
   selectedPaymentMethod: string
@@ -1268,20 +1570,45 @@ function CheckoutOrderSummary({
   setTermsAccepted: (accepted: boolean) => void
   webxpayBranding?: WebxpayCheckoutBranding | null
   kokoBranding?: KokoCheckoutBranding | null
+  fulfillmentPlan: FulfillmentPlan
+  selectedInstallment: SelectedInstallmentPlanSnapshot | null
 }) {
   const router = useRouter()
   const [isRefreshingTotals, setIsRefreshingTotals] = useState(false)
-  const itemCount = cart.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
+  const itemCount =
+    cart.items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
   const automaticPromotions = hasAutomaticPromotions(cart.promotions)
+  const requiredDeliveryGroups = fulfillmentPlan.groups.filter(
+    (group) => group.kind === "delivery"
+  )
+  const shippingSelectionValid =
+    requiredDeliveryGroups.length > 0
+      ? requiredDeliveryGroups.every((group) => Boolean(group.selectedOption))
+      : fulfillmentPlan.groups.every((group) => Boolean(group.selectedOption))
+  const selectedFulfillmentNames = fulfillmentPlan.groups
+    .map((group) => group.selectedOption?.name)
+    .filter((name): name is string => Boolean(name))
   const mapped = mapAuthoritativeTotals(cart, {
     itemCount,
     automaticPromotionApplied: automaticPromotions,
+    fulfillmentMode: deriveFulfillmentModeFromItems(cart.items),
+    shippingSelectionValid,
   })
   const subtotalRow = mapped.rows.find((row) => row.key === "subtotal")
   const discountRow = mapped.rows.find((row) => row.key === "discount")
-  const taxRows = mapped.rows.filter((row) =>
-    ["item-tax", "shipping-tax", "tax"].includes(row.key)
-  )
+  const taxRows = mapped.rows.filter((row) => row.key === "tax")
+  const activeInstallment = isInstallmentMethod(selectedPaymentMethod)
+    ? selectedInstallment
+    : null
+  const installmentPricing = activeInstallment
+    ? calculateCartInstallmentPricing({
+        baseAmount: Number(cart.total ?? 0),
+        feePercentage: Number(activeInstallment.fee_percentage),
+        tenorMonths: Number(activeInstallment.tenor_months),
+      })
+    : null
+  const installmentTotal = installmentPricing?.installment_charge_amount ?? null
+  const installmentFee = installmentPricing?.installment_fee_amount ?? null
 
   const applyCheckoutCoupon = async (code: string) => {
     const result = await applyPromotionsSafe(
@@ -1301,7 +1628,9 @@ function CheckoutOrderSummary({
       notify.dismiss("checkout-totals")
       router.refresh()
     } catch (error) {
-      notify.error(error, "Could not refresh totals.", { id: "checkout-totals" })
+      notify.error(error, "Could not refresh totals.", {
+        id: "checkout-totals",
+      })
     } finally {
       setIsRefreshingTotals(false)
     }
@@ -1342,7 +1671,10 @@ function CheckoutOrderSummary({
         <div className="mt-4 border-t border-gray-100 pt-5 text-[14px]">
           <SummaryLine
             label="Subtotal"
-            value={subtotalRow?.display ?? money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)}
+            value={
+              subtotalRow?.display ??
+              money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)
+            }
           />
           {discountRow && (
             <SummaryLine
@@ -1353,7 +1685,7 @@ function CheckoutOrderSummary({
           )}
           {mapped.shippingVisible && (
             <SummaryLine
-              label="Delivery Fee"
+              label={mapped.shippingLabel}
               value={
                 mapped.shippingBeforeDiscountDisplay ? (
                   <span className="text-right">
@@ -1373,30 +1705,79 @@ function CheckoutOrderSummary({
               }
             />
           )}
+          {mapped.shippingIsPending && (
+            <SummaryLine
+              label={
+                fulfillmentPlan.mode === "pickup-only"
+                  ? "Collection"
+                  : "Delivery Fee"
+              }
+              value={
+                fulfillmentPlan.mode === "pickup-only"
+                  ? "Select a pickup location"
+                  : "Select a delivery method"
+              }
+            />
+          )}
+          {fulfillmentPlan.mode === "mixed" &&
+            selectedFulfillmentNames.length > 0 && (
+              <SummaryLine
+                label="Fulfillment"
+                value={selectedFulfillmentNames.join(" + ")}
+              />
+            )}
           {taxRows.map((row) => (
             <SummaryLine key={row.key} label={row.label} value={row.display} />
           ))}
+          {installmentFee !== null && (
+            <SummaryLine
+              label={`Installment fee (${formatInstallmentRate(
+                activeInstallment!.fee_percentage
+              )})`}
+              value={installmentMoney(installmentFee, cart.currency_code)}
+            />
+          )}
         </div>
 
         <div className="mt-5 border-t border-gray-100 pt-5">
           <div className="flex items-start justify-between gap-4">
-            <span className="text-[20px] font-bold text-[#111111]">Total</span>
+            <span className="text-[20px] font-bold text-[#111111]">
+              {activeInstallment
+                ? "Installment total"
+                : fulfillmentPlan.isComplete
+                  ? "Total"
+                  : "Estimated total"}
+            </span>
             <span className="text-right">
               <span className="block text-[24px] font-bold text-brand">
-                {mapped.total.display}
+                {installmentTotal === null
+                  ? mapped.total.display
+                  : installmentMoney(installmentTotal, cart.currency_code)}
               </span>
-          {mapped.taxNote && (
-            <span className="text-[12px] font-semibold text-[#7b8493]" aria-live="polite">
-              {mapped.taxNote}
-            </span>
-          )}
+              {mapped.taxNote && (
+                <span
+                  className="text-[12px] font-semibold text-[#7b8493]"
+                  aria-live="polite"
+                >
+                  {mapped.taxNote}
+                </span>
+              )}
+              {!fulfillmentPlan.isComplete && (
+                <span className="mt-1 block max-w-[210px] text-[12px] font-medium leading-4 text-[#7b8493]">
+                  Fulfillment charges are confirmed after all required methods
+                  are selected.
+                </span>
+              )}
             </span>
           </div>
           {(mapped.states.includes("tax_pending") ||
             mapped.states.includes("configuration_unavailable") ||
             mapped.states.includes("calculation_failed")) && (
             <div className="mt-4 rounded-md border border-brand/20 bg-brand/5 px-3 py-3">
-              <p className="text-[12px] font-semibold text-[#626978]" aria-live="polite">
+              <p
+                className="text-[12px] font-semibold text-[#626978]"
+                aria-live="polite"
+              >
                 {mapped.taxNote}
               </p>
               <button
@@ -1420,6 +1801,7 @@ function CheckoutOrderSummary({
               setTermsAccepted={setTermsAccepted}
               webxpayBranding={webxpayBranding}
               kokoBranding={kokoBranding}
+              fulfillmentReady={fulfillmentPlan.isComplete}
             />
           </div>
         </div>
@@ -1502,6 +1884,7 @@ function PlaceOrderControl({
   setTermsAccepted,
   webxpayBranding,
   kokoBranding,
+  fulfillmentReady,
 }: {
   cart: HttpTypes.StoreCart
   selectedPaymentMethod: string
@@ -1512,16 +1895,25 @@ function PlaceOrderControl({
   setTermsAccepted: (accepted: boolean) => void
   webxpayBranding?: WebxpayCheckoutBranding | null
   kokoBranding?: KokoCheckoutBranding | null
+  fulfillmentReady: boolean
 }) {
   const activeSession = selectedPaymentSession(cart)
-  const totals = mapAuthoritativeTotals(cart)
+  const totals = mapAuthoritativeTotals(cart, {
+    fulfillmentMode: deriveFulfillmentModeFromItems(cart.items),
+    shippingSelectionValid: fulfillmentReady,
+  })
   const totalsReady = !totals.states.some((state) =>
-    ["tax_pending", "configuration_unavailable", "calculation_failed", "review_required"].includes(state)
+    [
+      "tax_pending",
+      "configuration_unavailable",
+      "calculation_failed",
+      "review_required",
+    ].includes(state)
   )
   const baseReady =
     hasAddress(cart) &&
     Boolean(cart.billing_address) &&
-    (cart.shipping_methods?.length ?? 0) > 0 &&
+    fulfillmentReady &&
     Boolean(activeSession) &&
     totalsReady &&
     termsAccepted
@@ -1538,7 +1930,8 @@ function PlaceOrderControl({
         className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-brand"
       />
       <span>
-        I agree to the terms and conditions and confirm the checkout details are correct.
+        I agree to the terms and conditions and confirm the checkout details are
+        correct.
       </span>
     </label>
   )
@@ -1564,7 +1957,9 @@ function PlaceOrderControl({
         {termsControl}
         <WebxPayPlaceOrderButton
           cart={cart}
-          disabled={!baseReady || !installmentPlanReady || isSavingCheckoutDetails}
+          disabled={
+            !baseReady || !installmentPlanReady || isSavingCheckoutDetails
+          }
           saveCurrentCheckoutDetails={saveCurrentCheckoutDetails}
           label={
             installmentPlanRequired
@@ -1662,9 +2057,13 @@ function StripePlaceOrderButton({
 
     const card = elements?.getElement("card")
     if (!stripe || !elements || !card || !session?.data.client_secret) {
-      notify.error("Payment details are not ready.", "Payment details are not ready.", {
-        id: "place-order",
-      })
+      notify.error(
+        "Payment details are not ready.",
+        "Payment details are not ready.",
+        {
+          id: "place-order",
+        }
+      )
       setIsPending(false)
       submittingRef.current = false
       return

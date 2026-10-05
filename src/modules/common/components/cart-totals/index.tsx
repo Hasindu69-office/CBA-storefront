@@ -1,7 +1,11 @@
 "use client"
 
 import { convertToLocale } from "@lib/util/money"
-import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
+import {
+  mapAuthoritativeTotals,
+  type TotalsSource,
+} from "@lib/util/cart-totals"
+import { deriveFulfillmentModeFromItems } from "@lib/util/fulfillment-plan"
 import React from "react"
 
 type CartTotalsProps = {
@@ -18,9 +22,11 @@ type CartTotalsProps = {
     shipping_discount_total?: number | null
     original_shipping_subtotal?: number | null
     shipping_methods?: Array<{
+      name?: string | null
       is_tax_inclusive?: boolean | null
       tax_lines?: unknown[] | null
     }> | null
+    items?: unknown[] | null
   }
 }
 
@@ -35,7 +41,10 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
     discount_subtotal,
     discount_total,
   } = totals
-  const mapped = mapAuthoritativeTotals(totals, { includeTaxWhenZero: true })
+  const mapped = mapAuthoritativeTotals(totals as TotalsSource, {
+    includeTaxWhenZero: true,
+    fulfillmentMode: deriveFulfillmentModeFromItems(totals.items),
+  })
   const productDiscount =
     mapped.rows.find((row) => row.key === "discount")?.amount ?? 0
 
@@ -49,9 +58,8 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
               convertToLocale({ amount: item_subtotal ?? 0, currency_code })}
           </span>
         </div>
-        {mapped.shippingVisible && (
-          <div className="flex items-center justify-between">
-            <span>Shipping</span>
+        <div className="flex items-start justify-between gap-4">
+            <span>{mapped.shippingSummaryLabel}</span>
             <span
               className="text-right"
               data-testid="cart-shipping"
@@ -73,7 +81,6 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
               </span>
             </span>
           </div>
-        )}
         {productDiscount > 0 && (
           <div className="flex items-center justify-between">
             <span>Discount</span>
@@ -82,8 +89,7 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
               data-testid="cart-discount"
               data-value={productDiscount}
             >
-              -{" "}
-              {mapped.rows.find((row) => row.key === "discount")?.display}
+              - {mapped.rows.find((row) => row.key === "discount")?.display}
             </span>
           </div>
         )}
@@ -97,7 +103,7 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
       </div>
       <div className="h-px w-full border-b border-gray-200 my-4" />
       <div className="flex items-center justify-between text-ui-fg-base mb-2 txt-medium ">
-        <span>Total</span>
+        <span>{mapped.totalLabel}</span>
         <span
           className="txt-xlarge-plus"
           data-testid="cart-total"
@@ -107,7 +113,10 @@ const CartTotals: React.FC<CartTotalsProps> = ({ totals }) => {
         </span>
       </div>
       {mapped.taxNote && (
-        <p className="mt-2 text-right text-xs text-ui-fg-muted" aria-live="polite">
+        <p
+          className="mt-2 text-right text-xs text-ui-fg-muted"
+          aria-live="polite"
+        >
           {mapped.taxNote}
         </p>
       )}

@@ -2,7 +2,13 @@ import { sdk } from "@lib/config"
 import type { FeaturedProductCard } from "@lib/data/featured-products"
 import { getRegion } from "@lib/data/regions"
 
-export type StoreSearchSort = "relevance" | "newest" | "title" | "-title"
+export type StoreSearchSort =
+  | "relevance"
+  | "newest"
+  | "title"
+  | "-title"
+  | "price_asc"
+  | "price_desc"
 
 export type StoreSearchFacet = {
   key: string
@@ -58,6 +64,8 @@ const SORT_VALUES = new Set<StoreSearchSort>([
   "newest",
   "title",
   "-title",
+  "price_asc",
+  "price_desc",
 ])
 
 export async function searchStoreProducts({

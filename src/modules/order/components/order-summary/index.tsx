@@ -1,4 +1,5 @@
 import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
+import { resolveFulfillmentMode } from "@lib/util/fulfillment-plan"
 import { HttpTypes } from "@medusajs/types"
 
 type OrderSummaryProps = {
@@ -6,7 +7,12 @@ type OrderSummaryProps = {
 }
 
 const OrderSummary = ({ order }: OrderSummaryProps) => {
-  const mapped = mapAuthoritativeTotals(order as never)
+  const mapped = mapAuthoritativeTotals(order as never, {
+    fulfillmentMode: resolveFulfillmentMode({
+      items: order.items as never,
+      shippingMethods: order.shipping_methods,
+    }),
+  })
 
   return (
     <div>
@@ -14,7 +20,9 @@ const OrderSummary = ({ order }: OrderSummaryProps) => {
       <div className="text-small-regular text-ui-fg-base my-2">
         <div className="flex items-center justify-between text-base-regular text-ui-fg-base mb-2">
           <span>Subtotal</span>
-          <span>{mapped.rows.find((row) => row.key === "subtotal")?.display}</span>
+          <span>
+            {mapped.rows.find((row) => row.key === "subtotal")?.display}
+          </span>
         </div>
         <div className="flex flex-col gap-y-1">
           {mapped.rows
@@ -22,7 +30,9 @@ const OrderSummary = ({ order }: OrderSummaryProps) => {
             .map((row) => (
               <div className="flex items-center justify-between" key={row.key}>
                 <span>{row.label}</span>
-                <span>{row.key === "discount" ? `- ${row.display}` : row.display}</span>
+                <span>
+                  {row.key === "discount" ? `- ${row.display}` : row.display}
+                </span>
               </div>
             ))}
         </div>
@@ -32,7 +42,9 @@ const OrderSummary = ({ order }: OrderSummaryProps) => {
           <span>{mapped.total.display}</span>
         </div>
         {mapped.taxNote && (
-          <p className="text-small-regular text-ui-fg-subtle">{mapped.taxNote}</p>
+          <p className="text-small-regular text-ui-fg-subtle">
+            {mapped.taxNote}
+          </p>
         )}
       </div>
     </div>

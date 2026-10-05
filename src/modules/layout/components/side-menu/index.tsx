@@ -10,6 +10,7 @@ import CountrySelect from "../country-select"
 import LanguageSelect from "../language-select"
 import { HttpTypes } from "@medusajs/types"
 import { Locale } from "@lib/data/locales"
+import AuthAwareLink from "@modules/account/components/auth-aware-link"
 
 const SideMenuItems = {
   Home: "/",
@@ -75,14 +76,11 @@ const SideMenu = ({ regions, locales, currentLocale }: SideMenuProps) => {
                       {Object.entries(SideMenuItems).map(([name, href]) => {
                         return (
                           <li key={name}>
-                            <LocalizedClientLink
-                              href={href}
-                              className="text-3xl leading-10 hover:text-ui-fg-disabled"
-                              onClick={close}
-                              data-testid={`${name.toLowerCase()}-link`}
-                            >
-                              {name}
-                            </LocalizedClientLink>
+                            {name === "Account" ? (
+                              <AuthAwareLink href={href} className="text-3xl leading-10 hover:text-ui-fg-disabled" onClick={close} data-testid="account-link">{name}</AuthAwareLink>
+                            ) : (
+                              <LocalizedClientLink href={href} className="text-3xl leading-10 hover:text-ui-fg-disabled" onClick={close} data-testid={`${name.toLowerCase()}-link`}>{name}</LocalizedClientLink>
+                            )}
                           </li>
                         )
                       })}

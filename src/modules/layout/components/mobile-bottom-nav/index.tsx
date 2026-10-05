@@ -21,6 +21,7 @@ import MobileHeaderMenu, {
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
+import AuthAwareLink from "@modules/account/components/auth-aware-link"
 
 type MobileBottomNavProps = {
   cart?: HttpTypes.StoreCart | null
@@ -57,14 +58,7 @@ function BottomNavLink({
   icon: ReactNode
   active: boolean
 }) {
-  return (
-    <LocalizedClientLink
-      href={href}
-      className={`group flex min-h-[58px] flex-col items-center justify-center gap-1.5 px-1 text-[11px] font-bold leading-none transition-colors xsmall:text-[12px] ${
-        active ? "text-brand" : "text-[#596070] hover:text-[#111827]"
-      }`}
-      aria-current={active ? "page" : undefined}
-    >
+  const content = <>
       <span
         className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
           active ? "bg-brand/10" : "group-hover:bg-gray-50"
@@ -73,6 +67,18 @@ function BottomNavLink({
         {icon}
       </span>
       <span className="max-w-full truncate">{label}</span>
+    </>
+  const className = `group flex min-h-[58px] flex-col items-center justify-center gap-1.5 px-1 text-[11px] font-bold leading-none transition-colors xsmall:text-[12px] ${active ? "text-brand" : "text-[#596070] hover:text-[#111827]"}`
+  if (href === "/account") {
+    return <AuthAwareLink href={href} className={className} aria-current={active ? "page" : undefined}>{content}</AuthAwareLink>
+  }
+  return (
+    <LocalizedClientLink
+      href={href}
+      className={className}
+      aria-current={active ? "page" : undefined}
+    >
+      {content}
     </LocalizedClientLink>
   )
 }

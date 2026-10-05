@@ -1,9 +1,10 @@
 "use client"
 
-import { login, startOAuthLogin } from "@lib/data/customer"
+import { login, startOAuthLogin, type AuthActionState } from "@lib/data/customer"
 import type { AccountAuthSettings, AuthProviderId } from "@lib/data/account-auth"
 import { LOGIN_VIEW } from "@modules/account/templates/login-template"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import RecaptchaDisclosure from "@modules/common/components/recaptcha-disclosure"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { notify } from "@lib/notifications"
@@ -11,24 +12,34 @@ import { normalizeEmail, validateEmail } from "@lib/util/storefront-form-validat
 import Image from "next/image"
 import type React from "react"
 import { useActionState, useEffect, useState } from "react"
+import { useRecaptchaSubmit } from "@lib/hooks/use-recaptcha-submit"
 
 type Props = {
   setCurrentView: (view: LOGIN_VIEW) => void
   settings: AccountAuthSettings
   countryCode: string
+  onAuthenticated?: () => void
+  onForgotPassword?: () => void
+  returnTo?: string
+  showTitle?: boolean
 }
 
-const Login = ({ setCurrentView, settings, countryCode }: Props) => {
-  const [message, formAction] = useActionState(login, null)
+const INITIAL_STATE: AuthActionState = { status: "idle", message: null }
+
+const Login = ({ setCurrentView, settings, countryCode, onAuthenticated, onForgotPassword, returnTo = "/account", showTitle = true }: Props) => {
+  const [result, formAction] = useActionState(login, INITIAL_STATE)
   const [socialMessage, socialAction] = useActionState(startOAuthLogin, null)
   const [clientError, setClientError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const captcha = useRecaptchaSubmit("customer_login")
 
   useEffect(() => {
-    if (message) {
-      notify.error(message, "We could not sign you in.", { id: "login" })
+    if (result.status === "success") {
+      onAuthenticated?.()
+    } else if (result.status === "error" && result.message) {
+      notify.error(result.message, "We could not sign you in.", { id: "login" })
     }
-  }, [message])
+  }, [onAuthenticated, result])
 
   useEffect(() => {
     if (socialMessage) {
@@ -72,14 +83,16 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
 
   return (
     <div className="w-full" data-testid="login-page">
-      <h1 className="text-[30px] font-bold leading-tight text-[#111111]">
-        {settings.content.login_title}
-      </h1>
-      <p className="mt-3 text-[15px] leading-6 text-[#6b6b6b]">
+      {showTitle && (
+        <h1 className="text-[30px] font-bold leading-tight text-[#111111]">
+          {settings.content.login_title}
+        </h1>
+      )}
+      <p className={`${showTitle ? "mt-3" : "mt-0"} text-[15px] leading-6 text-[#6b6b6b]`}>
         {settings.content.login_description}
       </p>
 
-      <form className="mt-8 w-full" action={formAction} onSubmit={validate} noValidate>
+      <form className="mt-8 w-full" action={formAction} onSubmit={(event) => { validate(event); if (!event.defaultPrevented) void captcha.onRecaptchaSubmit(event) }} noValidate>
         <div className="flex flex-col gap-5">
           <AuthField
             label="Email Address"
@@ -107,11 +120,11 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
                 event.currentTarget.value ? null : "Password is required."
               )
             }
-            aside={
-              <LocalizedClientLink href="/account/forgot-password" className="text-[13px] font-semibold text-[#ff5c0e]">
-                Forgot Password?
-              </LocalizedClientLink>
-            }
+            aside={onForgotPassword ? (
+              <button type="button" onClick={onForgotPassword} className="text-[13px] font-semibold text-[#ff5c0e]">Forgot Password?</button>
+            ) : (
+              <LocalizedClientLink href="/account/forgot-password" className="text-[13px] font-semibold text-[#ff5c0e]">Forgot Password?</LocalizedClientLink>
+            )}
           />
           <label className="flex items-center gap-3 text-[14px] font-medium text-[#555555]">
             <input
@@ -122,13 +135,14 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
             Remember me
           </label>
         </div>
-        <ErrorMessage error={clientError ?? message} data-testid="login-error-message" />
+        <ErrorMessage error={captcha.verificationError ?? clientError ?? result.message} data-testid="login-error-message" />
         <SubmitButton
           data-testid="sign-in-button"
           className="mt-7 h-[54px] w-full rounded-md border-none bg-[#ff5c0e] text-[16px] font-semibold text-white shadow-none hover:bg-[#e6530c]"
         >
           Sign In
         </SubmitButton>
+        <RecaptchaDisclosure className="mt-3 text-center" />
       </form>
 
       <SocialSection
@@ -136,6 +150,7 @@ const Login = ({ setCurrentView, settings, countryCode }: Props) => {
         countryCode={countryCode}
         formAction={socialAction}
         error={socialMessage}
+        returnTo={returnTo}
       />
 
       <p className="mt-8 text-center text-[14px] text-[#686868]">
@@ -236,11 +251,13 @@ export function SocialSection({
   countryCode,
   formAction,
   error,
+  returnTo = "/account",
 }: {
   providers: AccountAuthSettings["providers"]
   countryCode: string
   formAction: (payload: FormData) => void
   error?: string | null
+  returnTo?: string
 }) {
   const visible = (Object.keys(providers) as AuthProviderId[]).filter(
     (provider) => providers[provider].enabled
@@ -261,6 +278,7 @@ export function SocialSection({
           <form action={formAction} key={provider}>
             <input type="hidden" name="provider" value={provider} />
             <input type="hidden" name="country_code" value={countryCode} />
+            <input type="hidden" name="return_to" value={returnTo} />
             <button
               type="submit"
               className="flex h-[52px] w-full items-center justify-center gap-3 rounded-md border border-[#dddddd] bg-white text-[15px] font-semibold text-[#222222] transition hover:border-[#cfcfcf] hover:bg-[#fafafa]"

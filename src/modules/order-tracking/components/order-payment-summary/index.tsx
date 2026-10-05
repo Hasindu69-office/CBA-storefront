@@ -1,6 +1,7 @@
 import { convertToLocale } from "@lib/util/money"
 import type { CbaCustomerOrderTracking } from "types/order-tracking"
 import OrderStatusBadge from "../order-status-badge"
+import { deriveFulfillmentModeFromMethodNames } from "@lib/util/fulfillment-plan"
 
 type OrderPaymentSummaryProps = {
   tracking: CbaCustomerOrderTracking
@@ -11,6 +12,11 @@ export default function OrderPaymentSummary({
 }: OrderPaymentSummaryProps) {
   const { totals, payment, order } = tracking
   const currency = order.currency_code
+  const fulfillmentMode = deriveFulfillmentModeFromMethodNames(
+    tracking.shipping_methods
+  )
+  const isSelfCollection =
+    fulfillmentMode === "pickup-only" && totals.shipping_total <= 0
 
   return (
     <div className="flex flex-col gap-3">
@@ -33,7 +39,10 @@ export default function OrderPaymentSummary({
       <div className="flex flex-col gap-2 border-t border-[#eeeeee] pt-3 text-[14px]">
         <Row
           label="Subtotal"
-          value={convertToLocale({ amount: totals.subtotal, currency_code: currency })}
+          value={convertToLocale({
+            amount: totals.subtotal,
+            currency_code: currency,
+          })}
         />
         {totals.discount_total > 0 && (
           <Row
@@ -46,11 +55,15 @@ export default function OrderPaymentSummary({
           />
         )}
         <Row
-          label="Shipping"
-          value={convertToLocale({
-            amount: totals.shipping_total,
-            currency_code: currency,
-          })}
+          label={isSelfCollection ? "Collection" : "Delivery Fee"}
+          value={
+            isSelfCollection
+              ? "Self collection"
+              : convertToLocale({
+                  amount: totals.shipping_total,
+                  currency_code: currency,
+                })
+          }
         />
         {totals.tax_total > 0 && (
           <Row

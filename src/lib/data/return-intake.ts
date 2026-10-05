@@ -9,6 +9,7 @@ import type {
   CbaReturnIntakeListItem,
   CbaReturnIntakeRequestType,
 } from "types/return-intake"
+import { recaptchaHeaders } from "@lib/recaptcha"
 
 type SubmitInput = {
   order_id: string
@@ -50,8 +51,8 @@ export async function previewReturnIntakeEligibility(input: {
   order_id: string
   request_type: CbaReturnIntakeRequestType
   items: Array<{ order_item_id: string; quantity: number }>
-}) {
-  const headers = await getReturnIntakeHeaders()
+}, recaptchaToken?: string) {
+  const headers = { ...(await getReturnIntakeHeaders()), ...recaptchaHeaders(recaptchaToken) }
   return sdk.client.fetch<{
     success: boolean
     eligibility: CbaReturnIntakeEligibilityPreview
@@ -62,8 +63,8 @@ export async function previewReturnIntakeEligibility(input: {
   })
 }
 
-export async function submitReturnIntakeRequest(input: SubmitInput) {
-  const headers = await getReturnIntakeHeaders()
+export async function submitReturnIntakeRequest(input: SubmitInput, recaptchaToken?: string) {
+  const headers = { ...(await getReturnIntakeHeaders()), ...recaptchaHeaders(recaptchaToken) }
   return sdk.client.fetch<{ success: boolean; request: CbaReturnIntakeDetail }>(
     "/store/cba/v1/return-intake",
     {

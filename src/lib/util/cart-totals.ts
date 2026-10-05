@@ -1,4 +1,5 @@
 import { convertToLocale } from "./money"
+import type { FulfillmentMode } from "./fulfillment-plan"
 
 type TotalAddress = {
   address_1?: string | null
@@ -10,6 +11,7 @@ type TotalLine = {
 }
 
 type TotalShippingMethod = {
+  name?: string | null
   is_tax_inclusive?: boolean | null
   tax_lines?: unknown[] | null
 }
@@ -68,13 +70,19 @@ export type TotalDisplay = {
   taxLabel: string
   taxNote: string | null
   shippingDisplay: string
+  shippingLabel: string
   shippingBeforeDiscountDisplay: string | null
+  selectedShippingMethodNames: string[]
+  shippingSummaryLabel: string
+  totalLabel: "Total" | "Estimated total"
   /** True when no shipping method is on the cart yet — fee is unknown, not free. */
   shippingIsPending: boolean
   /** True when a method is selected and its fee may be shown. */
   shippingVisible: boolean
   /** True only when a method is selected and the fee after discount is zero. */
   shippingIsFree: boolean
+  /** True when a zero-priced pickup method represents customer collection. */
+  shippingIsSelfCollection: boolean
   hasDiscount: boolean
   discountLabel: string
 }
@@ -99,8 +107,14 @@ export function mapAuthoritativeTotals(
     includeTaxWhenZero?: boolean
     automaticPromotionApplied?: boolean
     reviewRequired?: boolean
-    errorState?: Extract<TotalsState, "configuration_unavailable" | "calculation_failed"> | null
+    errorState?: Extract<
+      TotalsState,
+      "configuration_unavailable" | "calculation_failed"
+    > | null
     compactMoney?: boolean
+    fulfillmentMode?: FulfillmentMode
+    /** Set by checkout after validating the selected method against current cart profiles. */
+    shippingSelectionValid?: boolean
   } = {}
 ): TotalDisplay {
   const currencyCode = source?.currency_code ?? "lkr"
@@ -111,7 +125,9 @@ export function mapAuthoritativeTotals(
   }
 
   const address = source?.shipping_address
-  const shippingMethodSelected = (source?.shipping_methods?.length ?? 0) > 0
+  const shippingMethodSelected =
+    (source?.shipping_methods?.length ?? 0) > 0 &&
+    options.shippingSelectionValid !== false
   const shippingIsPending = Boolean(source && !shippingMethodSelected)
 
   if (source && !address?.address_1) {
@@ -128,23 +144,69 @@ export function mapAuthoritativeTotals(
   }
 
   const subtotal = source?.item_subtotal ?? source?.subtotal ?? 0
+  const shippingTax = source?.shipping_tax_total ?? 0
+  const shippingSubtotal =
+    source?.shipping_subtotal ??
+    Math.max((source?.shipping_total ?? 0) - shippingTax, 0)
   const shippingBeforeDiscount =
-    source?.shipping_subtotal ?? source?.original_shipping_subtotal ?? source?.shipping_total ?? 0
-  const shippingAfterDiscount = source?.shipping_total ?? shippingBeforeDiscount
-  const shippingDiscount = source?.shipping_discount_total ?? Math.max(shippingBeforeDiscount - shippingAfterDiscount, 0)
+    source?.original_shipping_subtotal ?? shippingSubtotal
+  const shippingDiscount =
+    source?.shipping_discount_total ??
+    Math.max(
+      shippingBeforeDiscount -
+        Math.max((source?.shipping_total ?? shippingBeforeDiscount) - shippingTax, 0),
+      0
+    )
+  const shippingAfterDiscount = Math.max(
+    shippingSubtotal - shippingDiscount,
+    0
+  )
   const discountTotal = source?.discount_total ?? source?.discount_subtotal ?? 0
   const itemDiscount = Math.max(discountTotal - shippingDiscount, 0)
-  const itemTax = source?.item_tax_total ?? 0
-  const shippingTax = source?.shipping_tax_total ?? 0
   const taxTotal = source?.tax_total ?? 0
   const total = source?.total ?? 0
   const isInclusive = hasInclusivePricing(source)
   const automaticTaxes = source?.region?.automatic_taxes === true
   const hasTaxLines = hasAnyTaxLines(source)
-  const shippingIsFree = shippingMethodSelected && shippingAfterDiscount <= 0
+  const shippingIsSelfCollection =
+    shippingMethodSelected &&
+    options.fulfillmentMode === "pickup-only" &&
+    shippingAfterDiscount <= 0
+  const shippingIsFree =
+    shippingMethodSelected &&
+    options.fulfillmentMode !== "pickup-only" &&
+    shippingAfterDiscount <= 0
   const shippingVisible = shippingMethodSelected
+  const selectedShippingMethodNames = shippingMethodSelected
+    ? Array.from(
+        new Set(
+          (source?.shipping_methods ?? [])
+            .map((method) => method.name?.trim())
+            .filter((name): name is string => Boolean(name))
+        )
+      )
+    : []
+  const shippingLabel =
+    options.fulfillmentMode === "pickup-only"
+      ? shippingIsSelfCollection
+        ? "Collection"
+        : "Collection fee"
+      : "Delivery Fee"
+  const shippingSummaryLabel =
+    options.fulfillmentMode === "pickup-only"
+      ? shippingLabel
+      : selectedShippingMethodNames.length === 1
+      ? `Delivery — ${selectedShippingMethodNames[0]}`
+      : selectedShippingMethodNames.length > 1
+      ? `Delivery (${selectedShippingMethodNames.length} methods)`
+      : "Delivery"
 
-  if (automaticTaxes && !hasTaxLines && !states.includes("address_required") && !states.includes("shipping_required")) {
+  if (
+    automaticTaxes &&
+    !hasTaxLines &&
+    !states.includes("address_required") &&
+    !states.includes("shipping_required")
+  ) {
     states.push("tax_pending")
   } else if (taxTotal <= 0) {
     states.push("zero_tax")
@@ -166,12 +228,25 @@ export function mapAuthoritativeTotals(
     ? "Store discount"
     : "Coupon discount"
   const rows: TotalRow[] = [
-    row("subtotal", `Subtotal${itemCountLabel}`, subtotal, currencyCode, options),
+    row(
+      "subtotal",
+      `Subtotal${itemCountLabel}`,
+      subtotal,
+      currencyCode,
+      options
+    ),
   ]
 
   if (itemDiscount > 0) {
     rows.push(
-      row("discount", discountLabel, itemDiscount, currencyCode, options, "discount")
+      row(
+        "discount",
+        discountLabel,
+        itemDiscount,
+        currencyCode,
+        options,
+        "discount"
+      )
     )
   }
 
@@ -179,22 +254,27 @@ export function mapAuthoritativeTotals(
     rows.push(
       row(
         "shipping",
-        "Delivery Fee",
+        shippingLabel,
         shippingAfterDiscount,
         currencyCode,
         options,
-        shippingIsFree ? "success" : "default"
+        shippingIsFree
+          ? "success"
+          : shippingIsSelfCollection
+          ? "muted"
+          : "default"
       )
     )
+    if (shippingIsSelfCollection) {
+      rows[rows.length - 1].display = "Self collection"
+    }
   }
 
-  if (itemTax > 0) {
-    rows.push(row("item-tax", "Item tax", itemTax, currencyCode, options))
-  }
-  if (shippingTax > 0) {
-    rows.push(row("shipping-tax", "Delivery tax", shippingTax, currencyCode, options))
-  }
-  if (taxTotal > 0 || options.includeTaxWhenZero || states.includes("tax_pending")) {
+  if (
+    taxTotal > 0 ||
+    options.includeTaxWhenZero ||
+    states.includes("tax_pending")
+  ) {
     rows.push(row("tax", taxLabelFor(states), taxTotal, currencyCode, options))
   }
 
@@ -206,17 +286,30 @@ export function mapAuthoritativeTotals(
     taxLabel: taxLabelFor(states),
     taxNote: taxNoteFor(states),
     shippingDisplay: shippingVisible
-      ? shippingIsFree
+      ? shippingIsSelfCollection
+        ? "Self collection"
+        : shippingIsFree
         ? "Free"
-        : formatTotalAmount(shippingAfterDiscount, currencyCode, { compact: options.compactMoney })
-      : "",
+        : formatTotalAmount(shippingAfterDiscount, currencyCode, {
+            compact: options.compactMoney,
+          })
+      : options.fulfillmentMode === "pickup-only"
+      ? "Select a pickup location"
+      : "Calculated at checkout",
     shippingBeforeDiscountDisplay:
       shippingVisible && shippingDiscount > 0
-        ? formatTotalAmount(shippingBeforeDiscount, currencyCode, { compact: options.compactMoney })
+        ? formatTotalAmount(shippingBeforeDiscount, currencyCode, {
+            compact: options.compactMoney,
+          })
         : null,
     shippingIsPending,
     shippingVisible,
     shippingIsFree,
+    shippingIsSelfCollection,
+    shippingLabel,
+    shippingSummaryLabel,
+    selectedShippingMethodNames,
+    totalLabel: shippingIsPending ? "Estimated total" : "Total",
     hasDiscount: itemDiscount > 0 || (shippingVisible && shippingDiscount > 0),
     discountLabel,
   }
@@ -234,9 +327,18 @@ function row(
     key,
     label,
     amount,
-    display: formatTotalAmount(amount, currencyCode, { compact: options.compactMoney }),
+    display: formatTotalAmount(amount, currencyCode, {
+      compact: options.compactMoney,
+    }),
     tone,
-    testId: key === "subtotal" ? "cart-subtotal" : key === "tax" ? "cart-taxes" : key === "total" ? "cart-total" : undefined,
+    testId:
+      key === "subtotal"
+        ? "cart-subtotal"
+        : key === "tax"
+        ? "cart-taxes"
+        : key === "total"
+        ? "cart-total"
+        : undefined,
   }
 }
 
@@ -245,20 +347,29 @@ function safeAmount(value: number | null | undefined) {
 }
 
 function hasInclusivePricing(source: TotalsSource | null | undefined) {
-  const itemsInclusive = source?.items?.some((item) => item.is_tax_inclusive === true)
+  const itemsInclusive = source?.items?.some(
+    (item) => item.is_tax_inclusive === true
+  )
   const shippingInclusive = source?.shipping_methods?.some(
     (method) => method.is_tax_inclusive === true
   )
   const promotionsInclusive = source?.promotions?.some(
     (promotion) =>
-      Boolean(promotion && typeof promotion === "object" && "is_tax_inclusive" in promotion) &&
-      (promotion as { is_tax_inclusive?: boolean | null }).is_tax_inclusive === true
+      Boolean(
+        promotion &&
+          typeof promotion === "object" &&
+          "is_tax_inclusive" in promotion
+      ) &&
+      (promotion as { is_tax_inclusive?: boolean | null }).is_tax_inclusive ===
+        true
   )
   return Boolean(itemsInclusive || shippingInclusive || promotionsInclusive)
 }
 
 function hasAnyTaxLines(source: TotalsSource | null | undefined) {
-  const itemTaxLines = source?.items?.some((item) => (item.tax_lines?.length ?? 0) > 0)
+  const itemTaxLines = source?.items?.some(
+    (item) => (item.tax_lines?.length ?? 0) > 0
+  )
   const shippingTaxLines = source?.shipping_methods?.some(
     (method) => (method.tax_lines?.length ?? 0) > 0
   )
@@ -292,7 +403,7 @@ function taxNoteFor(states: TotalsState[]) {
     return "Tax is included in the displayed total."
   }
   if (states.includes("exclusive")) {
-    return "Tax is added by the checkout total."
+    return "Tax included"
   }
   return null
 }

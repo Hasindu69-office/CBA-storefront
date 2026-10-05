@@ -3,7 +3,7 @@
 import { sdk } from "@lib/config"
 import medusaError from "@lib/util/medusa-error"
 import { HttpTypes } from "@medusajs/types"
-import { revalidateTag } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
 import { getStoreCountryCode, localizedPath } from "@lib/util/routes"
 import { listProductCardsByIds } from "@lib/data/tabbed-sale-products"
@@ -18,6 +18,9 @@ import {
 } from "@lib/util/promotions"
 import {
   validateEmail,
+  validatePersonName,
+  validatePlaceName,
+  validateSafeAddressText,
   validateSriLankanPhone,
   validateSriLankanPostalCode,
 } from "@lib/util/storefront-form-validation"
@@ -34,10 +37,14 @@ import { establishGuestSessionFromConfirmation } from "./order-tracking"
 import { getRegion } from "./regions"
 import { getLocale } from "@lib/data/locale-actions"
 import { listCartPaymentMethods } from "./payment"
+import { buildFulfillmentPlan } from "@lib/util/fulfillment-plan"
+import { safeCartMutationError } from "@lib/util/cart-errors"
 
 const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
 const CART_TOTAL_FIELDS =
-  "id,customer_id,currency_code,email,region_id,metadata,*region,+region.automatic_taxes,total,subtotal,tax_total,discount_total,discount_subtotal,item_total,item_subtotal,item_tax_total,shipping_total,shipping_subtotal,shipping_tax_total,shipping_discount_total,original_total,original_tax_total,original_item_total,original_shipping_total,*items,+items.total,+items.subtotal,+items.tax_total,+items.is_tax_inclusive,*items.tax_lines,*items.adjustments,*items.product,*items.variant,*items.thumbnail,*items.metadata,*promotions,+promotions.is_tax_inclusive,*shipping_methods,+shipping_methods.name,+shipping_methods.tax_total,+shipping_methods.is_tax_inclusive,*shipping_methods.tax_lines,*shipping_methods.adjustments,*shipping_address,*billing_address,*payment_collection,*payment_collection.payment_sessions,*credit_lines"
+  "id,customer_id,currency_code,email,region_id,metadata,*region,+region.automatic_taxes,total,subtotal,tax_total,discount_total,discount_subtotal,item_total,item_subtotal,item_tax_total,shipping_total,shipping_subtotal,shipping_tax_total,shipping_discount_total,original_total,original_tax_total,original_item_total,original_shipping_total,*items,+items.total,+items.subtotal,+items.tax_total,+items.is_tax_inclusive,*items.tax_lines,*items.adjustments,*items.product,*items.variant,+items.variant.inventory_quantity,+items.variant.manage_inventory,+items.variant.allow_backorder,+items.variant.product.shipping_profile.id,+items.variant.product.shipping_profile.type,*items.thumbnail,*items.metadata,*promotions,+promotions.is_tax_inclusive,*shipping_methods,+shipping_methods.name,+shipping_methods.tax_total,+shipping_methods.is_tax_inclusive,*shipping_methods.tax_lines,*shipping_methods.adjustments,*shipping_address,*billing_address,*payment_collection,*payment_collection.payment_sessions,*credit_lines"
+const FULFILLMENT_OPTION_FIELDS =
+  "+service_zone.fulfillment_set.type,+service_zone.fulfillment_set.location.id,+service_zone.fulfillment_set.location.name,+service_zone.fulfillment_set.location.address.*"
 
 function assertSafeMedusaId(id: string, label: string) {
   if (!SAFE_MEDUSA_ID_PATTERN.test(id)) {
@@ -77,7 +84,7 @@ async function refreshCartAfterMutation(cartId: string) {
   return taxReadyCart
 }
 
-function checkoutAddressData(formData: FormData) {
+async function checkoutAddressData(formData: FormData) {
   const validation = validateCheckoutAddressFormData(formData)
 
   if (!validation.ok) {
@@ -111,6 +118,48 @@ function checkoutAddressData(formData: FormData) {
         }
       : undefined,
   } as any
+
+  if (formData.get("same_as_billing")) {
+    return cartData
+  }
+
+  const savedBillingAddressId = String(formData.get("billing_address_id") ?? "")
+  if (savedBillingAddressId) {
+    if (!SAFE_MEDUSA_ID_PATTERN.test(savedBillingAddressId)) {
+      throw new Error("The selected billing address is invalid.")
+    }
+    const headers = await getAuthHeaders()
+    const { address } = await sdk.client.fetch<{ address: typeof payload }>(
+      `/store/cba/v1/account/addresses/${savedBillingAddressId}`,
+      { method: "GET", headers }
+    )
+    cartData.billing_address = address
+    return cartData
+  }
+
+  const billing = {
+    first_name: String(formData.get("billing_address.first_name") ?? "").trim(),
+    last_name: String(formData.get("billing_address.last_name") ?? "").trim(),
+    address_1: String(formData.get("billing_address.address_1") ?? "").trim(),
+    address_2: String(formData.get("billing_address.address_2") ?? "").trim(),
+    company: String(formData.get("billing_address.company") ?? "").trim(),
+    postal_code: String(formData.get("billing_address.postal_code") ?? "").trim(),
+    city: String(formData.get("billing_address.city") ?? "").trim(),
+    country_code: String(formData.get("billing_address.country_code") ?? "lk").trim().toLowerCase(),
+    province: String(formData.get("billing_address.province") ?? "").trim(),
+    phone: String(formData.get("billing_address.phone") ?? "").trim(),
+  }
+  const billingError =
+    validatePersonName(billing.first_name, "Billing first name") ||
+    validatePersonName(billing.last_name, "Billing last name") ||
+    validateSafeAddressText(billing.address_1, "Billing street address") ||
+    validatePlaceName(billing.city, "Billing city") ||
+    validatePlaceName(billing.province, "Billing district") ||
+    validateSriLankanPostalCode(billing.postal_code) ||
+    validateSriLankanPhone(billing.phone) ||
+    (billing.country_code !== "lk" ? "Billing country must be Sri Lanka." : null)
+  if (billingError) throw new Error(billingError)
+  cartData.billing_address = billing
 
   return cartData
 }
@@ -253,6 +302,39 @@ export async function addToCart({
     .catch(medusaError)
 }
 
+export type AddToCartResult =
+  | { success: true; cart: HttpTypes.StoreCart }
+  | { success: false; error: string }
+
+export async function addToCartSafe(input: {
+  variantId: string
+  quantity: number
+  countryCode: string
+}): Promise<AddToCartResult> {
+  try {
+    return { success: true, cart: await addToCart(input) }
+  } catch (error) {
+    return {
+      success: false,
+      error: safeCartMutationError(
+        error,
+        "We could not add this item to your cart right now. Please try again."
+      ),
+    }
+  }
+}
+
+export async function getCartLineQuantity(variantId: string) {
+  if (!variantId) return 0
+
+  const cart = await retrieveCart()
+  return (
+    cart?.items
+      ?.filter((item) => item.variant_id === variantId)
+      .reduce((total, item) => total + Number(item.quantity ?? 0), 0) ?? 0
+  )
+}
+
 export async function updateLineItem({
   lineId,
   quantity,
@@ -282,6 +364,24 @@ export async function updateLineItem({
       return refreshCartAfterMutation(cartId)
     })
     .catch(medusaError)
+}
+
+export type UpdateLineItemResult =
+  | { success: true; cart: HttpTypes.StoreCart }
+  | { success: false; error: string }
+
+export async function updateLineItemSafe(input: {
+  lineId: string
+  quantity: number
+}): Promise<UpdateLineItemResult> {
+  try {
+    return { success: true, cart: await updateLineItem(input) }
+  } catch (error) {
+    return {
+      success: false,
+      error: safeCartMutationError(error),
+    }
+  }
 }
 
 export async function deleteLineItem(lineId: string) {
@@ -359,20 +459,83 @@ export async function setShippingMethod({
   cartId: string
   shippingMethodId: string
 }) {
+  return setShippingMethods({
+    cartId,
+    shippingMethodIds: [shippingMethodId],
+  })
+}
+
+export async function setShippingMethods({
+  cartId,
+  shippingMethodIds,
+}: {
+  cartId: string
+  shippingMethodIds: string[]
+}) {
   assertSafeMedusaId(cartId, "Cart ID")
-  assertSafeMedusaId(shippingMethodId, "Shipping method ID")
+  const activeCartId = await getCartId()
+  if (activeCartId !== cartId) {
+    throw new Error("The active cart could not be verified.")
+  }
+  if (
+    !Array.isArray(shippingMethodIds) ||
+    shippingMethodIds.length < 1 ||
+    shippingMethodIds.length > 10 ||
+    new Set(shippingMethodIds).size !== shippingMethodIds.length
+  ) {
+    throw new Error("Select valid, unique fulfillment methods.")
+  }
+  shippingMethodIds.forEach((id) => assertSafeMedusaId(id, "Shipping method ID"))
+
   const headers = {
     ...(await getAuthHeaders()),
   }
 
-  return sdk.store.cart
-    .addShippingMethod(cartId, { option_id: shippingMethodId }, {}, headers)
+  const [cart, optionsResponse] = await Promise.all([
+    retrieveCart(cartId),
+    sdk.client.fetch<{
+      shipping_options: HttpTypes.StoreCartShippingOption[]
+    }>("/store/shipping-options", {
+      query: { cart_id: cartId, fields: FULFILLMENT_OPTION_FIELDS },
+      headers,
+      cache: "no-store",
+    }),
+  ])
+  if (!cart) {
+    throw new Error("The cart could not be refreshed.")
+  }
+
+  const plan = buildFulfillmentPlan(cart, optionsResponse.shipping_options ?? [])
+  const selectedProfiles = new Set<string>()
+  for (const optionId of shippingMethodIds) {
+    const group = plan.groups.find((candidate) =>
+      candidate.eligibleOptions.some((option) => option.id === optionId)
+    )
+    if (!group) {
+      throw new Error("A selected fulfillment method is unavailable for this cart.")
+    }
+    if (selectedProfiles.has(group.profileId)) {
+      throw new Error("Select only one fulfillment method for each item group.")
+    }
+    selectedProfiles.add(group.profileId)
+  }
+
+  return sdk.client
+    .fetch<HttpTypes.StoreCartResponse>(`/store/carts/${cartId}/shipping-methods`, {
+      method: "POST",
+      body: shippingMethodIds.map((optionId) => ({ option_id: optionId })),
+      query: { fields: CART_TOTAL_FIELDS },
+      headers,
+      cache: "no-store",
+    })
     .then(async (response) => {
       await calculateCartTaxesWhenReady(response.cart)
-      await revalidateCacheTag("carts")
+      await revalidateCartData()
       return retrieveCart(cartId)
     })
-    .catch(medusaError)
+    .catch((error) => {
+      throw safeCheckoutError(error, "Could not set the fulfillment method.")
+    })
 }
 
 export async function initiatePaymentSession(
@@ -526,7 +689,12 @@ export async function saveCheckoutDetails(
 }
 
 export type SaveCheckoutDetailsResult =
-  | { success: true; error: null; fieldErrors: Record<string, never> }
+  | {
+      success: true
+      error: null
+      fieldErrors: Record<string, never>
+      addressSaveWarning?: string
+    }
   | {
       success: false
       error: string
@@ -539,9 +707,13 @@ export async function saveCheckoutDetailsDetailed(
 ): Promise<SaveCheckoutDetailsResult> {
   void currentState
   try {
-    const cart = await updateCart(checkoutAddressData(formData))
+    const cart = await updateCart(await checkoutAddressData(formData))
     await calculateCartTaxesWhenReady(cart)
-    return { success: true, error: null, fieldErrors: {} }
+    const addressSaveWarning = await saveCheckoutShippingAddressIfRequested(
+      formData,
+      cart
+    )
+    return { success: true, error: null, fieldErrors: {}, addressSaveWarning: addressSaveWarning ?? undefined }
   } catch (e: any) {
     const fieldErrors =
       e && typeof e === "object" && "fieldErrors" in e
@@ -555,6 +727,87 @@ export async function saveCheckoutDetailsDetailed(
   }
 }
 
+async function saveCheckoutShippingAddressIfRequested(
+  formData: FormData,
+  cart: HttpTypes.StoreCart
+): Promise<string | null> {
+  if (!formData.get("save_address")) return null
+
+  // The form control is not an authorization boundary. Guests (or forged
+  // requests) cannot create address-book records without customer auth.
+  const headers = await getAuthHeaders()
+  if (!("authorization" in headers)) return null
+
+  const shipping = cart.shipping_address
+  if (!shipping) return "Your delivery details were saved, but the address could not be saved."
+
+  try {
+    const address = {
+      first_name: String(shipping.first_name ?? "").trim(),
+      last_name: String(shipping.last_name ?? "").trim(),
+      company: String(shipping.company ?? "").trim(),
+      address_1: String(shipping.address_1 ?? "").trim(),
+      address_2: String(shipping.address_2 ?? "").trim(),
+      city: String(shipping.city ?? "").trim(),
+      postal_code: String(shipping.postal_code ?? "").trim(),
+      province: String(shipping.province ?? "").trim(),
+      country_code: String(shipping.country_code ?? "").trim().toLowerCase(),
+      phone: String(shipping.phone ?? "").trim(),
+    }
+    const { addresses } = await sdk.client.fetch<{
+      addresses: Array<typeof address>
+    }>("/store/cba/v1/account/addresses", {
+      method: "GET",
+      query: { limit: 20, offset: 0 },
+      headers,
+      cache: "no-store",
+    })
+
+    if (addresses.some((saved) => addressesMatch(saved, address))) return null
+
+    const isFirstAddress = addresses.length === 0
+    await sdk.client.fetch("/store/cba/v1/account/addresses", {
+      method: "POST",
+      body: {
+        ...address,
+        is_default_shipping: isFirstAddress,
+        is_default_billing: isFirstAddress && Boolean(formData.get("same_as_billing")),
+      },
+      headers,
+    })
+    await revalidateCacheTag("customers")
+    revalidatePath("/[countryCode]/account", "layout")
+    return null
+  } catch {
+    return "Your delivery details were saved, but we could not save this address for future orders."
+  }
+}
+
+function addressesMatch(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>
+) {
+  const fields = [
+    "first_name",
+    "last_name",
+    "company",
+    "address_1",
+    "address_2",
+    "city",
+    "postal_code",
+    "province",
+    "country_code",
+    "phone",
+  ]
+  return fields.every(
+    (field) => normalizeAddressComparison(left[field]) === normalizeAddressComparison(right[field])
+  )
+}
+
+function normalizeAddressComparison(value: unknown) {
+  return String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase()
+}
+
 // TODO: Pass a POJO instead of a form entity here
 export async function setAddresses(currentState: unknown, formData: FormData) {
   try {
@@ -566,7 +819,7 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
       throw new Error("No existing cart found when setting addresses")
     }
 
-    const cart = await updateCart(checkoutAddressData(formData))
+    const cart = await updateCart(await checkoutAddressData(formData))
     await calculateCartTaxesWhenReady(cart)
   } catch (e: any) {
     return e.message
@@ -718,6 +971,7 @@ export async function placeOrder(input?: string | {
   validatePaymentProviderId(providerId)
   await assertProviderEligibleForCart(refreshedCart, providerId)
   assertCheckoutReady(refreshedCart)
+  await assertCheckoutFulfillmentReady(refreshedCart)
 
   const activeSession = activePaymentSession(refreshedCart)
   const sessionAmount = sessionAmountValue(activeSession)
@@ -741,6 +995,7 @@ export async function placeOrder(input?: string | {
     throw new Error("Checkout could not be refreshed. Please try again.")
   }
   assertCheckoutReady(finalCart)
+  await assertCheckoutFulfillmentReady(finalCart)
 
   const cartRes = await sdk.store.cart
     .complete(id, {}, headers)
@@ -829,6 +1084,29 @@ function assertCheckoutReady(cart: HttpTypes.StoreCart) {
   }
 }
 
+async function assertCheckoutFulfillmentReady(cart: HttpTypes.StoreCart) {
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+  const { shipping_options } = await sdk.client.fetch<{
+    shipping_options: HttpTypes.StoreCartShippingOption[]
+  }>("/store/shipping-options", {
+    query: { cart_id: cart.id, fields: FULFILLMENT_OPTION_FIELDS },
+    headers,
+    cache: "no-store",
+  })
+  const plan = buildFulfillmentPlan(cart, shipping_options ?? [])
+  if (!plan.isComplete) {
+    const configurationError = plan.groups.find(
+      (group) => group.configurationError
+    )?.configurationError
+    throw new Error(
+      configurationError ||
+        "Select a fulfillment method for every item group before placing the order."
+    )
+  }
+}
+
 function activePaymentSession(cart: HttpTypes.StoreCart) {
   return cart.payment_collection?.payment_sessions?.find(
     (session) => session.status === "pending"
@@ -897,7 +1175,7 @@ export async function listCartOptions() {
   return await sdk.client.fetch<{
     shipping_options: HttpTypes.StoreCartShippingOption[]
   }>("/store/shipping-options", {
-    query: { cart_id: cartId },
+    query: { cart_id: cartId, fields: FULFILLMENT_OPTION_FIELDS },
     next,
     headers,
     cache: "no-store",

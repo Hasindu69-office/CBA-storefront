@@ -7,7 +7,10 @@ export const SRI_LANKA_PHONE_FORMAT_EXAMPLES =
 export const SRI_LANKA_PHONE_MAX_LENGTH = 12
 export const SRI_LANKA_PHONE_NATIONAL_MAX_LENGTH = 9
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// Keep this deliberately conservative for public forms. It accepts common
+// addresses and plus-addressing, but rejects HTML/control characters and
+// malformed local parts or domain labels.
+const EMAIL_PATTERN = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$/
 const SRI_LANKA_MOBILE_PATTERN = /^\+947\d{8}$/
 const SRI_LANKA_FIXED_AREA_CODES = new Set([
   "11",
@@ -87,7 +90,13 @@ export function normalizeSriLankanPhone(value: string | null | undefined) {
 }
 
 export function validateEmail(value: string, label = "email address") {
-  if (!value || value.length > EMAIL_MAX_LENGTH || !EMAIL_PATTERN.test(value)) {
+  const [localPart] = value.split("@")
+  if (
+    !value ||
+    value.length > EMAIL_MAX_LENGTH ||
+    localPart.length > 64 ||
+    !EMAIL_PATTERN.test(value)
+  ) {
     return `Enter a valid ${label}.`
   }
   return null

@@ -408,7 +408,11 @@ function normalizeSocialLinks(value: unknown): LayoutLink[] {
     .map((item) => {
       const row = objectValue(item)
       const label = text(row.label, "")
-      const href = safeUrl(row.url, "")
+      const rawUrl = text(row.url, "")
+      const href = safeUrl(
+        isEmailAddress(rawUrl) ? `mailto:${rawUrl}` : rawUrl,
+        ""
+      )
 
       return label && href ? { label, href } : null
     })
@@ -518,10 +522,19 @@ function safeUrl(value: unknown, fallback: string) {
     return url
   }
 
+  if (/^mailto:/i.test(url)) {
+    const address = url.slice("mailto:".length)
+    return isEmailAddress(address) ? `mailto:${address}` : fallback
+  }
+
   try {
     const parsed = new URL(url)
     return ["http:", "https:"].includes(parsed.protocol) ? parsed.toString() : fallback
   } catch {
     return fallback
   }
+}
+
+function isEmailAddress(value: string) {
+  return /^[^\s@:/]+@[^\s@:/]+\.[^\s@:/]+$/.test(value)
 }

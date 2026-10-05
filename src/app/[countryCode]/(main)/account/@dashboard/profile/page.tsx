@@ -8,16 +8,20 @@ import ProfilePassword from "@modules/account/components/profile-password"
 
 import { notFound } from "next/navigation"
 import { listRegions } from "@lib/data/regions"
-import { retrieveCustomer } from "@lib/data/customer"
+import { retrieveAccountSecurity, retrieveCustomer } from "@lib/data/customer"
 
 export const metadata: Metadata = {
   title: "Profile",
   description: "View and edit your Ebiz profile.",
 }
 
-export default async function Profile() {
-  const customer = await retrieveCustomer()
-  const regions = await listRegions()
+export default async function Profile({ params }: { params: Promise<{ countryCode: string }> }) {
+  const { countryCode } = await params
+  const [customer, regions, security] = await Promise.all([
+    retrieveCustomer(),
+    listRegions(),
+    retrieveAccountSecurity(),
+  ])
 
   if (!customer || !regions) {
     notFound()
@@ -36,12 +40,12 @@ export default async function Profile() {
       <div className="flex flex-col gap-y-8 w-full">
         <ProfileName customer={customer} />
         <Divider />
-        <ProfileEmail customer={customer} />
+        <ProfileEmail customer={customer} security={security} countryCode={countryCode} />
         <Divider />
         <ProfilePhone customer={customer} />
         <Divider />
-        {/* <ProfilePassword customer={customer} />
-        <Divider /> */}
+        <ProfilePassword security={security} />
+        <Divider />
         <ProfileBillingAddress customer={customer} regions={regions} />
       </div>
     </div>

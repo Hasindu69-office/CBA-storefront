@@ -150,7 +150,14 @@ export async function getProductDetail(productId: string, variantId?: string) {
 
 export async function getProductReviews(
   productId: string,
-  options: { limit?: number; offset?: number; sort?: "recent" | "highest" | "lowest" } = {}
+  options: {
+    limit?: number
+    offset?: number
+    sort?: "recent" | "highest" | "lowest"
+    rating?: number
+    verified_only?: boolean
+    strict?: boolean
+  } = {}
 ): Promise<ProductReviewsResponse> {
   const limit = clampReviewLimit(options.limit)
   const offset = Math.max(0, Number(options.offset ?? 0))
@@ -168,11 +175,14 @@ export async function getProductReviews(
         limit,
         offset,
         sort,
+        rating: options.rating,
+        verified_only: options.verified_only,
       },
     })
     .then(normalizeProductReviews)
     .catch((error) => {
       logProductDetailError("Product reviews request failed.", { productId, error })
+      if (options.strict) throw error
       return emptyProductReviews(limit, offset)
     })
 }

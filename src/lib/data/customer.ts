@@ -1,6 +1,7 @@
 "use server"
 
 import { MEDUSA_BACKEND_URL, sdk } from "@lib/config"
+import { RECAPTCHA_FORM_FIELD, recaptchaHeaders } from "@lib/recaptcha"
 import medusaError from "@lib/util/medusa-error"
 import { HttpTypes } from "@medusajs/types"
 import { revalidatePath, revalidateTag } from "next/cache"
@@ -25,7 +26,21 @@ import {
   removeCartId,
   setAuthToken,
   setCartId,
+  setAuthReturnPath,
+  takeAuthReturnPath,
 } from "./cookies"
+import { safeAuthDestination } from "@lib/util/auth-modal"
+import {
+  ACCOUNT_PASSWORD_PROVIDERS,
+  type AccountSecurity,
+  passwordChangeErrorMessage,
+  validatePasswordChange,
+} from "@lib/util/account-password"
+import {
+  emailChangeErrorMessage,
+  type EmailChangeFieldErrors,
+  validateEmailChange,
+} from "@lib/util/account-email"
 
 const SAFE_MEDUSA_ID_PATTERN = /^[a-z]+_[A-Za-z0-9_-]+$/
 const OAUTH_PROVIDERS = ["google", "facebook", "apple"] as const
@@ -52,12 +67,36 @@ export const retrieveCustomer =
       .fetch<{ customer: HttpTypes.StoreCustomer }>(`/store/customers/me`, {
         method: "GET",
         query: {
-          fields: "*orders",
+          // Explicit field selection replaces Medusa's default selection. Include
+          // addresses here so account pages and checkout see addresses created by
+          // the CBA address API immediately after revalidation.
+          fields: "*addresses,*orders",
         },
         headers: authHeaders,
         cache: "no-store",
       })
-      .then(({ customer }) => customer)
+      .then(async ({ customer }) => {
+        // The CBA address API is the storefront's mutation authority. Read the
+        // address book from the same contract instead of depending on a
+        // relation expansion on /customers/me, which can omit addresses when
+        // Medusa query fields change.
+        const addressBook = await sdk.client
+          .fetch<{ addresses: HttpTypes.StoreCustomerAddress[] }>(
+            "/store/cba/v1/account/addresses",
+            {
+              method: "GET",
+              query: { limit: 20, offset: 0 },
+              headers: authHeaders,
+              cache: "no-store",
+            }
+          )
+          .catch(() => null)
+
+        return {
+          ...customer,
+          addresses: addressBook?.addresses ?? customer.addresses ?? [],
+        }
+      })
       .catch(() => null)
   }
 
@@ -82,7 +121,229 @@ export const updateCustomer = async (body: HttpTypes.StoreUpdateCustomer) => {
   return updateRes
 }
 
-export async function signup(_currentState: unknown, formData: FormData) {
+export async function retrieveAccountSecurity(): Promise<AccountSecurity | null> {
+  const authHeaders = await getAuthHeaders()
+  if (!("authorization" in authHeaders) || !authHeaders.authorization) {
+    return null
+  }
+
+  return sdk.client
+    .fetch<{ security: { password_enabled: boolean; linked_providers: string[] } }>(
+      "/store/cba/v1/account/security",
+      { method: "GET", headers: authHeaders, cache: "no-store" }
+    )
+    .then(({ security }) => ({
+      password_enabled: security.password_enabled === true,
+      linked_providers: security.linked_providers.filter(
+        (provider): provider is AccountSecurity["linked_providers"][number] =>
+          ACCOUNT_PASSWORD_PROVIDERS.includes(
+            provider as AccountSecurity["linked_providers"][number]
+          )
+      ),
+    }))
+    .catch(() => null)
+}
+
+export type PasswordChangeActionState = {
+  success: boolean
+  error: string | null
+  fieldErrors: Record<string, string>
+}
+
+export type EmailChangeActionState = {
+  success: boolean
+  error: string | null
+  fieldErrors: EmailChangeFieldErrors
+  maskedEmail: string | null
+  expiresAt: string | null
+}
+
+export async function requestCustomerEmailChange(
+  currentEmail: string,
+  _currentState: EmailChangeActionState,
+  formData: FormData
+): Promise<EmailChangeActionState> {
+  const values = {
+    current_email: normalizeEmail(currentEmail),
+    new_email: normalizeEmail(formData.get("new_email")),
+    confirm_email: normalizeEmail(formData.get("confirm_email")),
+    current_password: text(formData.get("current_password")),
+  }
+  const fieldErrors = validateEmailChange(values)
+  if (Object.keys(fieldErrors).length) {
+    return {
+      success: false,
+      error: Object.values(fieldErrors)[0] ?? "Please check the highlighted fields.",
+      fieldErrors,
+      maskedEmail: null,
+      expiresAt: null,
+    }
+  }
+  const authHeaders = await getAuthHeaders()
+  if (!("authorization" in authHeaders) || !authHeaders.authorization) {
+    return emailChangeFailure("SESSION_REVOKED")
+  }
+  try {
+    const response = await fetch(`${MEDUSA_BACKEND_URL}/store/cba/v1/account/email-change/request`, {
+      method: "POST",
+      headers: {
+        ...authHeaders,
+        ...publishableKeyHeader(),
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        new_email: values.new_email,
+        current_password: values.current_password,
+        country_code: text(formData.get("country_code")).toLowerCase() || "lk",
+      }),
+      cache: "no-store",
+    })
+    const payload = (await response.json().catch(() => null)) as
+      | {
+          success?: boolean
+          expires_at?: string
+          masked_email?: string
+          error?: { code?: string }
+        }
+      | null
+    if (!response.ok || payload?.success !== true) {
+      return emailChangeFailure(payload?.error?.code)
+    }
+    return {
+      success: true,
+      error: null,
+      fieldErrors: {},
+      maskedEmail: payload.masked_email ?? null,
+      expiresAt: payload.expires_at ?? null,
+    }
+  } catch {
+    return emailChangeFailure("SERVICE_UNAVAILABLE")
+  }
+}
+
+export type EmailChangeConfirmState = { error: string | null }
+
+export async function confirmCustomerEmailChange(
+  countryCode: string,
+  _currentState: EmailChangeConfirmState,
+  formData: FormData
+): Promise<EmailChangeConfirmState> {
+  const token = text(formData.get("token"))
+  if (!/^[A-Za-z0-9_-]{20,2048}$/.test(token)) {
+    return { error: emailChangeErrorMessage("EMAIL_VERIFICATION_INVALID") }
+  }
+  const authHeaders = await getAuthHeaders()
+  if (!("authorization" in authHeaders) || !authHeaders.authorization) {
+    return { error: emailChangeErrorMessage("SESSION_REVOKED") }
+  }
+
+  let code: string | undefined
+  try {
+    const response = await fetch(`${MEDUSA_BACKEND_URL}/store/cba/v1/account/email-change/confirm`, {
+      method: "POST",
+      headers: {
+        ...authHeaders,
+        ...publishableKeyHeader(),
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({ token }),
+      cache: "no-store",
+    })
+    const payload = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: { code?: string } }
+      | null
+    if (!response.ok || payload?.success !== true) code = payload?.error?.code
+  } catch {
+    code = "SERVICE_UNAVAILABLE"
+  }
+  if (code) return { error: emailChangeErrorMessage(code) }
+
+  await removeAuthToken()
+  const customerCacheTag = await getCacheTag("customers")
+  revalidateTag(customerCacheTag)
+  redirect(localizedPath(`/${countryCode}/account?email_changed=1`))
+}
+
+function emailChangeFailure(code?: string): EmailChangeActionState {
+  return {
+    success: false,
+    error: emailChangeErrorMessage(code),
+    fieldErrors: {},
+    maskedEmail: null,
+    expiresAt: null,
+  }
+}
+
+export async function updateCustomerPassword(
+  _currentState: PasswordChangeActionState,
+  formData: FormData
+): Promise<PasswordChangeActionState> {
+  const values = {
+    current_password: text(formData.get("current_password")),
+    new_password: text(formData.get("new_password")),
+    confirm_password: text(formData.get("confirm_password")),
+  }
+  const fieldErrors = validatePasswordChange(values)
+  if (Object.keys(fieldErrors).length) {
+    return {
+      success: false,
+      error: Object.values(fieldErrors)[0] ?? "Please check the highlighted fields.",
+      fieldErrors,
+    }
+  }
+
+  const authHeaders = await getAuthHeaders()
+  if (!("authorization" in authHeaders) || !authHeaders.authorization) {
+    return { success: false, error: "Please sign in again.", fieldErrors: {} }
+  }
+
+  try {
+    const response = await fetch(`${MEDUSA_BACKEND_URL}/store/cba/v1/account/password`, {
+      method: "POST",
+      headers: {
+        ...authHeaders,
+        ...publishableKeyHeader(),
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        current_password: values.current_password,
+        new_password: values.new_password,
+      }),
+      cache: "no-store",
+    })
+    const payload = (await response.json().catch(() => null)) as
+      | { success?: boolean; error?: { code?: string } }
+      | null
+    if (!response.ok || payload?.success !== true) {
+      return {
+        success: false,
+        error: passwordChangeErrorMessage(payload?.error?.code),
+        fieldErrors: {},
+      }
+    }
+    return { success: true, error: null, fieldErrors: {} }
+  } catch {
+    return {
+      success: false,
+      error: passwordChangeErrorMessage("SERVICE_UNAVAILABLE"),
+      fieldErrors: {},
+    }
+  }
+}
+
+export type AuthActionState = {
+  status: "idle" | "success" | "error"
+  message: string | null
+}
+
+function authActionError(message: string): AuthActionState {
+  return { status: "error", message }
+}
+
+export async function signup(_currentState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const password = text(formData.get("password"))
   const confirmPassword = text(formData.get("confirm_password"))
   const customerForm = {
@@ -93,13 +354,13 @@ export async function signup(_currentState: unknown, formData: FormData) {
   }
   const validationError = validateSignup(customerForm, password, confirmPassword, formData)
   if (validationError) {
-    return validationError
+    return authActionError(validationError)
   }
 
   try {
-    const token = await sdk.auth.register("customer", "emailpass", {
-      email: customerForm.email,
-      password: password,
+    const { token } = await sdk.client.fetch<{ token: string }>("/auth/customer/emailpass/register", {
+      method: "POST", body: { email: customerForm.email, password },
+      headers: recaptchaHeaders(formData.get(RECAPTCHA_FORM_FIELD)), cache: "no-store",
     })
 
     const headers = {
@@ -112,9 +373,9 @@ export async function signup(_currentState: unknown, formData: FormData) {
       headers
     )
 
-    const loginToken = await sdk.auth.login("customer", "emailpass", {
-      email: customerForm.email,
-      password,
+    const { token: loginToken } = await sdk.client.fetch<{ token: string }>("/auth/customer/emailpass", {
+      method: "POST", body: { email: customerForm.email, password },
+      headers: recaptchaHeaders(formData.get(`${RECAPTCHA_FORM_FIELD}_customer_login`)), cache: "no-store",
     })
 
     await setAuthToken(loginToken as string)
@@ -126,68 +387,85 @@ export async function signup(_currentState: unknown, formData: FormData) {
       console.error("Customer signup succeeded, but cart transfer failed.", safeServerError(error))
     })
 
-    return createdCustomer
+    void createdCustomer
+    return { status: "success", message: null }
   } catch (error: any) {
     console.error("Customer signup failed.", safeServerError(error))
-    return authErrorMessage(error)
+    return authActionError(authErrorMessage(error))
   }
 }
 
-export async function login(_currentState: unknown, formData: FormData) {
+export async function login(_currentState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const email = normalizeEmail(formData.get("email"))
   const password = text(formData.get("password"))
 
   const validationError = validateLogin(email, password)
   if (validationError) {
-    return validationError
+    return authActionError(validationError)
   }
 
   try {
-    await sdk.auth
-      .login("customer", "emailpass", { email, password })
-      .then(async (token) => {
+    await sdk.client.fetch<{ token: string }>("/auth/customer/emailpass", {
+      method: "POST", body: { email, password },
+      headers: recaptchaHeaders(formData.get(RECAPTCHA_FORM_FIELD)), cache: "no-store",
+    })
+      .then(async ({ token }) => {
         await setAuthToken(token as string)
         const customerCacheTag = await getCacheTag("customers")
         revalidateTag(customerCacheTag)
       })
   } catch (error: any) {
-    return authErrorMessage(error)
+    if (isAuthRateLimited(error)) {
+      return authActionError("Too many sign-in attempts. Please wait and try again later.")
+    }
+    return authActionError(authErrorMessage(error))
   }
 
   await transferCart().catch((error) => {
     console.error("Customer login succeeded, but cart transfer failed.", safeServerError(error))
   })
+  return { status: "success", message: null }
 }
 
-export async function requestPasswordReset(_currentState: unknown, formData: FormData) {
+export async function requestPasswordReset(_currentState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const email = normalizeEmail(formData.get("email"))
   if (validateEmail(email)) {
-    return "Enter a valid email address."
+    return authActionError("Enter a valid email address.")
   }
   try {
     await sdk.client.fetch("/auth/customer/emailpass/reset-password", {
       method: "POST",
       body: { identifier: email },
+      headers: recaptchaHeaders(formData.get(RECAPTCHA_FORM_FIELD)),
       cache: "no-store",
     })
   } catch (error) {
+    if (isAuthRateLimited(error)) {
+      return authActionError("Too many password reset requests. Please wait and try again later.")
+    }
+    if (isAuthServiceUnavailable(error)) {
+      return authActionError("The account service is temporarily unavailable. Please try again later.")
+    }
     console.error("Password reset request failed.", safeServerError(error))
   }
-  return "If an account exists for this email address, a password reset link will be sent."
+  return {
+    status: "success",
+    message: "If an account exists for this email address, a password reset link will be sent.",
+  }
 }
 
-export async function resetPassword(_currentState: unknown, formData: FormData) {
+export async function resetPassword(_currentState: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const token = text(formData.get("token"))
   const password = text(formData.get("password"))
   const confirmPassword = text(formData.get("confirm_password"))
   if (!/^[A-Za-z0-9._-]{20,2048}$/.test(token)) {
-    return "This password reset link is invalid."
+    return authActionError("This password reset link is invalid.")
   }
   if (!isStrongPassword(password)) {
-    return "Password must be at least 8 characters and include letters and numbers."
+    return authActionError("Password must be at least 8 characters and include letters and numbers.")
   }
   if (password !== confirmPassword) {
-    return "Passwords do not match."
+    return authActionError("Passwords do not match.")
   }
   try {
     await sdk.client.fetch("/auth/customer/emailpass/update", {
@@ -196,16 +474,23 @@ export async function resetPassword(_currentState: unknown, formData: FormData) 
       body: { password },
       cache: "no-store",
     })
-    return "Password updated. You can sign in with your new password."
+    return { status: "success", message: "Password updated. You can sign in with your new password." }
   } catch (error) {
+    if (isAuthRateLimited(error)) {
+      return authActionError("Too many password reset attempts. Please wait and try again later.")
+    }
+    if (isAuthServiceUnavailable(error)) {
+      return authActionError("The account service is temporarily unavailable. Please try again later.")
+    }
     console.error("Password reset update failed.", safeServerError(error))
-    return "We could not update the password. Request a new reset link and try again."
+    return authActionError("We could not update the password. Request a new reset link and try again.")
   }
 }
 
 export async function startOAuthLogin(_currentState: unknown, formData: FormData) {
   const provider = text(formData.get("provider")) as OAuthProvider
   const countryCode = text(formData.get("country_code")) || "lk"
+  const returnTo = safeAuthDestination(text(formData.get("return_to"))) ?? "/account"
 
   if (!OAUTH_PROVIDERS.includes(provider)) {
     return "This sign-on provider is not supported."
@@ -215,6 +500,7 @@ export async function startOAuthLogin(_currentState: unknown, formData: FormData
   let location = ""
 
   try {
+    await setAuthReturnPath(returnTo)
     const result = await sdk.auth.login("customer", provider, {
       callback_url: callbackUrl,
     })
@@ -223,7 +509,7 @@ export async function startOAuthLogin(_currentState: unknown, formData: FormData
       await transferCart().catch((error) => {
         console.error("OAuth login succeeded, but cart transfer failed.", safeServerError(error))
       })
-      redirect(localizedPath(`/${countryCode}/account`))
+      redirect(localizedPath(returnTo))
     }
     if (!("location" in result) || !result.location) {
       return "This sign-on provider requires additional verification."
@@ -248,14 +534,16 @@ export async function completeOAuthLogin({
   query: Record<string, string>
   countryCode: string
 }) {
+  void countryCode
+  const returnTo = safeAuthDestination(await takeAuthReturnPath()) ?? "/account"
   if (!OAUTH_PROVIDERS.includes(provider as OAuthProvider)) {
-    redirect(localizedPath(`/${countryCode}/account?auth_error=unsupported_provider`))
+    redirect(authErrorReturn(returnTo, "unsupported_provider"))
   }
 
   try {
     const tokenResult = await sdk.auth.callback("customer", provider, query)
     if (typeof tokenResult !== "string") {
-      redirect(localizedPath(`/${countryCode}/account?auth_error=additional_verification_required`))
+      redirect(authErrorReturn(returnTo, "additional_verification_required"))
     }
 
     await setAuthToken(tokenResult)
@@ -265,7 +553,7 @@ export async function completeOAuthLogin({
       const profile = decodeAuthProfile(tokenResult)
       if (!profile.email) {
         await removeAuthToken()
-        redirect(localizedPath(`/${countryCode}/account?auth_error=missing_email`))
+        redirect(authErrorReturn(returnTo, "missing_email"))
       }
 
       const headers = {
@@ -293,14 +581,19 @@ export async function completeOAuthLogin({
     await transferCart().catch((error) => {
       console.error("OAuth login succeeded, but cart transfer failed.", safeServerError(error))
     })
-    redirect(localizedPath(`/${countryCode}/account`))
+    redirect(localizedPath(returnTo))
   } catch (error) {
     if (isNextRedirect(error)) {
       throw error
     }
     await removeAuthToken()
-    redirect(localizedPath(`/${countryCode}/account?auth_error=oauth_failed`))
+    redirect(authErrorReturn(returnTo, "oauth_failed"))
   }
+}
+
+function authErrorReturn(path: string, code: string) {
+  const separator = path.includes("?") ? "&" : "?"
+  return localizedPath(`${path}${separator}auth_error=${encodeURIComponent(code)}`)
 }
 
 export async function signout(countryCode: string) {
@@ -316,7 +609,7 @@ export async function signout(countryCode: string) {
   const cartCacheTag = await getCacheTag("carts")
   revalidateTag(cartCacheTag)
 
-  redirect(localizedPath(`/${countryCode}/account`))
+  redirect(localizedPath(`/${countryCode}/?signed_out=1`))
 }
 
 export async function transferCart(): Promise<CartTransferActionResult> {
@@ -590,6 +883,9 @@ function isStrongPassword(value: string) {
 
 function authErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? "")
+  if (isAuthRateLimited(error)) {
+    return "Too many sign-in attempts. Please wait and try again later."
+  }
   if (/email.*exist|already.*email|duplicate/i.test(message)) {
     return "An account already exists with this email address."
   }
@@ -603,6 +899,49 @@ function authErrorMessage(error: unknown) {
     return "We could not reach the account service. Please try again."
   }
   return "We could not complete the request. Please try again."
+}
+
+function isAuthRateLimited(error: unknown) {
+  const status = errorStatus(error)
+  const message = errorMessage(error)
+  return status === 429 || /rate.?limit|too many attempts|too many authentication/i.test(message)
+}
+
+function isAuthServiceUnavailable(error: unknown) {
+  const status = errorStatus(error)
+  const message = errorMessage(error)
+  return status === 503 || /authentication protection|service temporarily unavailable/i.test(message)
+}
+
+function errorStatus(error: unknown) {
+  if (!error || typeof error !== "object") return undefined
+  const value = error as Record<string, unknown>
+  const response = value.response
+  if (response && typeof response === "object") {
+    const responseStatus = (response as Record<string, unknown>).status
+    if (typeof responseStatus === "number") return responseStatus
+  }
+  for (const key of ["status", "statusCode"]) {
+    if (typeof value[key] === "number") return value[key] as number
+  }
+  return undefined
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  if (error && typeof error === "object") {
+    const value = error as Record<string, unknown>
+    if (typeof value.message === "string") return value.message
+    const response = value.response
+    if (response && typeof response === "object") {
+      const data = (response as Record<string, unknown>).data
+      if (data && typeof data === "object" && typeof (data as Record<string, unknown>).message === "string") {
+        return (data as Record<string, unknown>).message as string
+      }
+    }
+  }
+  return ""
 }
 
 function safeServerError(error: unknown) {
@@ -703,11 +1042,16 @@ export const addCustomerAddress = async (
     ...(await getAuthHeaders()),
   }
 
-  return sdk.store.customer
-    .createAddress(address, {}, headers)
-    .then(async ({ customer }) => {
+  return sdk.client
+    .fetch<{ address: HttpTypes.StoreCustomerAddress }>("/store/cba/v1/account/addresses", {
+      method: "POST",
+      body: address,
+      headers,
+    })
+    .then(async () => {
       const customerCacheTag = await getCacheTag("customers")
-      revalidateTag(customerCacheTag)
+      if (customerCacheTag) revalidateTag(customerCacheTag)
+      revalidatePath("/[countryCode]/account", "layout")
       return { success: true, error: null }
     })
     .catch((err) => {
@@ -726,11 +1070,15 @@ export const deleteCustomerAddress = async (
     ...(await getAuthHeaders()),
   }
 
-  return await sdk.store.customer
-    .deleteAddress(addressId, headers)
+  return await sdk.client
+    .fetch<{ id: string; deleted: boolean }>(
+      `/store/cba/v1/account/addresses/${addressId}`,
+      { method: "DELETE", headers }
+    )
     .then(async () => {
       const customerCacheTag = await getCacheTag("customers")
-      revalidateTag(customerCacheTag)
+      if (customerCacheTag) revalidateTag(customerCacheTag)
+      revalidatePath("/[countryCode]/account", "layout")
       return { success: true, error: null }
     })
     .catch((err) => {
@@ -761,6 +1109,15 @@ export const updateCustomerAddress = async (
     country_code: text(formData.get("country_code")).toLowerCase(),
   } as HttpTypes.StoreUpdateCustomerAddress
 
+  // The Profile billing editor owns the billing role. Address Book edits do
+  // not provide these values, so their defaults remain unchanged.
+  if (currentState.isDefaultBilling === true) {
+    address.is_default_billing = true
+  }
+  if (currentState.isDefaultShipping === true) {
+    address.is_default_shipping = true
+  }
+
   const phone = text(formData.get("phone"))
 
   if (phone) {
@@ -783,11 +1140,15 @@ export const updateCustomerAddress = async (
     ...(await getAuthHeaders()),
   }
 
-  return sdk.store.customer
-    .updateAddress(addressId, address, {}, headers)
+  return sdk.client
+    .fetch<{ address: HttpTypes.StoreCustomerAddress }>(
+      `/store/cba/v1/account/addresses/${addressId}`,
+      { method: "PATCH", body: address, headers }
+    )
     .then(async () => {
       const customerCacheTag = await getCacheTag("customers")
-      revalidateTag(customerCacheTag)
+      if (customerCacheTag) revalidateTag(customerCacheTag)
+      revalidatePath("/[countryCode]/account", "layout")
       return { success: true, error: null }
     })
     .catch((err) => {
@@ -841,13 +1202,41 @@ function validateCustomerAddressFields(address: {
   }
   const postalCodeError = validateSriLankanPostalCode(address.postal_code ?? "")
   if (postalCodeError) fieldErrors.postal_code = postalCodeError
-  const phoneError = validateSriLankanPhone(address.phone ?? "", {
-    required: false,
-  })
+  const phoneError = validateSriLankanPhone(address.phone ?? "")
   if (phoneError) {
     fieldErrors.phone = phoneError
   }
   return fieldErrors
+}
+
+export async function setCustomerAddressDefault(
+  addressId: string,
+  role: "shipping" | "billing",
+  value: boolean
+): Promise<{ success: boolean; error: string | null }> {
+  if (!SAFE_MEDUSA_ID_PATTERN.test(addressId)) {
+    return { success: false, error: "Address ID is invalid" }
+  }
+
+  try {
+    const headers = await getAuthHeaders()
+    await sdk.client.fetch<{ address: HttpTypes.StoreCustomerAddress }>(
+      `/store/cba/v1/account/addresses/${addressId}`,
+      {
+        method: "PATCH",
+        body: {
+          [role === "shipping" ? "is_default_shipping" : "is_default_billing"]: value,
+        },
+        headers,
+      }
+    )
+    const customerCacheTag = await getCacheTag("customers")
+    if (customerCacheTag) revalidateTag(customerCacheTag)
+    revalidatePath("/[countryCode]/account", "layout")
+    return { success: true, error: null }
+  } catch {
+    return { success: false, error: "Could not update the address default." }
+  }
 }
 
 function firstFieldError(fieldErrors: Record<string, string>) {

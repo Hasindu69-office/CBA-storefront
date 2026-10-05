@@ -12,12 +12,11 @@ import DesktopCategoryDrawer from "@modules/layout/components/desktop-category-d
 import DesktopStickyHeader from "@modules/layout/components/desktop-sticky-header"
 import MobileBottomNav from "@modules/layout/components/mobile-bottom-nav"
 import MobileHeaderMenu from "@modules/layout/components/mobile-header-menu"
-import ScrollToTopButton from "@modules/layout/components/scroll-to-top-button"
 import SideCart from "@modules/layout/components/side-cart"
 import WishlistHeaderLink from "@modules/layout/components/wishlist-header-link"
+import PrimaryNavLinks from "@modules/layout/components/primary-nav-links"
 import ReactCountryFlag from "react-country-flag"
 import {
-  ChevronDownIcon,
   CoinsIcon,
   FileTextIcon,
   HeadphonesIcon,
@@ -28,6 +27,7 @@ import {
   UserIcon,
 } from "@modules/layout/components/cba-icons"
 import Image from "next/image"
+import AuthAwareLink from "@modules/account/components/auth-aware-link"
 
 const fallbackNavLinks = [
   { label: "Printers & MFPs", href: "/store" },
@@ -45,9 +45,6 @@ const fallbackDropdownItems = [
   "Printers & Scanners",
   "Computer Accessories",
 ]
-
-const dealsNavLinkClassName =
-  "deals-nav-link inline-flex h-7 items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-2.5 text-[13px] font-semibold leading-none text-brand transition-[background-color,border-color,color] hover:border-brand hover:bg-brand hover:text-white focus-visible:border-brand focus-visible:bg-brand focus-visible:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/25"
 
 function topLevelCategories(categories: HttpTypes.StoreProductCategory[]) {
   return categories.filter((category) => !category.parent_category)
@@ -102,26 +99,6 @@ function isDealsNavLink(
   const targetLabel = dealsLabel.trim().toLowerCase()
 
   return Boolean(targetLabel) && linkLabel === targetLabel
-}
-
-function DealsNavLink({
-  href,
-  label,
-  className,
-}: {
-  href: string
-  label: string
-  className?: string
-}) {
-  return (
-    <HeaderLink
-      href={href}
-      className={[dealsNavLinkClassName, className].filter(Boolean).join(" ")}
-    >
-      <TagIcon size={14} strokeWidth={2} />
-      <span>{label}</span>
-    </HeaderLink>
-  )
 }
 
 function customerDisplayName(customer?: HttpTypes.StoreCustomer | null) {
@@ -245,10 +222,7 @@ export default async function Nav({
                 <span>{cmsLayout.header.topbar.delivery_label}</span>
               </div>
               <span className="w-px h-3.5 bg-white" />
-              <a
-                href="#"
-                className="flex items-center gap-1.5 hover:text-white transition-colors"
-              >
+              <div className="flex items-center gap-1.5">
                 <ReactCountryFlag
                   svg
                   countryCode="US"
@@ -261,7 +235,7 @@ export default async function Nav({
                   }}
                 />
                 <span>{cmsLayout.header.topbar.language_label}</span>
-              </a>
+              </div>
               <span className="w-px h-3.5 bg-white" />
               <HeaderLink
                 href={cmsLayout.header.topbar.track_order_url}
@@ -271,14 +245,10 @@ export default async function Nav({
                 <span>{cmsLayout.header.topbar.track_order_label}</span>
               </HeaderLink>
               <span className="w-px h-3.5 bg-white" />
-              <a
-                href="#"
-                className="flex items-center gap-1.5 hover:text-white transition-colors"
-              >
+              <div className="flex items-center gap-1.5">
                 <CoinsIcon size={14} strokeWidth={2} />
                 <span>{cmsLayout.header.topbar.currency_label}</span>
-                <ChevronDownIcon size={14} className="text-gray-400" />
-              </a>
+              </div>
             </div>
           </div>
         </div>
@@ -314,8 +284,9 @@ export default async function Nav({
                   variant="mobile"
                 />
 
-                <LocalizedClientLink
+                <AuthAwareLink
                   href="/account"
+                  authenticated={Boolean(customer)}
                   className="flex min-w-[38px] flex-col items-center gap-0.5 text-black transition-opacity hover:opacity-80 xsmall:min-w-[42px]"
                 >
                   {customer ? (
@@ -336,7 +307,7 @@ export default async function Nav({
                   <span className="max-w-[58px] truncate leading-none">
                     {mobileAccountLabel}
                   </span>
-                </LocalizedClientLink>
+                </AuthAwareLink>
               </div>
             </div>
 
@@ -372,8 +343,9 @@ export default async function Nav({
                 variant="desktop"
               />
 
-              <LocalizedClientLink
+              <AuthAwareLink
                 href="/account"
+                authenticated={Boolean(customer)}
                 className="flex min-w-0 items-center gap-2.5 hover:opacity-80 transition-opacity"
               >
                 {customer ? (
@@ -407,7 +379,7 @@ export default async function Nav({
                     </div>
                   </>
                 )}
-              </LocalizedClientLink>
+              </AuthAwareLink>
             </div>
           </div>
         </div>
@@ -476,8 +448,9 @@ export default async function Nav({
                   variant="desktop"
                 />
 
-                <LocalizedClientLink
+                <AuthAwareLink
                   href="/account"
+                  authenticated={Boolean(customer)}
                   className="flex min-w-0 items-center gap-2.5 transition-opacity hover:opacity-80"
                 >
                   {customer ? (
@@ -511,7 +484,7 @@ export default async function Nav({
                       </div>
                     </>
                   )}
-                </LocalizedClientLink>
+                </AuthAwareLink>
               </div>
             </div>
           </div>
@@ -526,35 +499,12 @@ export default async function Nav({
               />
 
               <div className="flex items-center flex-1 px-4 small:px-6 font-medium text-[13px] text-[#2d2d2d] overflow-x-auto whitespace-nowrap no-scrollbar">
-                {navLinks.map((link) =>
-                  isDealsNavLink(
-                    link,
-                    cmsLayout.header.commerce.deals_label
-                  ) ? (
-                    <DealsNavLink
-                      key={link.label}
-                      href={link.href}
-                      label={link.label}
-                      className="mx-3"
-                    />
-                  ) : (
-                    <HeaderLink
-                      key={link.label}
-                      href={link.href}
-                      className="mx-3 transition-colors hover:text-brand"
-                    >
-                      {link.label}
-                    </HeaderLink>
-                  )
-                )}
-
-                {!hasDealsInPrimaryLinks && (
-                  <DealsNavLink
-                    href={cmsLayout.header.commerce.deals_url}
-                    label={cmsLayout.header.commerce.deals_label}
-                    className="mx-3"
-                  />
-                )}
+                <PrimaryNavLinks
+                  links={navLinks}
+                  dealsLabel={cmsLayout.header.commerce.deals_label}
+                  dealsUrl={cmsLayout.header.commerce.deals_url}
+                  hasDealsLink={hasDealsInPrimaryLinks}
+                />
               </div>
             </div>
           </div>
@@ -566,7 +516,6 @@ export default async function Nav({
         categoryLinks={dropdownItems}
         logo={mobileMenuLogo}
       />
-      <ScrollToTopButton />
     </div>
   )
 }

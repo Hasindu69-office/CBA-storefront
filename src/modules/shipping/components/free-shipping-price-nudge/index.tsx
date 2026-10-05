@@ -12,6 +12,7 @@ import { Button, clx } from "@medusajs/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { useState } from "react"
 import { StoreFreeShippingPrice } from "types/global"
+import { deriveFulfillmentModeFromItems } from "@lib/util/fulfillment-plan"
 
 const computeTarget = (
   cart: HttpTypes.StoreCart,
@@ -81,7 +82,11 @@ export default function ShippingPriceNudge({
   cart: StoreCart
   shippingOptions: StoreCartShippingOption[]
 }) {
-  if (!cart || !shippingOptions?.length) {
+  if (
+    !cart ||
+    !shippingOptions?.length ||
+    deriveFulfillmentModeFromItems(cart.items) === "pickup-only"
+  ) {
     return
   }
 

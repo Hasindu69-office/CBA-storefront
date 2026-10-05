@@ -10,6 +10,7 @@ import Thumbnail from "@modules/products/components/thumbnail"
 import Spinner from "@modules/common/icons/spinner"
 import { useState } from "react"
 import { visibleVariantTitle } from "@lib/util/product-options"
+import { maxQuantityForVariant } from "@lib/util/cart-quantity"
 
 type CartLineItemRowProps = {
   item: HttpTypes.StoreCartLineItem
@@ -33,6 +34,10 @@ export default function CartLineItemRow({
   const productSubtitle = item.product_subtitle || item.variant?.product?.subtitle
   const variantTitle =
     visibleVariantTitle(item.variant_title ?? item.variant?.title)
+  const maxQuantity = Math.max(
+    item.quantity,
+    maxQuantityForVariant(item.variant, 0)
+  )
 
   const handleDelete = async () => {
     setError(null)
@@ -63,7 +68,7 @@ export default function CartLineItemRow({
       <button
         type="button"
         onClick={() => onQuantityChange(draftQuantity + 1)}
-        disabled={disabled || isDeleting || draftQuantity >= 99}
+        disabled={disabled || isDeleting || draftQuantity >= maxQuantity}
         className="flex w-10 items-center justify-center text-lg text-[#333740] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300"
         aria-label={`Increase quantity of ${item.product_title}`}
       >

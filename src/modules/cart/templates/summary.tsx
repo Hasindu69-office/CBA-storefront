@@ -17,9 +17,9 @@ type SummaryProps = {
 function getCheckoutStep(cart: HttpTypes.StoreCart) {
   if (!cart?.shipping_address?.address_1 || !cart.email) {
     return "address"
-  } else {
-    return "payment"
   }
+  if (!(cart.shipping_methods?.length ?? 0)) return "delivery"
+  return "payment"
 }
 
 const Summary = ({ cart }: SummaryProps) => {

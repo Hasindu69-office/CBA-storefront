@@ -3,13 +3,13 @@
 import React, { useEffect, useMemo, useActionState } from "react"
 
 import Input from "@modules/common/components/input"
-import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
 import NativeSelect from "@modules/common/components/native-select"
 
 import AccountInfo from "../account-info"
 import { HttpTypes } from "@medusajs/types"
 import { addCustomerAddress, updateCustomerAddress } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
+import { useRouter } from "next/navigation"
 
 type MyInformationProps = {
   customer: HttpTypes.StoreCustomer
@@ -34,10 +34,14 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
   }, [regions])
 
   const [successState, setSuccessState] = React.useState(false)
+  const router = useRouter()
 
-  const billingAddress = customer.addresses?.find(
-    (addr) => addr.is_default_billing
-  )
+  // Addresses saved before default-billing support may not carry the role.
+  // Show the first saved address rather than hiding it; saving promotes it to
+  // the customer's default billing address through the CBA API.
+  const billingAddress =
+    customer.addresses?.find((addr) => addr.is_default_billing) ??
+    customer.addresses?.[0]
 
   const initialState: Record<string, any> = {
     isDefaultBilling: true,
@@ -63,12 +67,21 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
     setSuccessState(state.success)
     if (state.success) {
       notify.success("Billing address saved.", { id: "profile-billing-address" })
+      router.refresh()
     } else if (state.error) {
       notify.error(state.error, "Could not save billing address.", {
         id: "profile-billing-address",
       })
     }
-  }, [state])
+  }, [state, router])
+
+  const profileIdentityMissing = !(
+    billingAddress?.first_name ?? customer.first_name
+  ) || !(
+    billingAddress?.last_name ?? customer.last_name
+  ) || !(
+    billingAddress?.phone ?? customer.phone
+  )
 
   const currentInfo = useMemo(() => {
     if (!billingAddress) {
@@ -82,10 +95,6 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
 
     return (
       <div className="flex flex-col font-semibold" data-testid="current-info">
-        <span>
-          {billingAddress.first_name} {billingAddress.last_name}
-        </span>
-        <span>{billingAddress.company}</span>
         <span>
           {billingAddress.address_1}
           {billingAddress.address_2 ? `, ${billingAddress.address_2}` : ""}
@@ -110,38 +119,30 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
         data-testid="account-billing-address-editor"
       >
         <div className="grid grid-cols-1 gap-y-2">
-          <div className="grid grid-cols-2 gap-x-2">
-            <Input
-              label="First name"
-              name="first_name"
-              defaultValue={billingAddress?.first_name || undefined}
-              required
-              errors={state.fieldErrors}
-              data-testid="billing-first-name-input"
-            />
-            <Input
-              label="Last name"
-              name="last_name"
-              defaultValue={billingAddress?.last_name || undefined}
-              required
-              errors={state.fieldErrors}
-              data-testid="billing-last-name-input"
-            />
-          </div>
-          <Input
-            label="Company"
-            name="company"
-            defaultValue={billingAddress?.company || undefined}
-            data-testid="billing-company-input"
+          {/* Identity and contact details are managed in their dedicated Profile
+              sections. Preserve them on the address record without duplicating
+              editable fields in the billing-address editor. */}
+          <input
+            type="hidden"
+            name="first_name"
+            value={billingAddress?.first_name ?? customer.first_name ?? ""}
           />
-          <SriLankanPhoneInput
-            label="Phone"
+          <input
+            type="hidden"
+            name="last_name"
+            value={billingAddress?.last_name ?? customer.last_name ?? ""}
+          />
+          <input type="hidden" name="company" value={billingAddress?.company ?? ""} />
+          <input
+            type="hidden"
             name="phone"
-            required
-            defaultValue={billingAddress?.phone ?? customer?.phone ?? ""}
-            error={state.fieldErrors?.phone}
-            data-testid="billing-phone-input"
+            value={billingAddress?.phone ?? customer.phone ?? ""}
           />
+          {profileIdentityMissing && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-small-regular text-amber-800" role="alert">
+              Add your name and phone number in Account Details before saving an address.
+            </p>
+          )}
           <Input
             label="Address"
             name="address_1"

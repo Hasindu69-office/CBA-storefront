@@ -6,6 +6,10 @@ import { addProductsToWishlist } from "@lib/data/wishlist"
 import { notify } from "@lib/notifications"
 import { openSideCart } from "@lib/util/side-cart-event"
 import { notifyWishlistCountUpdated } from "@lib/util/wishlist-count-event"
+import {
+  buildMetaEcommerceParams,
+  trackAddToCart,
+} from "@lib/analytics/meta-pixel"
 import BundleOfferPanel from "@modules/products/components/bundle-offer/bundle-offer-panel"
 import {
   BUNDLE_CATEGORIES,
@@ -99,8 +103,9 @@ export default function ProductCompanionZone({
   }
 
   const activeCategoryKey = activeCategory.key
+  const activeCompanions = activeCategory.companions
   const selection =
-    selections[activeCategoryKey] ?? createInitialSelection(activeCategory.companions)
+    selections[activeCategoryKey] ?? createInitialSelection(activeCompanions)
 
   const selectedItems = buildSelectedItems({
     selection,
@@ -109,7 +114,7 @@ export default function ProductCompanionZone({
     mainPurchasable,
     mainValid,
     quantity,
-    companions: activeCategory.companions,
+    companions: activeCompanions,
   })
 
   const total = calculateBundleTotal({
@@ -117,7 +122,7 @@ export default function ProductCompanionZone({
     mainPrice,
     mainPurchasable,
     quantity,
-    companions: activeCategory.companions,
+    companions: activeCompanions,
   })
 
   function updateSelection(
@@ -160,14 +165,42 @@ export default function ProductCompanionZone({
     }
 
     openSideCart({ pendingMessage: "Adding bundle to cart.", refresh: false })
+    const companionsForTracking = activeCompanions
+    const totalForTracking = total
+    const itemsForTracking = selectedItems
     startTransition(async () => {
       const toastId = `companion-bundle:${activeCategoryKey}`
       notify.loading("Adding bundle to cart...", { id: toastId })
       try {
         const cart = await addBundleToCart({
-          items: selectedItems,
+          items: itemsForTracking,
           countryCode,
         })
+        trackAddToCart(
+          buildMetaEcommerceParams({
+            lines: itemsForTracking.map((item) => {
+              const companion = companionsForTracking.find(
+                (entry) =>
+                  entry.product_id === item.productId || entry.id === item.productId
+              )
+              const itemPrice =
+                item.productId === product.id
+                  ? mainPrice
+                  : companion?.price.calculated_amount ?? null
+              return {
+                productId: item.productId,
+                quantity: item.quantity,
+                itemPrice,
+                title:
+                  item.productId === product.id
+                    ? product.title
+                    : companion?.title,
+              }
+            }),
+            currency: currencyCode,
+            value: totalForTracking,
+          })
+        )
         onActionMessage?.({
           type: "success",
           message: "Bundle added to cart.",
@@ -227,7 +260,7 @@ export default function ProductCompanionZone({
   }
 
   return (
-    <div className="rounded-rounded border border-gray-200 p-7">
+    <div className="min-w-0 rounded-rounded border border-gray-200 p-7 max-[399px]:p-5">
       {categories.length > 1 ? (
         <div
           className="flex flex-wrap gap-2"

@@ -12,6 +12,10 @@ import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import { openSideCart } from "@lib/util/side-cart-event"
 import { notifyWishlistCountUpdated } from "@lib/util/wishlist-count-event"
+import {
+  buildMetaEcommerceParams,
+  trackAddToCart,
+} from "@lib/analytics/meta-pixel"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { HeartIcon, ShoppingCartIcon } from "@modules/layout/components/cba-icons"
 import Image from "next/image"
@@ -130,6 +134,24 @@ export default function WishlistTemplate({
       setStatus(result.success ? "success" : "error", result.message)
       notify.dismiss("wishlist-add-to-cart")
       if (result.success) {
+        trackAddToCart(
+          buildMetaEcommerceParams({
+            lines: addable.map((item) => ({
+              productId: item.product_id,
+              quantity: 1,
+              itemPrice: item.product_card?.price.calculated_amount,
+              title: item.product_card?.title,
+            })),
+            currency:
+              addable.find((item) => item.product_card?.price.currency_code)
+                ?.product_card?.price.currency_code ?? currencyCode,
+            value: addable.reduce(
+              (sum, item) =>
+                sum + (item.product_card?.price.calculated_amount ?? 0),
+              0
+            ),
+          })
+        )
         openSideCart(
           result.cart
             ? { cart: result.cart, refresh: true }

@@ -11,6 +11,10 @@ import { notify } from "@lib/notifications"
 import { convertToLocale } from "@lib/util/money"
 import { kokoInstallmentCardLabelFromAmount } from "@lib/util/koko-installments"
 import { openSideCart } from "@lib/util/side-cart-event"
+import {
+  buildSingleProductParams,
+  trackAddToCart,
+} from "@lib/analytics/meta-pixel"
 import KokoCardPaymentLine from "@modules/common/components/koko-card-payment-line"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import ProductCardRating from "@modules/common/components/product-card-rating"
@@ -84,6 +88,16 @@ const BestSellingProductCard = ({
         quantity: 1,
         countryCode,
       })
+      trackAddToCart(
+        buildSingleProductParams({
+          productId: product.product_id ?? product.id,
+          quantity: 1,
+          currency: product.price.currency_code,
+          contentName: product.title,
+          itemPrice: product.price.calculated_amount,
+          value: product.price.calculated_amount,
+        })
+      )
       openSideCart({ cart, refresh: true })
       notify.success("Item added to cart.", { id: toastId })
     } catch (error) {

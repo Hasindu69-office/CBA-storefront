@@ -92,8 +92,8 @@ export default function BundleOfferPanel({
   const canSubmit = selectedItemsCount > 0 && !isPending
 
   return (
-    <div className="mt-7 grid gap-8 small:grid-cols-[1fr_280px]">
-      <div>
+    <div className="mt-7 grid min-w-0 gap-8 small:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="min-w-0">
         <div className="relative">
           {canScrollPrev && (
             <button
@@ -118,7 +118,7 @@ export default function BundleOfferPanel({
 
           <div
             ref={scrollerRef}
-            className="no-scrollbar flex items-center gap-5 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-1"
+            className="no-scrollbar flex w-full min-w-0 max-w-full items-center gap-5 overflow-x-auto overscroll-x-contain scroll-smooth snap-x snap-mandatory pb-1"
           >
             <div className="flex shrink-0 snap-start items-center gap-5">
               <BundleProductImage
@@ -205,7 +205,7 @@ export default function BundleOfferPanel({
         </div>
       </div>
 
-      <div className="flex h-fit flex-col">
+      <div className="flex h-fit min-w-0 w-full flex-col">
         <p className="text-xs font-bold uppercase text-gray-500">Total Price</p>
         <p className="mt-2 text-3xl font-black">
           {convertToLocale({ amount: total, currency_code: currencyCode })}

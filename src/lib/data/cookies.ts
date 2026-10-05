@@ -3,6 +3,7 @@ import crypto from "crypto"
 import { cookies as nextCookies } from "next/headers"
 
 const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "_CBA_Ebiz"
+const AUTH_RETURN_COOKIE_NAME = "_cba_auth_return"
 const CART_COOKIE_NAME = process.env.CART_COOKIE_NAME || "_cba_cart_id"
 const CACHE_COOKIE_NAME = process.env.CACHE_COOKIE_NAME || "_cba_cache_id"
 const LEGACY_AUTH_COOKIE_NAMES = ["_CBA_Ebiz", "_medusa_jwt"].filter(
@@ -101,6 +102,24 @@ export const removeAuthToken = async () => {
       ...AUTH_COOKIE_OPTIONS,
     })
   })
+}
+
+export async function setAuthReturnPath(path: string) {
+  const cookies = await nextCookies()
+  cookies.set(AUTH_RETURN_COOKIE_NAME, path, {
+    ...AUTH_COOKIE_OPTIONS,
+    maxAge: 60 * 10,
+  })
+}
+
+export async function takeAuthReturnPath() {
+  const cookies = await nextCookies()
+  const value = cookies.get(AUTH_RETURN_COOKIE_NAME)?.value ?? null
+  cookies.set(AUTH_RETURN_COOKIE_NAME, "", {
+    ...AUTH_COOKIE_OPTIONS,
+    maxAge: 0,
+  })
+  return value
 }
 
 export const getCartId = async () => {

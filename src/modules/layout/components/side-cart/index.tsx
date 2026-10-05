@@ -16,6 +16,8 @@ import {
 } from "@lib/util/coupon-promotions"
 import { convertToLocale } from "@lib/util/money"
 import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
+import { maxQuantityForVariant } from "@lib/util/cart-quantity"
+import { deriveFulfillmentModeFromItems } from "@lib/util/fulfillment-plan"
 import {
   PROMOTION_CODE_MAX_COUNT,
   PROMOTION_CODE_MAX_LENGTH,
@@ -31,7 +33,6 @@ import {
 import {
   ArrowRight,
   CheckCircleSolid,
-  InformationCircle,
   LockClosedSolid,
   Minus,
   Plus,
@@ -40,11 +41,7 @@ import {
   TruckFast,
   XMark,
 } from "@medusajs/icons"
-import {
-  HttpTypes,
-  StoreCartShippingOption,
-  StorePrice,
-} from "@medusajs/types"
+import { HttpTypes, StoreCartShippingOption, StorePrice } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import Spinner from "@modules/common/icons/spinner"
 import { ShoppingCartIcon } from "@modules/layout/components/cba-icons"
@@ -68,14 +65,11 @@ type SideCartProps = {
 type CartPromotion = NonNullable<HttpTypes.StoreCart["promotions"]>[number]
 
 const MIN_QUANTITY = 1
-const MAX_QUANTITY = 99
 
 function money(amount: number | null | undefined, currencyCode: string) {
   return convertToLocale({
     amount: amount ?? 0,
     currency_code: currencyCode,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
   })
 }
 
@@ -84,17 +78,17 @@ function getItemCount(cart?: HttpTypes.StoreCart | null) {
 }
 
 function getCheckoutStep(cart: HttpTypes.StoreCart) {
-  return !cart?.shipping_address?.address_1 || !cart.email
-    ? "address"
-    : "payment"
+  if (!cart?.shipping_address?.address_1 || !cart.email) return "address"
+  if (!(cart.shipping_methods?.length ?? 0)) return "delivery"
+  return "payment"
 }
 
-function clampQuantity(quantity: number) {
+function clampQuantity(quantity: number, maxQuantity: number) {
   if (!Number.isInteger(quantity)) {
     return MIN_QUANTITY
   }
 
-  return Math.min(Math.max(quantity, MIN_QUANTITY), MAX_QUANTITY)
+  return Math.min(Math.max(quantity, MIN_QUANTITY), maxQuantity)
 }
 
 function productSubtitle(item: HttpTypes.StoreCartLineItem) {
@@ -127,7 +121,8 @@ function computeFreeShippingTarget(
   cart: HttpTypes.StoreCart,
   shippingOptions: StoreCartShippingOption[]
 ) {
-  const currentAmount = cart.item_total ?? cart.item_subtotal ?? cart.subtotal ?? 0
+  const currentAmount =
+    cart.item_total ?? cart.item_subtotal ?? cart.subtotal ?? 0
 
   return shippingOptions
     .flatMap((shippingOption) =>
@@ -167,7 +162,9 @@ function buildFreeShippingTarget(currentAmount: number, price: StorePrice) {
   return {
     targetAmount,
     targetReached,
-    targetRemaining: targetReached ? 0 : Math.max(targetAmount - currentAmount, 0),
+    targetRemaining: targetReached
+      ? 0
+      : Math.max(targetAmount - currentAmount, 0),
     progress: Math.min((currentAmount / targetAmount) * 100, 100),
   }
 }
@@ -186,7 +183,9 @@ export default function SideCart({
   const pathname = usePathname()
   const itemCount = getItemCount(displayCart)
   const displayItemCount = formatDisplayCount(itemCount)
-  const cartSignature = `${displayCart?.id ?? "none"}:${itemCount}:${displayCart?.total ?? 0}`
+  const cartSignature = `${displayCart?.id ?? "none"}:${itemCount}:${
+    displayCart?.total ?? 0
+  }`
   const previousCartSignature = useRef(cartSignature)
 
   useEffect(() => {
@@ -226,8 +225,8 @@ export default function SideCart({
 
   useEffect(() => {
     const updateCart = (event: Event) => {
-      const detail = (event as CustomEvent<Pick<SideCartOpenOptions, "cart">>)
-        .detail ?? {}
+      const detail =
+        (event as CustomEvent<Pick<SideCartOpenOptions, "cart">>).detail ?? {}
       if ("cart" in detail) {
         setDisplayCart(detail.cart ?? null)
         setPendingMessage(null)
@@ -388,7 +387,9 @@ function SideCartDrawer({
         )
         if (!applyResult.success) {
           setCouponError(applyResult.error)
-          notify.error(applyResult.error, "Could not apply coupon.", { id: toastId })
+          notify.error(applyResult.error, "Could not apply coupon.", {
+            id: toastId,
+          })
           return
         }
         onCartUpdated(applyResult.cart)
@@ -415,7 +416,9 @@ function SideCartDrawer({
         )
         if (!removeResult.success) {
           setCouponError(removeResult.error)
-          notify.error(removeResult.error, "Could not remove coupon.", { id: toastId })
+          notify.error(removeResult.error, "Could not remove coupon.", {
+            id: toastId,
+          })
           return
         }
         onCartUpdated(removeResult.cart)
@@ -508,7 +511,11 @@ function SideCartDrawer({
               onRemove={removeCoupon}
               isPending={isCouponPending}
             />
-            <SideCartSummary cart={cart} disabled={isMutating} onClose={onClose} />
+            <SideCartSummary
+              cart={cart}
+              disabled={isMutating}
+              onClose={onClose}
+            />
           </div>
         </>
       ) : pendingMessage ? (
@@ -567,6 +574,10 @@ function SideCartItem({
   const mutationInFlight = useRef(false)
   const mutationVersion = useRef(0)
   const subtitle = productSubtitle(item)
+  const maxQuantity = Math.max(
+    item.quantity,
+    maxQuantityForVariant(item.variant, 0)
+  )
 
   useEffect(() => {
     setDraftQuantity(item.quantity)
@@ -623,7 +634,7 @@ function SideCartItem({
   }
 
   const changeQuantity = (nextQuantity: number) => {
-    const quantity = clampQuantity(nextQuantity)
+    const quantity = clampQuantity(nextQuantity, maxQuantity)
 
     if (quantity === item.quantity || isPending || mutationInFlight.current) {
       setDraftQuantity(quantity)
@@ -631,11 +642,12 @@ function SideCartItem({
     }
 
     setDraftQuantity(quantity)
-    mutate(() =>
-      updateLineItem({
-        lineId: item.id,
-        quantity,
-      }),
+    mutate(
+      () =>
+        updateLineItem({
+          lineId: item.id,
+          quantity,
+        }),
       false,
       "Cart quantity updated."
     )
@@ -714,7 +726,9 @@ function SideCartItem({
                 <button
                   type="button"
                   onClick={() => changeQuantity(draftQuantity - 1)}
-                  disabled={disabled || isPending || draftQuantity <= MIN_QUANTITY}
+                  disabled={
+                    disabled || isPending || draftQuantity <= MIN_QUANTITY
+                  }
                   className="flex w-7 items-center justify-center text-[#4b5563] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300 small:w-8"
                   aria-label={`Decrease quantity of ${item.product_title}`}
                 >
@@ -726,7 +740,9 @@ function SideCartItem({
                 <button
                   type="button"
                   onClick={() => changeQuantity(draftQuantity + 1)}
-                  disabled={disabled || isPending || draftQuantity >= MAX_QUANTITY}
+                  disabled={
+                    disabled || isPending || draftQuantity >= maxQuantity
+                  }
                   className="flex w-7 items-center justify-center text-[#4b5563] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300 small:w-8"
                   aria-label={`Increase quantity of ${item.product_title}`}
                 >
@@ -763,6 +779,9 @@ function FreeShippingStrip({
   cart: HttpTypes.StoreCart
   shippingOptions: StoreCartShippingOption[]
 }) {
+  if (deriveFulfillmentModeFromItems(cart.items) === "pickup-only") {
+    return null
+  }
   const target = computeFreeShippingTarget(cart, shippingOptions)
 
   if (!target) {
@@ -778,11 +797,14 @@ function FreeShippingStrip({
           </span>
           <span className="min-w-0">
             {target.targetReached ? (
-              <span className="font-bold text-brand">FREE Delivery unlocked!</span>
+              <span className="font-bold text-brand">
+                FREE Delivery unlocked!
+              </span>
             ) : (
               <>
                 Add {money(target.targetRemaining, cart.currency_code)} more to
-                enjoy <span className="font-bold text-brand">FREE Delivery!</span>
+                enjoy{" "}
+                <span className="font-bold text-brand">FREE Delivery!</span>
               </>
             )}
           </span>
@@ -834,7 +856,9 @@ function SideCartCouponForm({
     }
 
     if (manualPromotionCodes.length >= PROMOTION_CODE_MAX_COUNT) {
-      setLocalError(`You can apply up to ${PROMOTION_CODE_MAX_COUNT} coupon codes.`)
+      setLocalError(
+        `You can apply up to ${PROMOTION_CODE_MAX_COUNT} coupon codes.`
+      )
       return
     }
 
@@ -889,14 +913,17 @@ function SideCartCouponForm({
       </div>
 
       {(manualPromotionCodes.length > 0 || automaticPromotions) && (
-        <div className="mt-2 flex flex-wrap gap-2" aria-label="Applied promotions">
+        <div
+          className="mt-2 flex flex-wrap gap-2"
+          aria-label="Applied promotions"
+        >
           {manualPromotionCodes.map((promotionCode) => (
             <button
               key={promotionCode}
               type="button"
               onClick={() => onRemove(promotionCode)}
               disabled={disabled || isPending}
-            className="inline-flex min-h-8 items-center gap-2 rounded-md border border-brand/25 bg-[#fff7f1] px-3 py-1.5 text-[11px] font-semibold text-[#333740] hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60 small:text-[12px]"
+              className="inline-flex min-h-8 items-center gap-2 rounded-md border border-brand/25 bg-[#fff7f1] px-3 py-1.5 text-[11px] font-semibold text-[#333740] hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60 small:text-[12px]"
               aria-label={`Remove coupon ${promotionCode}`}
             >
               {promotionCode}
@@ -947,11 +974,12 @@ function SideCartSummary({
   const mapped = mapAuthoritativeTotals(cart, {
     itemCount,
     automaticPromotionApplied: hasAutomaticPromotions,
-    compactMoney: true,
+    fulfillmentMode: deriveFulfillmentModeFromItems(cart.items),
   })
   const subtotalRow = mapped.rows.find((row) => row.key === "subtotal")
   const discountRow = mapped.rows.find((row) => row.key === "discount")
   const taxRow = mapped.rows.find((row) => row.key === "tax")
+  const changeDeliveryHref = "/checkout?section=delivery#delivery-methods"
 
   return (
     <div>
@@ -959,7 +987,8 @@ function SideCartSummary({
         <div className="flex items-center justify-between gap-4">
           <span>Subtotal ({itemCount} items)</span>
           <span className="font-medium">
-            {subtotalRow?.display ?? money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)}
+            {subtotalRow?.display ??
+              money(cart.item_subtotal ?? cart.subtotal, cart.currency_code)}
           </span>
         </div>
         {discountRow && (
@@ -967,35 +996,41 @@ function SideCartSummary({
             <span>
               {hasAutomaticPromotions ? "Store discount" : "Coupon discount"}
             </span>
-            <span className="font-semibold">
-              -{discountRow.display}
-            </span>
+            <span className="font-semibold">-{discountRow.display}</span>
           </div>
         )}
-        {mapped.shippingVisible && (
-          <div className="flex items-center justify-between gap-4">
-            <span className="inline-flex items-center gap-1.5">
-              Delivery Fee
-              <InformationCircle className="h-4 w-4 text-[#8b90a0]" />
-            </span>
-            <span className="text-right">
-              {mapped.shippingBeforeDiscountDisplay && (
-                <span className="block text-[11px] font-medium text-[#8b90a0] line-through small:text-[12px]">
-                  {mapped.shippingBeforeDiscountDisplay}
-                </span>
-              )}
-              <span
-                className={`font-medium ${
-                  mapped.shippingIsFree || mapped.hasDiscount
-                    ? "text-emerald-700"
-                    : ""
-                }`}
-              >
-                {mapped.shippingDisplay}
+        <div className="flex items-start justify-between gap-4">
+          <span className="min-w-0">
+            <span className="block break-words">{mapped.shippingSummaryLabel}</span>
+            {mapped.selectedShippingMethodNames.length > 1 && (
+              <span className="mt-0.5 block text-[10px] text-[#7a8190] small:text-[11px]">
+                {mapped.selectedShippingMethodNames.join(" + ")}
               </span>
-            </span>
-          </div>
-        )}
+            )}
+            {mapped.shippingVisible && (
+              <LocalizedClientLink
+                href={changeDeliveryHref}
+                onClick={onClose}
+                className="mt-0.5 inline-block font-semibold text-brand hover:underline"
+                aria-label="Change delivery method"
+              >
+                Change
+              </LocalizedClientLink>
+            )}
+          </span>
+          <span
+            className={`shrink-0 text-right font-medium ${
+              mapped.shippingIsFree ? "text-emerald-700" : ""
+            }`}
+          >
+            {mapped.shippingBeforeDiscountDisplay && (
+              <span className="block text-[10px] text-[#8b90a0] line-through">
+                {mapped.shippingBeforeDiscountDisplay}
+              </span>
+            )}
+            {mapped.shippingDisplay}
+          </span>
+        </div>
         {taxRow && (
           <div className="flex items-center justify-between gap-4">
             <span>{taxRow.label}</span>
@@ -1006,14 +1041,17 @@ function SideCartSummary({
 
       <div className="flex items-start justify-between gap-4 py-3">
         <span className="text-[16px] font-bold text-[#111827] small:text-[17px]">
-          Total
+          {mapped.totalLabel}
         </span>
         <span className="text-right">
           <span className="block text-[18px] font-bold text-brand small:text-[20px]">
             {mapped.total.display}
           </span>
           {mapped.taxNote && (
-            <span className="mt-0.5 block text-[10px] text-[#596070] small:text-[11px]" aria-live="polite">
+            <span
+              className="mt-0.5 block text-[10px] text-[#596070] small:text-[11px]"
+              aria-live="polite"
+            >
               {mapped.taxNote}
             </span>
           )}

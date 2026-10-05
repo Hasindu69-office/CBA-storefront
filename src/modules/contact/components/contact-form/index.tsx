@@ -19,6 +19,8 @@ import {
   validateSriLankanPhone,
 } from "@lib/util/storefront-form-validation"
 import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
+import RecaptchaDisclosure from "@modules/common/components/recaptcha-disclosure"
+import { useRecaptchaSubmit } from "@lib/hooks/use-recaptcha-submit"
 
 type Props = {
   title: string
@@ -54,6 +56,7 @@ export default function ContactForm({ title, helper, successText }: Props) {
   const formRef = useRef<HTMLFormElement>(null)
   const successRef = useRef<HTMLDivElement>(null)
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({})
+  const captcha = useRecaptchaSubmit("contact_inquiry")
 
   useEffect(() => {
     if (state.status === "success") {
@@ -127,10 +130,11 @@ export default function ContactForm({ title, helper, successText }: Props) {
       <form
         ref={formRef}
         action={formAction}
-        onSubmit={validateClient}
+        onSubmit={(event) => { validateClient(event); if (!event.defaultPrevented) void captcha.onRecaptchaSubmit(event) }}
         className="mt-6 grid gap-4"
         noValidate
       >
+        {captcha.verificationError && <p role="alert" className="text-sm text-red-600">{captcha.verificationError}</p>}
         <div className="absolute left-[-9999px] h-0 w-0 overflow-hidden" aria-hidden="true">
           <label htmlFor="company_website">Company website</label>
           <input
@@ -307,6 +311,7 @@ export default function ContactForm({ title, helper, successText }: Props) {
         >
           {isPending ? "Sending..." : "Send message"}
         </button>
+        <RecaptchaDisclosure />
       </form>
     </section>
   )

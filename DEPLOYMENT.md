@@ -24,6 +24,7 @@ MEDUSA_BACKEND_URL=https://your-backend-domain
 NEXT_PUBLIC_MEDUSA_BACKEND_URL=https://your-backend-domain
 MEDUSA_FILE_BACKEND_URL=https://your-backend-domain/static
 NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=replace-with-publishable-key
+NEXT_PUBLIC_RECAPTCHA_SITE_KEY=replace-with-public-v3-site-key
 NEXT_PUBLIC_BASE_URL=https://your-storefront-domain
 ```
 
@@ -37,6 +38,8 @@ Optional variables:
 
 ```env
 NEXT_PUBLIC_DEFAULT_REGION=lk
+NEXT_PUBLIC_META_PIXEL_ID=1361822756100417
+NEXT_PUBLIC_GTM_ID=GTM-WPLSJRPK
 NEXT_PUBLIC_STRIPE_KEY=replace-with-stripe-public-key
 NEXT_PUBLIC_MEDUSA_PAYMENTS_PUBLISHABLE_KEY=replace-with-medusa-payments-key
 NEXT_PUBLIC_MEDUSA_PAYMENTS_ACCOUNT_ID=replace-with-medusa-payments-account-id

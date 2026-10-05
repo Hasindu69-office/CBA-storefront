@@ -13,6 +13,7 @@ import { SubmitButton } from "@modules/checkout/components/submit-button"
 import { HttpTypes } from "@medusajs/types"
 import { addCustomerAddress } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
+import { useRouter } from "next/navigation"
 
 const AddAddress = ({
   region,
@@ -22,6 +23,7 @@ const AddAddress = ({
   addresses: HttpTypes.StoreCustomerAddress[]
 }) => {
   const [successState, setSuccessState] = useState(false)
+  const router = useRouter()
   const { state, open, close: closeModal } = useToggleState(false)
 
   const [formState, formAction] = useActionState(addCustomerAddress, {
@@ -45,13 +47,14 @@ const AddAddress = ({
   useEffect(() => {
     if (formState.success) {
       setSuccessState(true)
+      router.refresh()
       notify.success("Address added.", { id: "add-address" })
     } else if (formState.error) {
       notify.error(formState.error, "Could not add address.", {
         id: "add-address",
       })
     }
-  }, [formState])
+  }, [formState, router])
 
   return (
     <>
@@ -146,6 +149,7 @@ const AddAddress = ({
               <SriLankanPhoneInput
                 label="Phone"
                 name="phone"
+                required
                 error={formState.fieldErrors?.phone}
                 data-testid="phone-input"
               />

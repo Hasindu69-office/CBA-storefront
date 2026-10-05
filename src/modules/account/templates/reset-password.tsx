@@ -1,6 +1,6 @@
 "use client"
 
-import { resetPassword } from "@lib/data/customer"
+import { resetPassword, type AuthActionState } from "@lib/data/customer"
 import { notify } from "@lib/notifications"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import type React from "react"
@@ -10,13 +10,19 @@ export default function ResetPasswordForm({
   countryCode,
   token,
   email,
+  embedded = false,
+  onComplete,
+  onBack,
 }: {
   countryCode: string
   token: string
   email: string
+  embedded?: boolean
+  onComplete?: (message: string) => void
+  onBack?: () => void
 }) {
   void countryCode
-  const [message, formAction, isPending] = useActionState(resetPassword, null)
+  const [result, formAction, isPending] = useActionState(resetPassword, { status: "idle", message: null } as AuthActionState)
   const [clientError, setClientError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<{
     password?: string
@@ -24,17 +30,18 @@ export default function ResetPasswordForm({
   }>({})
 
   useEffect(() => {
-    if (!message) {
+    if (!result.message) {
       return
     }
-    if (String(message).startsWith("Password updated")) {
-      notify.success(message, { id: "reset-password" })
+    if (result.status === "success") {
+      notify.success(result.message, { id: "reset-password" })
+      onComplete?.(result.message)
     } else {
-      notify.error(message, "We could not update your password.", {
+      notify.error(result.message, "We could not update your password.", {
         id: "reset-password",
       })
     }
-  }, [message])
+  }, [onComplete, result])
 
   function validate(event: React.FormEvent<HTMLFormElement>) {
     const form = new FormData(event.currentTarget)
@@ -61,11 +68,13 @@ export default function ResetPasswordForm({
     setClientError(null)
   }
 
-  return (
-    <main className="flex min-h-[70vh] items-center justify-center bg-white px-6 py-16">
-      <section className="w-full max-w-[440px] rounded border border-gray-200 p-8">
-        <h1 className="text-2xl font-bold text-gray-950">Reset password</h1>
-        <form className="mt-6" action={formAction} onSubmit={validate} noValidate>
+  const content = (
+      <section className="w-full">
+        {!embedded && <h1 className="text-2xl font-bold text-gray-950">Reset password</h1>}
+        <p className={`${embedded ? "mt-0" : "mt-3"} text-sm leading-6 text-gray-600`}>
+          Choose a new password for your account.
+        </p>
+        <form className="mt-5" action={formAction} onSubmit={validate} noValidate>
           <input type="hidden" name="token" value={token} />
           <span className="text-sm font-semibold text-gray-900">Email address</span>
           <p className="mt-2 min-h-12 break-all rounded border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700" aria-label="Email address">
@@ -77,17 +86,15 @@ export default function ResetPasswordForm({
           <label className="mt-4 block text-sm font-semibold text-gray-900" htmlFor="confirm_password">Confirm password</label>
           <input id="confirm_password" name="confirm_password" type="password" autoComplete="new-password" required aria-invalid={Boolean(fieldErrors.confirmPassword)} aria-describedby={fieldErrors.confirmPassword ? "reset-password-confirm-error" : undefined} onChange={() => setFieldErrors((current) => ({ ...current, confirmPassword: undefined }))} className={`mt-2 h-12 w-full rounded border px-3 text-sm outline-none focus:border-brand ${fieldErrors.confirmPassword ? "border-rose-300 bg-rose-50/40" : "border-gray-300"}`} />
           {fieldErrors.confirmPassword && <p id="reset-password-confirm-error" className="mt-2 text-sm text-red-600">{fieldErrors.confirmPassword}</p>}
-          {(clientError || message) && (
-            <p role="alert" className={String(clientError ?? message).startsWith("Password updated") ? "mt-3 text-sm text-green-700" : "mt-3 text-sm text-red-600"}>{clientError ?? message}</p>
+          {(clientError || result.message) && (
+            <p role={result.status === "success" ? "status" : "alert"} className={result.status === "success" && !clientError ? "mt-3 text-sm text-green-700" : "mt-3 text-sm text-red-600"}>{clientError ?? result.message}</p>
           )}
           <button className="mt-5 h-12 w-full rounded bg-brand text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={isPending} aria-disabled={isPending}>
             {isPending ? "Updating password..." : "Update password"}
           </button>
         </form>
-        <LocalizedClientLink href="/account" className="mt-5 block text-sm font-semibold text-brand">
-          Back to sign in
-        </LocalizedClientLink>
+        {onBack ? <button type="button" onClick={onBack} className="mt-5 text-sm font-semibold text-brand">Back to sign in</button> : <LocalizedClientLink href="/account" className="mt-5 block text-sm font-semibold text-brand">Back to sign in</LocalizedClientLink>}
       </section>
-    </main>
   )
+  return embedded ? content : <main className="flex min-h-[70vh] items-center justify-center bg-white px-6 py-16"><div className="w-full max-w-[440px] rounded border border-gray-200 p-8">{content}</div></main>
 }

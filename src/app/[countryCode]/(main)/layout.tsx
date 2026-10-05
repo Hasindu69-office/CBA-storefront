@@ -8,14 +8,22 @@ import CartMismatchBanner from "@modules/layout/components/cart-mismatch-banner"
 import Footer from "@modules/layout/templates/footer"
 import Nav from "@modules/layout/templates/nav"
 import FreeShippingPriceNudge from "@modules/shipping/components/free-shipping-price-nudge"
+import CbaPopupProvider from "@modules/popups/components/popup-provider"
+import { retrieveAccountAuthSettings } from "@lib/data/account-auth"
+import { AuthModalProvider } from "@modules/account/context/auth-modal-context"
+import LogoutNotice from "@modules/account/components/logout-notice"
 
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
 }
 
-export default async function PageLayout(props: { children: React.ReactNode }) {
-  const customer = await retrieveCustomer()
-  const cart = await retrieveCart()
+export default async function PageLayout(props: { children: React.ReactNode; params: Promise<{ countryCode: string }> }) {
+  const { countryCode } = await props.params
+  const [customer, cart, authSettings] = await Promise.all([
+    retrieveCustomer(),
+    retrieveCart(),
+    retrieveAccountAuthSettings(),
+  ])
   let shippingOptions: StoreCartShippingOption[] = []
 
   if (cart) {
@@ -25,7 +33,8 @@ export default async function PageLayout(props: { children: React.ReactNode }) {
   }
 
   return (
-    <>
+    <AuthModalProvider settings={authSettings} countryCode={countryCode} authenticated={Boolean(customer)}>
+      <LogoutNotice />
       <div className="cba-site-chrome">
         <Nav customer={customer} />
       </div>
@@ -48,6 +57,7 @@ export default async function PageLayout(props: { children: React.ReactNode }) {
       <div className="cba-site-chrome">
         <Footer />
       </div>
-    </>
+      <CbaPopupProvider countryCode={countryCode} />
+    </AuthModalProvider>
   )
 }

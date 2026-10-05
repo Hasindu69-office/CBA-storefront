@@ -2,12 +2,14 @@
 
 import type React from "react"
 import { useActionState, useEffect, useState } from "react"
+import { useRecaptchaSubmit } from "@lib/hooks/use-recaptcha-submit"
 import type { AccountAuthSettings } from "@lib/data/account-auth"
 import { LOGIN_VIEW } from "@modules/account/templates/login-template"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import { signup } from "@lib/data/customer"
+import RecaptchaDisclosure from "@modules/common/components/recaptcha-disclosure"
+import { signup, type AuthActionState } from "@lib/data/customer"
 import { AuthField, SocialSection } from "@modules/account/components/login"
 import SriLankanPhoneInput from "@modules/common/components/sri-lankan-phone-input"
 import { startOAuthLogin } from "@lib/data/customer"
@@ -24,21 +26,29 @@ type Props = {
   setCurrentView: (view: LOGIN_VIEW) => void
   settings: AccountAuthSettings
   countryCode: string
+  onAuthenticated?: () => void
+  returnTo?: string
+  showTitle?: boolean
 }
 
-const Register = ({ setCurrentView, settings, countryCode }: Props) => {
-  const [message, formAction] = useActionState(signup, null)
+const INITIAL_STATE: AuthActionState = { status: "idle", message: null }
+
+const Register = ({ setCurrentView, settings, countryCode, onAuthenticated, returnTo = "/account", showTitle = true }: Props) => {
+  const [result, formAction] = useActionState(signup, INITIAL_STATE)
   const [socialMessage, socialAction] = useActionState(startOAuthLogin, null)
   const [clientError, setClientError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const captcha = useRecaptchaSubmit("customer_register", ["customer_login"])
 
   useEffect(() => {
-    if (typeof message === "string" && message) {
-      notify.error(message, "We could not create your account.", {
+    if (result.status === "success") {
+      onAuthenticated?.()
+    } else if (result.status === "error" && result.message) {
+      notify.error(result.message, "We could not create your account.", {
         id: "register",
       })
     }
-  }, [message])
+  }, [onAuthenticated, result])
 
   useEffect(() => {
     if (socialMessage) {
@@ -97,14 +107,16 @@ const Register = ({ setCurrentView, settings, countryCode }: Props) => {
 
   return (
     <div className="w-full" data-testid="register-page">
-      <h1 className="text-[30px] font-bold leading-tight text-[#111111]">
-        {settings.content.register_title}
-      </h1>
-      <p className="mt-3 max-w-[470px] text-[15px] leading-6 text-[#6b6b6b]">
+      {showTitle && (
+        <h1 className="text-[30px] font-bold leading-tight text-[#111111]">
+          {settings.content.register_title}
+        </h1>
+      )}
+      <p className={`${showTitle ? "mt-3" : "mt-0"} max-w-[470px] text-[15px] leading-6 text-[#6b6b6b]`}>
         {settings.content.register_description}
       </p>
 
-      <form className="mt-7 w-full" action={formAction} onSubmit={validate} noValidate>
+      <form className="mt-7 w-full" action={formAction} onSubmit={(event) => { validate(event); if (!event.defaultPrevented) void captcha.onRecaptchaSubmit(event) }} noValidate>
         <div className="grid gap-4 sm:grid-cols-2">
           <AuthField label="First Name" name="first_name" autoComplete="given-name" placeholder="Enter your first name" icon="user" error={fieldErrors.first_name} onChange={(event) => {
             const sanitized = sanitizePersonNameInput(event.currentTarget.value)
@@ -155,7 +167,7 @@ const Register = ({ setCurrentView, settings, countryCode }: Props) => {
           </p>
         )}
         <ErrorMessage
-          error={clientError ?? (typeof message === "string" ? message : null)}
+          error={captcha.verificationError ?? clientError ?? result.message}
           data-testid="register-error"
         />
         <SubmitButton
@@ -164,6 +176,7 @@ const Register = ({ setCurrentView, settings, countryCode }: Props) => {
         >
           Create Account
         </SubmitButton>
+        <RecaptchaDisclosure className="mt-3 text-center" />
       </form>
 
       <SocialSection
@@ -171,6 +184,7 @@ const Register = ({ setCurrentView, settings, countryCode }: Props) => {
         countryCode={countryCode}
         formAction={socialAction}
         error={socialMessage}
+        returnTo={returnTo}
       />
 
       <p className="mt-7 text-center text-[14px] text-[#686868]">

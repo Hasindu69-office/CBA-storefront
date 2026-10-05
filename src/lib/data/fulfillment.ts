@@ -4,6 +4,9 @@ import { sdk } from "@lib/config"
 import { HttpTypes } from "@medusajs/types"
 import { getAuthHeaders, getCacheOptions } from "./cookies"
 
+const FULFILLMENT_OPTION_FIELDS =
+  "+service_zone.fulfillment_set.type,+service_zone.fulfillment_set.location.id,+service_zone.fulfillment_set.location.name,+service_zone.fulfillment_set.location.address.*"
+
 export const listCartShippingMethods = async (cartId: string) => {
   const headers = {
     ...(await getAuthHeaders()),
@@ -20,10 +23,11 @@ export const listCartShippingMethods = async (cartId: string) => {
         method: "GET",
         query: {
           cart_id: cartId,
+          fields: FULFILLMENT_OPTION_FIELDS,
         },
         headers,
         next,
-        cache: "force-cache",
+        cache: "no-store",
       }
     )
     .then(({ shipping_options }) => shipping_options)
