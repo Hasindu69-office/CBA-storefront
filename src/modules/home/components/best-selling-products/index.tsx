@@ -82,7 +82,7 @@ const BestSellingProductsSection = async ({
               </p>
             </div>
 
-            <div className="absolute inset-x-0 top-[156px] z-20 px-[4vw] max-[340px]:top-[88px] xsmall:top-[172px] md:top-[134px] medium:top-[188px] medium:px-7 large:px-9">
+            <div className="absolute inset-x-0 top-[156px] z-20 px-[4vw] max-[340px]:top-[88px] xsmall:top-[172px] md:top-[134px] medium:top-[152px] medium:px-7 large:px-9">
               <BestSellingProductsCarousel
                 products={products}
                 kokoBranding={kokoBranding}

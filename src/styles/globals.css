@@ -10,10 +10,10 @@
   }
 }
 
-/* Keep the newsletter clear of the footer columns on short 1280px tablets. */
-@media (min-width: 1280px) and (max-width: 1350px) and (max-height: 850px) {
+/* Keep the newsletter clear of the footer columns on short tablet/desktop screens. */
+@media (min-width: 1280px) and (max-width: 1400px) and (max-height: 850px) {
   .footer-newsletter-anchor {
-    transform: translateY(-48px);
+    transform: translateY(-32px);
   }
 }
 
