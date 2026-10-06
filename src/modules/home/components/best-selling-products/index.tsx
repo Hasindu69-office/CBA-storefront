@@ -56,7 +56,8 @@ const BestSellingProductsSection = async ({
     >
       <div className="content-container">
         <div className="relative isolate overflow-visible">
-          <div className="relative left-1/2 aspect-[326.5/569.13] w-screen max-w-[100vw] -translate-x-1/2 md:aspect-[1728/1500] small:left-auto small:mx-auto small:aspect-[1728/830] small:w-full small:max-w-full small:translate-x-0 small:max-[1279px]:aspect-[1728/1200]">
+          <div className="surface-duo-best-selling-clip">
+          <div className="surface-duo-best-selling-shell relative left-1/2 aspect-[326.5/569.13] w-screen max-w-[100vw] -translate-x-1/2 md:aspect-[1728/1500] small:left-auto small:mx-auto small:aspect-[1728/830] small:w-full small:max-w-full small:translate-x-0 small:max-[1279px]:aspect-[1728/1200]">
             <MaskedBackground
               className="md:hidden"
               maskImage="/images/Asset 2_updated.svg"
@@ -70,7 +71,7 @@ const BestSellingProductsSection = async ({
               backgroundPosition="center"
             />
 
-            <div className="pointer-events-none absolute left-1/2 top-[-10px] z-30 flex h-[92px] w-[min(330px,78%)] -translate-x-1/2 flex-col items-center justify-center px-4 pb-6 text-center xsmall:top-[-8px] xsmall:h-[104px] xsmall:pb-7 md:top-[-12px] md:h-[104px] md:w-[min(620px,48%)] md:pb-2 small:max-[1279px]:top-[-24px]">
+            <div className="surface-duo-best-selling-heading pointer-events-none absolute left-1/2 top-[-10px] z-30 flex h-[92px] w-[min(330px,78%)] -translate-x-1/2 flex-col items-center justify-center px-4 pb-6 text-center xsmall:top-[-8px] xsmall:h-[104px] xsmall:pb-7 md:top-[-12px] md:h-[104px] md:w-[min(620px,48%)] md:pb-2 small:max-[1279px]:top-[-24px]">
               <h2
                 id="best-selling-products-title"
                 className="text-[22px] font-bold leading-[1.12] tracking-normal text-black max-[340px]:text-[20px] max-[340px]:leading-[1.05] xsmall:text-[26px] md:text-[24px] small:text-[34px]"
@@ -89,6 +90,7 @@ const BestSellingProductsSection = async ({
                 kokoAvailable={kokoAvailable}
               />
             </div>
+          </div>
           </div>
         </div>
       </div>
