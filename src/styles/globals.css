@@ -17,6 +17,13 @@
   }
 }
 
+/* Keep the newsletter clear of the footer columns on short 1440px desktop screens. */
+@media (min-width: 1401px) and (max-width: 1500px) and (max-height: 950px) {
+  .footer-newsletter-anchor {
+    transform: translateY(-32px);
+  }
+}
+
 /* Use the compact desktop-style newsletter inside the landscape tablet curve. */
 @media (min-width: 1024px) and (max-width: 1279px) {
   .footer-tablet-shell {
