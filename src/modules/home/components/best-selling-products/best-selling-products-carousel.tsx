@@ -112,13 +112,13 @@ const BestSellingProductsCarousel = ({
       <div
         ref={trackRef}
         onScroll={handleScroll}
-        className="no-scrollbar flex snap-x snap-mandatory justify-start gap-3 overflow-x-auto scroll-smooth pb-5 pl-0 pr-0 medium:grid medium:grid-cols-5 medium:items-stretch medium:gap-3 medium:overflow-visible medium:pb-0 medium:pr-0 large:gap-4"
+        className="home-best-selling-product-rail no-scrollbar flex snap-x snap-mandatory justify-start gap-3 overflow-x-auto scroll-smooth pb-5 pl-0 pr-0 medium:grid medium:grid-cols-5 medium:items-stretch medium:gap-3 medium:overflow-visible medium:pb-0 medium:pr-0 large:gap-4"
       >
         {visibleProducts.map((product, index) => (
           <div
             key={product.id}
             data-best-selling-carousel-card
-            className="w-[calc((100%_-_12px)_/_2)] min-w-0 flex-none snap-start md:w-[calc((100%_-_36px)_/_4)] medium:w-full medium:flex-auto"
+            className="home-best-selling-product-card w-[calc((100%_-_12px)_/_2)] min-w-0 flex-none snap-start md:w-[calc((100%_-_36px)_/_4)] medium:w-full medium:flex-auto"
           >
             <div className="medium:hidden">
               <FeaturedProductCardItem
