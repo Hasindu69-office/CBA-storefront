@@ -234,9 +234,9 @@ export default async function Footer() {
   const phoneHref = phoneNumberToTelHref(contactDetails.phone)
 
   return (
-    <footer className="w-full relative isolate mt-20 pt-14 pb-[calc(80px+env(safe-area-inset-bottom))] small:mt-24 small:pt-20 small:pb-0 medium:mt-20 medium:pt-10">
+    <footer className="footer-tablet-shell w-full relative isolate mt-20 pt-14 pb-[calc(80px+env(safe-area-inset-bottom))] small:mt-24 small:pt-20 small:pb-0 medium:mt-20 medium:pt-10">
       <div
-        className="absolute inset-0 w-full h-full z-0 pointer-events-none medium:hidden"
+        className="absolute inset-0 w-full h-full z-0 pointer-events-none small:hidden"
         aria-hidden="true"
         style={{
           backgroundImage: "url('/images/footerbgimg.png')",
@@ -256,7 +256,7 @@ export default async function Footer() {
       />
 
       <div
-        className="absolute inset-0 w-full h-full z-0 pointer-events-none hidden medium:block"
+        className="absolute inset-0 w-full h-full z-0 pointer-events-none hidden small:block"
         aria-hidden="true"
         style={{
           backgroundImage: "url('/images/footerbgimg.png')",
@@ -275,9 +275,9 @@ export default async function Footer() {
         }}
       />
 
-      <div className="absolute top-0 left-0 w-full flex justify-center -mt-[112px] max-[399px]:-mt-[148px] z-30 pointer-events-none px-5 min-[640px]:max-[1279px]:-mt-[8px] medium:-mt-[6.25vw] medium:px-4">
+      <div className="footer-newsletter-anchor absolute top-0 left-0 w-full flex justify-center -mt-[112px] max-[399px]:-mt-[148px] z-30 pointer-events-none px-5 min-[640px]:max-[1279px]:-mt-[8px] medium:-mt-[6.25vw] medium:px-4">
         {cmsLayout.footer.newsletter.enabled && (
-          <div className="w-full max-w-[560px] px-5 py-7 pointer-events-auto text-center small:max-w-[640px] small:px-10 small:py-9 medium:w-[46vw] medium:max-w-3xl medium:px-8 medium:py-7">
+          <div className="footer-newsletter-panel w-full max-w-[560px] px-5 py-7 pointer-events-auto text-center small:max-w-[640px] small:px-10 small:py-9 medium:w-[46vw] medium:max-w-3xl medium:px-8 medium:py-7">
             <h2 className="text-2xl font-bold text-black mb-3 small:text-3xl medium:text-[26px] medium:leading-8">
               {cmsLayout.footer.newsletter.title}
             </h2>
@@ -289,9 +289,9 @@ export default async function Footer() {
         )}
       </div>
 
-      <div className="relative z-10 content-container pt-40 pb-8 min-[640px]:max-[1279px]:pt-[44vw] small:pt-36 small:pb-10 medium:pt-32 medium:pb-12">
-        <div className="grid grid-cols-1 gap-7 text-white small:grid-cols-2 small:gap-x-8 small:gap-y-12 medium:grid-cols-4 medium:gap-12">
-          <div className="space-y-4 text-center small:col-span-2 small:space-y-5 medium:col-span-1 medium:space-y-6 medium:text-left">
+      <div className="footer-tablet-content relative z-10 content-container pt-40 pb-8 min-[640px]:max-[1279px]:pt-[44vw] small:pt-36 small:pb-10 medium:pt-32 medium:pb-12">
+        <div className="footer-tablet-grid grid grid-cols-1 gap-7 text-white small:grid-cols-2 small:gap-x-8 small:gap-y-12 medium:grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] medium:gap-12">
+          <div className="footer-tablet-company space-y-4 text-center small:col-span-2 small:space-y-5 medium:col-span-1 medium:space-y-6 medium:text-left">
             <div className="flex flex-col items-center gap-3 small:gap-4 medium:flex-row medium:items-center medium:gap-3">
               <Image
                 src={cmsLayout.footer.company.logo_url}
@@ -342,7 +342,7 @@ export default async function Footer() {
 
           <div className="grid grid-cols-3 gap-4 text-left small:contents">
             {footerColumns.map((column) => (
-              <div key={column.label} className="min-w-0">
+              <div key={column.label} className="footer-tablet-menu-column min-w-0">
                 <h4 className="mb-3 inline-block w-full border-b border-gray-700 pb-1.5 text-sm font-semibold small:mb-6 small:pb-2 small:text-lg">
                   {column.label}
                 </h4>

@@ -2,6 +2,112 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+/* Keep the newsletter clear of the footer columns on short 1280px tablets. */
+@media (min-width: 1280px) and (max-width: 1350px) and (max-height: 850px) {
+  .footer-newsletter-anchor {
+    transform: translateY(-48px);
+  }
+}
+
+/* Use the compact desktop-style newsletter inside the landscape tablet curve. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .footer-tablet-shell {
+    margin-top: 8rem !important;
+  }
+
+  .footer-tablet-content {
+    padding-top: 3rem !important;
+  }
+
+  .footer-tablet-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .footer-tablet-company {
+    grid-column: span 3 / span 3 !important;
+  }
+
+  .footer-tablet-menu-column {
+    text-align: center;
+  }
+
+  .footer-tablet-menu-column h4 {
+    text-align: center;
+  }
+
+  .footer-tablet-menu-column li > a {
+    justify-content: center;
+  }
+
+  .footer-newsletter-anchor {
+    transform: translateY(-176px);
+  }
+
+}
+
+/* Tighten only the shorter iPad Mini viewport. */
+@media (min-width: 1024px) and (max-width: 1070px) and (max-height: 780px) {
+  .footer-newsletter-form {
+    max-width: 360px;
+    margin-inline: auto;
+  }
+
+  .footer-newsletter-recaptcha {
+    max-width: 360px;
+    margin-inline: auto;
+  }
+}
+
+/* Keep the newsletter compact on the narrowest phone layouts. */
+@media (max-width: 399px) {
+  .footer-newsletter-anchor {
+    transform: translateY(80px);
+  }
+
+  .footer-newsletter-panel {
+    padding: 1.25rem 1rem !important;
+  }
+
+  .footer-newsletter-panel h2 {
+    margin-bottom: 0.5rem !important;
+    font-size: 1.125rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .footer-newsletter-panel > p {
+    margin-bottom: 1rem !important;
+    font-size: 0.8125rem !important;
+    line-height: 1.125rem !important;
+  }
+
+  .footer-newsletter-form {
+    gap: 0.5rem !important;
+  }
+
+  .footer-newsletter-form input,
+  .footer-newsletter-form button {
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+  }
+
+  .footer-newsletter-form button {
+    font-size: 0.875rem !important;
+  }
+
+  .footer-newsletter-recaptcha {
+    margin-top: 0.25rem !important;
+    font-size: 8px !important;
+    line-height: 10px !important;
+  }
+}
+
+/* Recover a little vertical space on the 320px-wide iPhone SE viewport. */
+@media (max-width: 340px) and (max-height: 600px) {
+  .footer-newsletter-anchor {
+    transform: translateY(56px);
+  }
+}
+
 /* Google permits hiding the badge when its required disclosure is visible in
    each protected user flow. */
 .grecaptcha-badge {
