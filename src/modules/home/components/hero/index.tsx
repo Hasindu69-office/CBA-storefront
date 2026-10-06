@@ -91,7 +91,7 @@ const Hero = ({ sections }: HeroProps) => {
           onBlur={() => setIsPaused(false)}
         >
           <div
-            className="absolute inset-0 z-10 overflow-hidden bg-black [--hero-mask-image:url(/images/homepagebanner-01.svg)] [--hero-mask-position:center_47.6%] [--hero-mask-size:156%_auto] sm:[--hero-mask-size:132%_auto] small:[--hero-mask-position:center_47.6%] small:[--hero-mask-size:104.5%_auto]"
+            className="home-hero-mask absolute inset-0 z-10 overflow-hidden bg-black [--hero-mask-image:url(/images/homepagebanner-01.svg)] [--hero-mask-position:center_47.6%] [--hero-mask-size:156%_auto] sm:[--hero-mask-size:132%_auto] small:[--hero-mask-position:center_47.6%] small:[--hero-mask-size:104.5%_auto]"
             style={{
               WebkitMaskImage: "var(--hero-mask-image)",
               WebkitMaskSize: "var(--hero-mask-size)",
