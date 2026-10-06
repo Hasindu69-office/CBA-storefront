@@ -171,7 +171,7 @@ const TabbedSaleProductsClient = ({
         )}
 
         {visibility.tabs && activeTab && activeTab.products.length ? (
-          <div className="order-3 mt-5 grid grid-cols-2 gap-3 small:gap-4 medium:grid-cols-5">
+          <div className="order-3 mt-5 grid grid-cols-2 gap-3 md:grid-cols-4 small:gap-4 medium:grid-cols-5">
             {activeTab.products.slice(0, 5).map((product, index) => (
               <FeaturedProductCardItem
                 key={product.id}
