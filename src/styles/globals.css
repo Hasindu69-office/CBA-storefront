@@ -111,6 +111,13 @@
   }
 }
 
+/* Lift the disclosure inside the landscape iPad Pro newsletter curve. */
+@media (min-width: 1300px) and (max-width: 1400px) and (min-height: 900px) and (max-height: 1100px) {
+  .footer-newsletter-anchor {
+    transform: translateY(-20px);
+  }
+}
+
 /* Keep the newsletter clear of the footer columns on short 1440px desktop screens. */
 @media (min-width: 1401px) and (max-width: 1500px) and (max-height: 950px) {
   .footer-newsletter-anchor {
@@ -164,6 +171,21 @@
   .footer-newsletter-recaptcha {
     max-width: 360px;
     margin-inline: auto;
+  }
+}
+
+/* Fit the newsletter disclosure inside the portrait iPad Pro viewport only. */
+@media (min-width: 1024px) and (max-width: 1070px) and (min-height: 1000px) {
+  .footer-newsletter-form {
+    max-width: 360px;
+    margin-inline: auto;
+  }
+
+  .footer-newsletter-recaptcha {
+    max-width: 360px;
+    margin-inline: auto;
+    font-size: 7px !important;
+    line-height: 9px !important;
   }
 }
 
