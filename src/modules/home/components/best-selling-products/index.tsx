@@ -73,16 +73,16 @@ const BestSellingProductsSection = async ({
             <div className="pointer-events-none absolute left-1/2 top-[-10px] z-30 flex h-[92px] w-[min(330px,78%)] -translate-x-1/2 flex-col items-center justify-center px-4 pb-6 text-center xsmall:top-[-8px] xsmall:h-[104px] xsmall:pb-7 md:top-[-12px] md:h-[104px] md:w-[min(620px,48%)] md:pb-2 small:max-[1279px]:top-[-24px]">
               <h2
                 id="best-selling-products-title"
-                className="text-[22px] font-bold leading-[1.12] tracking-normal text-black xsmall:text-[26px] md:text-[24px] small:text-[34px]"
+                className="text-[22px] font-bold leading-[1.12] tracking-normal text-black max-[340px]:text-[20px] max-[340px]:leading-[1.05] xsmall:text-[26px] md:text-[24px] small:text-[34px]"
               >
                 {title}
               </h2>
-              <p className="mt-2 max-w-[620px] text-[13px] leading-5 tracking-normal text-black xsmall:text-[14px] md:text-[12px] small:text-[16px]">
+              <p className="mt-2 max-w-[620px] text-[13px] leading-5 tracking-normal text-black max-[340px]:mt-0 max-[340px]:text-[11px] max-[340px]:leading-[14px] xsmall:text-[14px] md:text-[12px] small:text-[16px]">
                 {description}
               </p>
             </div>
 
-            <div className="absolute inset-x-0 top-[156px] z-20 px-[4vw] xsmall:top-[172px] md:top-[134px] medium:top-[188px] medium:px-7 large:px-9">
+            <div className="absolute inset-x-0 top-[156px] z-20 px-[4vw] max-[340px]:top-[88px] xsmall:top-[172px] md:top-[134px] medium:top-[188px] medium:px-7 large:px-9">
               <BestSellingProductsCarousel
                 products={products}
                 kokoBranding={kokoBranding}
