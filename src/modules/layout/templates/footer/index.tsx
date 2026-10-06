@@ -290,7 +290,7 @@ export default async function Footer() {
       </div>
 
       <div className="relative z-10 content-container pt-40 pb-8 min-[640px]:max-[1279px]:pt-[44vw] small:pt-36 small:pb-10 medium:pt-32 medium:pb-12">
-        <div className="grid grid-cols-1 gap-7 text-white small:grid-cols-2 small:gap-x-8 small:gap-y-12 medium:grid-cols-4 medium:gap-12">
+        <div className="grid grid-cols-1 gap-7 text-white small:grid-cols-2 small:gap-x-8 small:gap-y-12 medium:grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] medium:gap-12">
           <div className="space-y-4 text-center small:col-span-2 small:space-y-5 medium:col-span-1 medium:space-y-6 medium:text-left">
             <div className="flex flex-col items-center gap-3 small:gap-4 medium:flex-row medium:items-center medium:gap-3">
               <Image
