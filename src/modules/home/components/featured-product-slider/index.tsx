@@ -105,7 +105,12 @@ const FeaturedProductSlider = ({
       : "no-scrollbar grid auto-cols-[minmax(210px,calc((100%_-_20px)_/_2))] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 md:auto-cols-[calc((100%_-_48px)_/_4)] small:auto-cols-[calc((100%_-_48px)_/_4)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
     : mobileCompactCards
       ? "no-scrollbar grid auto-cols-[calc((100%_-_12px)_/_2)] grid-flow-col gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 md:auto-cols-[calc((100%_-_36px)_/_4)] small:auto-cols-[calc((100%_-_36px)_/_4)] medium:auto-cols-[calc((100%_-_64px)_/_5)] medium:gap-4 medium:pr-1"
-      : "no-scrollbar grid auto-cols-[minmax(260px,82vw)] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 pr-4 xsmall:auto-cols-[minmax(280px,76vw)] sm:auto-cols-[minmax(300px,52vw)] md:auto-cols-[calc((100%_-_48px)_/_4)] md:pr-1 small:auto-cols-[calc((100%_-_48px)_/_4)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
+      : "no-scrollbar grid auto-cols-[minmax(260px,82vw)] grid-flow-col gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 pr-4 xsmall:auto-cols-[calc((100%_-_16px)_/_2)] sm:auto-cols-[minmax(300px,52vw)] md:auto-cols-[calc((100%_-_48px)_/_4)] md:pr-1 small:auto-cols-[calc((100%_-_48px)_/_4)] medium:auto-cols-[calc((100%_-_64px)_/_5)]"
+
+  const surfaceDuoRailClassName = `surface-duo-featured-product-rail ${mobileCompactCards ? "surface-duo-featured-product-rail--compact" : ""}`
+  const homeRailClassName = embedded
+    ? ""
+    : `home-featured-product-rail ${mobileCompactCards ? "home-featured-product-rail--compact" : ""}`
 
   const content = (
     <>
@@ -146,7 +151,7 @@ const FeaturedProductSlider = ({
 
       <div
         ref={scrollerRef}
-        className={scrollerClassName}
+        className={`${scrollerClassName} ${surfaceDuoRailClassName} ${homeRailClassName}`}
       >
         {products.map((product, index) => (
           <FeaturedProductCardItem
