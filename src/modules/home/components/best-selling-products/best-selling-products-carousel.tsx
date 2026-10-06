@@ -118,7 +118,7 @@ const BestSellingProductsCarousel = ({
           <div
             key={product.id}
             data-best-selling-carousel-card
-            className="w-[calc((100%_-_12px)_/_2)] min-w-0 flex-none snap-start medium:w-full medium:flex-auto"
+            className="w-[calc((100%_-_12px)_/_2)] min-w-0 flex-none snap-start md:w-[calc((100%_-_36px)_/_4)] medium:w-full medium:flex-auto"
           >
             <div className="medium:hidden">
               <FeaturedProductCardItem
