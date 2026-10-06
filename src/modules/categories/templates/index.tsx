@@ -188,6 +188,8 @@ export default async function CategoryTemplate({
               priceRangeMax={priceRangeMax}
               selectedFilters={selectedFilters}
               sidebarPromo={shopContent.sidebarPromo}
+              routeCategoryId={category.id}
+              exitPath="/store"
             />
           </div>
 
@@ -203,6 +205,8 @@ export default async function CategoryTemplate({
               priceRangeMax={priceRangeMax}
               selectedFilters={selectedFilters}
               resultCount={resultCount}
+              routeCategoryId={category.id}
+              exitPath="/store"
             />
 
             <div className="mb-6 flex flex-col gap-4 small:flex-row small:items-center small:justify-between">
