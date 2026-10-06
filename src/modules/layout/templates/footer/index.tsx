@@ -275,7 +275,7 @@ export default async function Footer() {
         }}
       />
 
-      <div className="absolute top-0 left-0 w-full flex justify-center -mt-[112px] max-[399px]:-mt-[148px] z-30 pointer-events-none px-5 min-[640px]:max-[1279px]:-mt-[8px] medium:-mt-[6.25vw] medium:px-4">
+      <div className="footer-newsletter-anchor absolute top-0 left-0 w-full flex justify-center -mt-[112px] max-[399px]:-mt-[148px] z-30 pointer-events-none px-5 min-[640px]:max-[1279px]:-mt-[8px] medium:-mt-[6.25vw] medium:px-4">
         {cmsLayout.footer.newsletter.enabled && (
           <div className="w-full max-w-[560px] px-5 py-7 pointer-events-auto text-center small:max-w-[640px] small:px-10 small:py-9 medium:w-[46vw] medium:max-w-3xl medium:px-8 medium:py-7">
             <h2 className="text-2xl font-bold text-black mb-3 small:text-3xl medium:text-[26px] medium:leading-8">
