@@ -2,8 +2,11 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import {
+  buildStoreBrandQueryHref,
   buildStoreCategoryFilterHref,
+  buildStoreCategoryQueryHref,
   buildStoreFilterResetHref,
+  isValidStoreFilterToken,
 } from "../store-filter-navigation"
 
 test("removing the only route category exits to the store", () => {
@@ -81,4 +84,47 @@ test("store-page reset stays on the store page", () => {
   })
 
   assert.equal(href, "/store?query=laser")
+})
+
+test("brand query href builds a clean store URL", () => {
+  assert.equal(buildStoreBrandQueryHref("brand_1"), "/store?brand=brand_1")
+})
+
+test("category query href builds a clean store URL", () => {
+  assert.equal(
+    buildStoreCategoryQueryHref("pcat_scanner"),
+    "/store?category=pcat_scanner"
+  )
+})
+
+test("single-filter query hrefs reject empty or whitespace tokens", () => {
+  assert.equal(buildStoreBrandQueryHref(""), null)
+  assert.equal(buildStoreBrandQueryHref("   "), null)
+  assert.equal(buildStoreCategoryQueryHref(""), null)
+  assert.equal(buildStoreCategoryQueryHref("\t"), null)
+})
+
+test("single-filter query hrefs reject oversized tokens", () => {
+  const oversized = "x".repeat(256)
+  assert.equal(buildStoreBrandQueryHref(oversized), null)
+  assert.equal(buildStoreCategoryQueryHref(oversized), null)
+  assert.equal(isValidStoreFilterToken(oversized), false)
+})
+
+test("single-filter query hrefs encode special characters", () => {
+  assert.equal(
+    buildStoreBrandQueryHref("brand/1&2"),
+    "/store?brand=brand%2F1%262"
+  )
+  assert.equal(
+    buildStoreCategoryQueryHref("pcat a+b"),
+    "/store?category=pcat%20a%2Bb"
+  )
+})
+
+test("isValidStoreFilterToken accepts trimmed valid ids", () => {
+  assert.equal(isValidStoreFilterToken("brand_1"), true)
+  assert.equal(isValidStoreFilterToken("  pcat_scanner  "), true)
+  assert.equal(isValidStoreFilterToken(null), false)
+  assert.equal(isValidStoreFilterToken(undefined), false)
 })

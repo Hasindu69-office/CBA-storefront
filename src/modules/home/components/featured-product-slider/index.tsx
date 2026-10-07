@@ -20,6 +20,7 @@ import {
 import KokoCardPaymentLine from "@modules/common/components/koko-card-payment-line"
 import PlaceholderImage from "@modules/common/icons/placeholder-image"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import ProductCardBrandCategory from "@modules/common/components/product-card-brand-category"
 import ProductCardRating from "@modules/common/components/product-card-rating"
 import {
   ShoppingCartIcon,
@@ -415,35 +416,15 @@ export const FeaturedProductCardItem = ({
 
       <div
         className={[
-          "flex min-h-0 flex-1 flex-col medium:px-3 medium:py-3",
+          "product-card-body flex min-h-0 flex-1 flex-col medium:px-3 medium:py-3",
           mobileCompact ? "px-2.5 py-2" : "px-3 py-3 sm:px-3.5 sm:py-3.5 small:px-3 small:py-3",
         ].join(" ")}
       >
-        <div className="flex min-h-[28px] items-center gap-2.5 overflow-hidden">
-          {product.brand?.logo_url ? (
-            <span className="relative block h-[26px] w-[88px] flex-shrink-0">
-              <Image
-                src={product.brand.logo_url}
-                alt={product.brand.logo_alt_text || `${product.brand.name} logo`}
-                fill
-                sizes="88px"
-                className="object-contain object-left"
-              />
-            </span>
-          ) : product.brand?.name ? (
-            <span className="line-clamp-1 max-w-[88px] text-[12px] font-bold uppercase leading-4 text-black">
-              {product.brand.name}
-            </span>
-          ) : null}
-          {product.brand?.name && product.category?.name && (
-            <span className="h-4 w-px flex-shrink-0 bg-[#d4d4d8]" />
-          )}
-          {product.category?.name && (
-            <span className="line-clamp-1 min-w-0 flex-1 text-[11px] leading-4 text-[#9a9aa0]">
-              {product.category.name}
-            </span>
-          )}
-        </div>
+        <ProductCardBrandCategory
+          brand={product.brand}
+          category={product.category}
+          variant="featured"
+        />
 
         <LocalizedClientLink
           href={`/products/${product.handle}`}
@@ -464,67 +445,68 @@ export const FeaturedProductCardItem = ({
           </h3>
         </LocalizedClientLink>
 
-        <div
-          className={[
-            "mt-2 min-h-[22px] items-center justify-between gap-2",
-            "flex",
-          ].join(" ")}
-        >
-          <ProductCardRating rating={product.rating} compact={mobileCompact} />
-          <span
-            className={`line-clamp-1 flex-shrink-0 ${
-              mobileCompact
-                ? "text-[8px] leading-3 xsmall:text-[9px] medium:text-[10px] medium:leading-4"
-                : "text-[10px] leading-4"
-            } ${
-              product.inventory.in_stock || product.inventory.allow_backorder
-                ? "text-[#69be3b]"
-                : "text-[#a1a1aa]"
-            }`}
+        <div className="product-card-bottom-stack flex w-full flex-col">
+          <div
+            className={[
+              "product-card-rating-row mt-2 flex min-h-[22px] items-center justify-between gap-2",
+            ].join(" ")}
           >
+            <ProductCardRating rating={product.rating} compact={mobileCompact} />
             <span
-              className={[
-                "mr-1 inline-block rounded-full bg-current",
+              className={`line-clamp-1 flex-shrink-0 ${
                 mobileCompact
-                  ? "h-1.5 w-1.5 align-middle medium:h-2 medium:w-2"
-                  : "h-2 w-2",
-              ].join(" ")}
-            />
-            {inventoryLabel(product.inventory.status)}
-          </span>
-        </div>
+                  ? "text-[8px] leading-3 xsmall:text-[9px] medium:text-[10px] medium:leading-4"
+                  : "text-[10px] leading-4"
+              } ${
+                product.inventory.in_stock || product.inventory.allow_backorder
+                  ? "text-[#69be3b]"
+                  : "text-[#a1a1aa]"
+              }`}
+            >
+              <span
+                className={[
+                  "mr-1 inline-block rounded-full bg-current",
+                  mobileCompact
+                    ? "h-1.5 w-1.5 align-middle medium:h-2 medium:w-2"
+                    : "h-2 w-2",
+                ].join(" ")}
+              />
+              {inventoryLabel(product.inventory.status)}
+            </span>
+          </div>
 
-        <div
-          className={[
-            "mt-auto border-t border-[#e5e7eb] pt-2",
-            mobileCompact ? "" : "small:mt-4",
-          ].join(" ")}
-        >
-          <ProductCardPrice
-            product={product}
-            mobileCompact={mobileCompact}
-            kokoBranding={kokoBranding}
-            kokoAvailable={kokoAvailable}
-          />
-          {hasMultipleVariants && isPurchasable ? (
-            <LocalizedClientLink
-              href={`/products/${product.handle}`}
-              className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-black bg-white px-3 text-[11px] font-bold uppercase tracking-normal text-black transition-colors hover:bg-black hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
-            >
-              <ShoppingCartIcon size={16} />
-              Select options
-            </LocalizedClientLink>
-          ) : (
-            <button
-              type="button"
-              onClick={handleAddToCart}
-              disabled={!canAddDirectly || isAddingToCart}
-              className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-black bg-white px-3 text-[11px] font-bold uppercase tracking-normal text-black transition-colors hover:bg-black hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white"
-            >
-              <ShoppingCartIcon size={16} />
-              {isAddingToCart ? "Adding..." : "Add to cart"}
-            </button>
-          )}
+          <div
+            className={[
+              "product-card-price-footer mt-auto border-t border-[#e5e7eb] pt-2",
+              mobileCompact ? "" : "small:mt-4",
+            ].join(" ")}
+          >
+            <ProductCardPrice
+              product={product}
+              mobileCompact={mobileCompact}
+              kokoBranding={kokoBranding}
+              kokoAvailable={kokoAvailable}
+            />
+            {hasMultipleVariants && isPurchasable ? (
+              <LocalizedClientLink
+                href={`/products/${product.handle}`}
+                className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-black bg-white px-3 text-[11px] font-bold uppercase tracking-normal text-black transition-colors hover:bg-black hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+              >
+                <ShoppingCartIcon size={16} />
+                Select options
+              </LocalizedClientLink>
+            ) : (
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={!canAddDirectly || isAddingToCart}
+                className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-[8px] border border-black bg-white px-3 text-[11px] font-bold uppercase tracking-normal text-black transition-colors hover:bg-black hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d4d4d8] disabled:text-[#a1a1aa] disabled:hover:bg-white"
+              >
+                <ShoppingCartIcon size={16} />
+                {isAddingToCart ? "Adding..." : "Add to cart"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </article>

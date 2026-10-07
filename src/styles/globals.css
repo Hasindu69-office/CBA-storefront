@@ -93,6 +93,65 @@
   }
 }
 
+/* Three-column store/category grids on tablet portrait (iPad Mini, Surface Pro 7/10). */
+@media (orientation: portrait) and (min-width: 768px) and (max-width: 1023px) {
+  .surface-duo-product-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .surface-duo-product-grid [data-best-selling-product-card] {
+    height: auto;
+    min-height: 342px;
+  }
+}
+
+@media (orientation: portrait) and (min-width: 768px) and (max-width: 1032px) {
+  .home-tabbed-product-grid {
+    align-items: stretch;
+  }
+
+  .home-tabbed-product-grid [data-featured-product-card] {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .home-featured-product-rail [data-featured-product-card],
+  .home-featured-product-rail--compact [data-featured-product-card],
+  .home-best-selling-product-rail [data-featured-product-card] {
+    height: 392px;
+    min-height: 392px;
+  }
+
+  .home-featured-product-rail [data-featured-product-card] .product-card-body,
+  .home-featured-product-rail--compact [data-featured-product-card] .product-card-body,
+  .home-tabbed-product-grid [data-featured-product-card] .product-card-body,
+  .home-best-selling-product-rail [data-featured-product-card] .product-card-body {
+    padding-bottom: 0.375rem;
+  }
+
+  .home-featured-product-rail [data-featured-product-card] .product-card-bottom-stack,
+  .home-featured-product-rail--compact [data-featured-product-card] .product-card-bottom-stack,
+  .home-tabbed-product-grid [data-featured-product-card] .product-card-bottom-stack,
+  .home-best-selling-product-rail [data-featured-product-card] .product-card-bottom-stack {
+    margin-top: auto;
+  }
+
+  .home-featured-product-rail [data-featured-product-card] .product-card-rating-row,
+  .home-featured-product-rail--compact [data-featured-product-card] .product-card-rating-row,
+  .home-tabbed-product-grid [data-featured-product-card] .product-card-rating-row,
+  .home-best-selling-product-rail [data-featured-product-card] .product-card-rating-row {
+    margin-top: 0.375rem;
+  }
+
+  .home-featured-product-rail [data-featured-product-card] .product-card-price-footer,
+  .home-featured-product-rail--compact [data-featured-product-card] .product-card-price-footer,
+  .home-tabbed-product-grid [data-featured-product-card] .product-card-price-footer,
+  .home-best-selling-product-rail [data-featured-product-card] .product-card-price-footer {
+    margin-top: 0 !important;
+    padding-top: 0.375rem;
+  }
+}
+
 /* Keep the newsletter clear of the footer columns on short tablet/desktop screens. */
 @media (min-width: 540px) and (max-width: 767px) and (orientation: portrait) {
   .footer-surface-duo-newsletter-anchor {
