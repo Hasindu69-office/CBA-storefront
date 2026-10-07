@@ -21,7 +21,12 @@ import type { CustomerReview, EligibleReviewPurchase } from "@lib/data/reviews"
 import ReviewModal from "@modules/reviews/components/review-modal"
 import ProductReviews from "@modules/reviews/components/product-reviews"
 import { getProductPrice } from "@lib/util/get-product-price"
-import { hasPurchasablePrice, variantOptionsMap, visibleProductOptions } from "@lib/util/product-options"
+import {
+  hasPurchasablePrice,
+  variantOptionsMap,
+  visibleProductOptions,
+  visibleVariantTitle,
+} from "@lib/util/product-options"
 import { kokoInstallmentCardLabelFromAmount } from "@lib/util/koko-installments"
 import { convertToLocale } from "@lib/util/money"
 import { normalizeEmail, validateEmail } from "@lib/util/storefront-form-validation"
@@ -1382,7 +1387,9 @@ function ProductOptionGroup({
   updateOption: (optionId: string, value: string) => void
   disabled: boolean
 }) {
-  const values = (option.values ?? []).map((value) => value.value)
+  const values = (option.values ?? [])
+    .map((value) => value.value)
+    .filter((value): value is string => Boolean(visibleVariantTitle(value)))
   const isColor = /colou?r/i.test(option.title ?? "")
 
   return (
