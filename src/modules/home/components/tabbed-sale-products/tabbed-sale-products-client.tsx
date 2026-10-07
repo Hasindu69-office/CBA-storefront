@@ -38,7 +38,20 @@ const TabbedSaleProductsClient = ({
   const [activeTabKey, setActiveTabKey] = useState(tabs[0]?.key ?? "")
   const activeTab = tabs.find((tab) => tab.key === activeTabKey) ?? tabs[0] ?? null
 
-  if (!visibility.banner && (!visibility.tabs || !activeTab)) {
+  useEffect(() => {
+    if (!tabs.length) {
+      if (activeTabKey) {
+        setActiveTabKey("")
+      }
+      return
+    }
+    const stillVisible = tabs.some((tab) => tab.key === activeTabKey)
+    if (!stillVisible) {
+      setActiveTabKey(tabs[0].key)
+    }
+  }, [tabs, activeTabKey])
+
+  if (!visibility.banner && (!visibility.tabs || !tabs.length || !activeTab)) {
     return null
   }
 
@@ -170,7 +183,7 @@ const TabbedSaleProductsClient = ({
         </div>
         )}
 
-        {visibility.tabs && activeTab && activeTab.products.length ? (
+        {visibility.tabs && activeTab && activeTab.products.length > 0 ? (
           <div className="home-tabbed-product-grid order-3 mt-5 grid grid-cols-2 gap-3 md:grid-cols-4 small:gap-4 medium:grid-cols-5">
             {activeTab.products.slice(0, 5).map((product, index) => (
               <FeaturedProductCardItem
@@ -182,12 +195,6 @@ const TabbedSaleProductsClient = ({
                 kokoAvailable={kokoAvailable}
               />
             ))}
-          </div>
-        ) : visibility.tabs ? (
-          <div className="order-3 mt-5 rounded-[8px] border border-dashed border-[#dedee5] bg-white px-5 py-8 text-center">
-            <p className="text-[14px] font-semibold text-[#3f3f46]">
-              No products available in this tab yet.
-            </p>
           </div>
         ) : null}
       </div>
