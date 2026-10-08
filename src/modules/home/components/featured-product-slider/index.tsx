@@ -295,6 +295,7 @@ export const FeaturedProductCardItem = ({
   return (
     <article
       data-featured-product-card
+      data-mobile-compact={mobileCompact ? "true" : undefined}
       className={[
         "group flex min-w-0 snap-start flex-col overflow-hidden rounded-[8px] border border-[#e5e7eb] bg-white transition-colors hover:border-black",
         mobileCompact

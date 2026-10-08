@@ -2,6 +2,25 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+/* Reduce the unused space below compact product-card actions on phones only. */
+@media (max-width: 399px) {
+  [data-featured-product-card][data-mobile-compact="true"] {
+    height: 384px;
+  }
+}
+
+@media (min-width: 400px) and (max-width: 511px) {
+  [data-featured-product-card][data-mobile-compact="true"] {
+    height: 400px;
+  }
+}
+
+@media (min-width: 512px) and (max-width: 539px) {
+  [data-featured-product-card][data-mobile-compact="true"] {
+    height: 410px;
+  }
+}
+
 /* Keep the hero's bottom cutout inside the taller Galaxy Tab portrait viewport.
    The landscape tablet layout keeps its existing mask scale. */
 @media (min-width: 768px) and (max-width: 1023px) and (orientation: portrait) {
