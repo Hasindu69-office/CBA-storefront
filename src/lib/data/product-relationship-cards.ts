@@ -305,6 +305,7 @@ function buildUnavailableCompanionCard(
     },
     badges: [],
     rating: null,
+    compare_category_ids: [],
     compare_group_keys: [],
     updated_at: new Date(0).toISOString(),
   }

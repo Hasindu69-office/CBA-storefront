@@ -4,8 +4,11 @@ import test from "node:test"
 import {
   addProductToCompareStorage,
   normalizeCompareIds,
+  readStoredCompareCategoryId,
   readStoredCompareIds,
   replaceCompareStorage,
+  writeStoredCompareCategoryId,
+  writeStoredCompareIds,
 } from "../compare-products"
 
 function installStorage() {
@@ -78,4 +81,13 @@ test("replaces the comparison atomically with a new product", () => {
   assert.equal(result.success, true)
   assert.deepEqual(readStoredCompareIds(), ["prod_b"])
   assert.equal(storage.get("cba_compare_product_hints_v1"), '{"prod_b":["scanners"]}')
+})
+
+test("persists a validated exact comparison category and clears it with the list", () => {
+  installStorage()
+  writeStoredCompareCategoryId("pcat_printers")
+  assert.equal(readStoredCompareCategoryId(), "pcat_printers")
+
+  writeStoredCompareIds([])
+  assert.equal(readStoredCompareCategoryId(), null)
 })
