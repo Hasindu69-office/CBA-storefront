@@ -59,6 +59,7 @@ export type FeaturedProductCard = {
     } | null
   }
   rating: { average: number; count: number } | null
+  compare_category_ids: string[]
   compare_group_keys: string[]
   updated_at: string
 }

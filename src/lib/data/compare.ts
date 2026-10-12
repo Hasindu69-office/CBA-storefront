@@ -6,8 +6,10 @@ import { getRegion } from "@lib/data/regions"
 import {
   clampCompareLimit,
   DEFAULT_COMPARE_LIMIT,
+  MAX_COMPARE_LIMIT,
   normalizeCompareIds,
 } from "@lib/util/compare-products"
+import { buildCompareRows } from "@lib/util/compare-table"
 
 export type CompareGroup = {
   id: string
@@ -15,11 +17,14 @@ export type CompareGroup = {
   code: string
   description?: string | null
   max_compare_products?: number | null
+  row_mode?: "automatic" | "manual"
 }
+
+export type ComparisonCategory = { id: string; name: string; handle?: string | null }
 
 export type CompareSpecRow = {
   id: string
-  compare_group_id: string
+  compare_group_id: string | null
   label: string
   source_type:
     | "specification"
@@ -31,6 +36,8 @@ export type CompareSpecRow = {
   catalog_profile_field_key?: string | null
   value: unknown
   sort_order?: number
+  group_sort_order?: number
+  is_automatic?: boolean
 }
 
 export type CompareTableRow = {
@@ -43,6 +50,8 @@ export type ComparePageData = {
   requestedIds: string[]
   products: FeaturedProductCard[]
   compareGroup: CompareGroup | null
+  comparisonCategory: ComparisonCategory | null
+  rowMode: "automatic" | "manual"
   maxProducts: number
   rows: CompareTableRow[]
   warnings: string[]
@@ -57,7 +66,13 @@ type ProductCardsEnvelope =
   | ErrorEnvelope
 
 type CompareSpecsEnvelope =
-  | SuccessEnvelope<{ compare_group: CompareGroup | null; rows: CompareSpecRow[] }>
+  | SuccessEnvelope<{
+      compare_group: CompareGroup | null
+      comparison_category: ComparisonCategory | null
+      row_mode: "automatic" | "manual"
+      max_compare_products: number
+      rows: CompareSpecRow[]
+    }>
   | ErrorEnvelope
 
 type CompareSearchEnvelope =
@@ -67,18 +82,21 @@ type CompareSearchEnvelope =
 type CompareValidationEnvelope =
   | SuccessEnvelope<{
       compare_group: CompareGroup | null
+      comparison_category: ComparisonCategory | null
+      row_mode: "automatic" | "manual"
+      max_compare_products: number
       approved_ids: string[]
       rejected_ids: string[]
     }>
   | ErrorEnvelope
 
-async function validateCompareProducts(ids: string[]) {
+async function validateCompareProducts(ids: string[], categoryId?: string | null) {
   const payload = await sdk.client.fetch<CompareValidationEnvelope>(
     "/store/cba/v1/compare/validate",
     {
       method: "POST",
       cache: "no-store",
-      body: { ids },
+      body: { ids, ...(categoryId ? { category_id: categoryId } : {}) },
     }
   )
 
@@ -92,11 +110,13 @@ async function validateCompareProducts(ids: string[]) {
 export async function getComparePageData({
   ids,
   countryCode,
+  categoryId,
 }: {
   ids?: string | string[] | null
   countryCode: string
+  categoryId?: string | null
 }): Promise<ComparePageData> {
-  const requestedIds = normalizeCompareIds(ids, DEFAULT_COMPARE_LIMIT)
+  const requestedIds = normalizeCompareIds(ids, MAX_COMPARE_LIMIT)
   if (!requestedIds.length) {
     return emptyComparePageData(requestedIds)
   }
@@ -104,7 +124,7 @@ export async function getComparePageData({
   const warnings: string[] = []
   let validation: Awaited<ReturnType<typeof validateCompareProducts>>
   try {
-    validation = await validateCompareProducts(requestedIds)
+    validation = await validateCompareProducts(requestedIds, categoryId)
   } catch (error) {
     return {
       ...emptyComparePageData(requestedIds),
@@ -131,7 +151,10 @@ export async function getComparePageData({
   const specs = await Promise.all(
     productIds.map(async (productId) => {
       try {
-        return await getProductCompareSpecifications(productId)
+        return await getProductCompareSpecifications(
+          productId,
+          validation.comparison_category?.id ?? null
+        )
       } catch (error) {
         warnings.push("Some selected product comparison data is unavailable.")
         return emptyProductCompareSpecifications(productId)
@@ -140,13 +163,12 @@ export async function getComparePageData({
   )
 
   const compareGroup = validation.compare_group
-  const compareGroupCode = compareGroup?.code ?? null
   const maxProducts = clampCompareLimit(
-    Number(compareGroup?.max_compare_products ?? DEFAULT_COMPARE_LIMIT)
+    Number(validation.max_compare_products ?? compareGroup?.max_compare_products ?? DEFAULT_COMPARE_LIMIT)
   )
-  const compatibleSpecs = compareGroup
-    ? specs.filter((item) => item.compareGroup?.id === compareGroup.id)
-    : []
+  const compatibleSpecs = specs.filter(
+    (item) => item.comparisonCategory?.id === validation.comparison_category?.id
+  )
   const compatibleProductIds = new Set(products.map((product) => product.id))
   const visibleProducts = products
     .filter((product) => compatibleProductIds.has(product.id))
@@ -168,6 +190,8 @@ export async function getComparePageData({
     requestedIds,
     products: visibleProducts,
     compareGroup,
+    comparisonCategory: validation.comparison_category,
+    rowMode: validation.row_mode,
     maxProducts,
     rows: buildCompareRows(visibleProducts, visibleSpecs),
     warnings: uniqueWarnings(warnings),
@@ -237,11 +261,12 @@ async function getCompareProductCards(ids: string[], countryCode: string) {
   return ids.map((id) => productMap.get(id)).filter(Boolean) as FeaturedProductCard[]
 }
 
-async function getProductCompareSpecifications(productId: string) {
+async function getProductCompareSpecifications(productId: string, categoryId?: string | null) {
   const payload = await sdk.client.fetch<CompareSpecsEnvelope>(
     `/store/cba/v1/products/${productId}/compare-specifications`,
     {
       cache: "no-store",
+      query: categoryId ? { category_id: categoryId } : undefined,
     }
   )
 
@@ -252,6 +277,8 @@ async function getProductCompareSpecifications(productId: string) {
   return {
     productId,
     compareGroup: payload.data.compare_group,
+    comparisonCategory: payload.data.comparison_category,
+    rowMode: payload.data.row_mode,
     rows: Array.isArray(payload.data.rows) ? payload.data.rows : [],
   }
 }
@@ -260,118 +287,10 @@ function emptyProductCompareSpecifications(productId: string) {
   return {
     productId,
     compareGroup: null,
+    comparisonCategory: null,
+    rowMode: "automatic" as const,
     rows: [] as CompareSpecRow[],
   }
-}
-
-function buildCompareRows(
-  products: FeaturedProductCard[],
-  specs: Array<{ productId: string; rows: CompareSpecRow[] }>
-) {
-  const rows: CompareTableRow[] = [
-    {
-      id: "native-product-type",
-      label: "Product Type",
-      values: Object.fromEntries(
-        products.map((product) => [product.id, product.category?.name ?? "N/A"])
-      ),
-    },
-  ]
-
-  const rowOrder: Array<{ id: string; label: string; sortOrder: number }> = []
-  const valuesByRow = new Map<string, Record<string, string>>()
-
-  specs.forEach((item) => {
-    item.rows.forEach((row, index) => {
-      const rowId = row.id || row.specification_definition_id || row.label
-      if (!valuesByRow.has(rowId)) {
-        valuesByRow.set(rowId, {})
-        rowOrder.push({
-          id: rowId,
-          label: row.label,
-          sortOrder: Number(row.sort_order ?? index),
-        })
-      }
-      valuesByRow.get(rowId)![item.productId] = formatCompareValue(row.value)
-    })
-  })
-
-  rowOrder
-    .sort((left, right) => left.sortOrder - right.sortOrder)
-    .forEach((row) => {
-      rows.push({
-        id: row.id,
-        label: row.label,
-        values: Object.fromEntries(
-          products.map((product) => [
-            product.id,
-            valuesByRow.get(row.id)?.[product.id] ?? "N/A",
-          ])
-        ),
-      })
-    })
-
-  rows.push(
-    {
-      id: "native-stock",
-      label: "Stock",
-      values: Object.fromEntries(
-        products.map((product) => [product.id, inventoryLabel(product.inventory.status)])
-      ),
-    },
-    {
-      id: "native-price",
-      label: "Price",
-      values: Object.fromEntries(
-        products.map((product) => [product.id, formatProductCardPrice(product)])
-      ),
-    }
-  )
-
-  return rows
-}
-
-function formatCompareValue(value: unknown): string {
-  if (value === null || value === undefined || value === "") {
-    return "N/A"
-  }
-  if (Array.isArray(value)) {
-    const formatted = value.map(formatCompareValue).filter((item) => item !== "N/A")
-    return formatted.length ? formatted.join(", ") : "N/A"
-  }
-  if (typeof value === "boolean") {
-    return value ? "Yes" : "No"
-  }
-  if (typeof value === "object") {
-    const values = Object.values(value as Record<string, unknown>)
-      .map(formatCompareValue)
-      .filter((item) => item !== "N/A")
-    return values.length ? values.join(" x ") : "N/A"
-  }
-  return String(value)
-}
-
-function formatProductCardPrice(product: FeaturedProductCard) {
-  if (
-    product.price.status !== "available" ||
-    product.price.calculated_amount === null
-  ) {
-    return "Contact for price"
-  }
-
-  return new Intl.NumberFormat("en-LK", {
-    style: "currency",
-    currency: product.price.currency_code.toUpperCase(),
-    maximumFractionDigits: 2,
-  }).format(product.price.calculated_amount)
-}
-
-function inventoryLabel(status: FeaturedProductCard["inventory"]["status"]) {
-  if (status === "in_stock" || status === "not_managed") return "In Stock"
-  if (status === "low_stock") return "Low stock"
-  if (status === "backorder") return "Available on backorder"
-  if (status === "out_of_stock") return "Out of stock"
-  return "Availability pending"
 }
 
 function emptyComparePageData(requestedIds: string[]): ComparePageData {
@@ -379,6 +298,8 @@ function emptyComparePageData(requestedIds: string[]): ComparePageData {
     requestedIds,
     products: [],
     compareGroup: null,
+    comparisonCategory: null,
+    rowMode: "automatic",
     maxProducts: DEFAULT_COMPARE_LIMIT,
     rows: [],
     warnings: [],

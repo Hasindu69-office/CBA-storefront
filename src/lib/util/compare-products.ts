@@ -1,5 +1,6 @@
 export const COMPARE_STORAGE_KEY = "cba_compare_product_ids_v1"
 const COMPARE_HINTS_STORAGE_KEY = "cba_compare_product_hints_v1"
+const COMPARE_CATEGORY_STORAGE_KEY = "cba_compare_category_id_v1"
 export const LEGACY_COMPARE_STORAGE_KEY = "cba_compare_products"
 export const DEFAULT_COMPARE_LIMIT = 4
 export const MAX_COMPARE_LIMIT = 6
@@ -84,6 +85,22 @@ export function writeStoredCompareIds(ids: string[]) {
 
   const normalized = normalizeCompareIds(ids.join(","))
   window.localStorage.setItem(COMPARE_STORAGE_KEY, JSON.stringify(normalized))
+  if (!normalized.length) window.localStorage.removeItem(COMPARE_CATEGORY_STORAGE_KEY)
+}
+
+export function readStoredCompareCategoryId() {
+  if (typeof window === "undefined") return null
+  const value = window.localStorage.getItem(COMPARE_CATEGORY_STORAGE_KEY)
+  return value && /^pcat_[A-Za-z0-9_-]+$/.test(value) ? value : null
+}
+
+export function writeStoredCompareCategoryId(categoryId?: string | null) {
+  if (typeof window === "undefined") return
+  if (categoryId && /^pcat_[A-Za-z0-9_-]+$/.test(categoryId)) {
+    window.localStorage.setItem(COMPARE_CATEGORY_STORAGE_KEY, categoryId)
+  } else {
+    window.localStorage.removeItem(COMPARE_CATEGORY_STORAGE_KEY)
+  }
 }
 
 export function addProductToCompareStorage(

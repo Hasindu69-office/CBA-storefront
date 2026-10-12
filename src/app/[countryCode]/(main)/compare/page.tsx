@@ -12,7 +12,7 @@ export const revalidate = 0
 
 type Props = {
   params: Promise<{ countryCode: string }>
-  searchParams: Promise<{ ids?: string | string[] }>
+  searchParams: Promise<{ ids?: string | string[]; category_id?: string }>
 }
 
 export default async function ComparePage(props: Props) {
@@ -21,6 +21,7 @@ export default async function ComparePage(props: Props) {
   const data = await getComparePageData({
     ids: searchParams.ids,
     countryCode: params.countryCode,
+    categoryId: searchParams.category_id,
   })
 
   return (

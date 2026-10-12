@@ -381,12 +381,7 @@ export default function CbaProductDetail({
     }
     setIsComparePending(true)
     try {
-      const group = detail?.compare_group
-      if (!group) {
-        notify.warning("This product is not eligible for comparison.")
-        return
-      }
-      const maxProducts = Number(group.max_compare_products ?? DEFAULT_COMPARE_LIMIT)
+      const maxProducts = Number(detail?.compare_group?.max_compare_products ?? DEFAULT_COMPARE_LIMIT)
       if (currentIds.length >= maxProducts) {
         notify.warning(`Comparison supports up to ${maxProducts} products.`)
         return
@@ -414,8 +409,8 @@ export default function CbaProductDetail({
       }
 
       const result = addProductToCompareStorage(
-        { id: product.id, compareGroupKeys: [group.code] },
-        { limit: maxProducts, ignoreStoredHints: true }
+        { id: product.id, compareGroupKeys: detail?.compare_group?.code ? [detail.compare_group.code] : [] },
+        { limit: validation.data.max_compare_products, ignoreStoredHints: true }
       )
       if (!result.success) {
         notify.warning(result.message)
@@ -423,7 +418,9 @@ export default function CbaProductDetail({
       }
       writeStoredCompareIds(validation.data.approved_ids)
       notify.success("Added to comparison.")
-      router.push(`/compare?ids=${validation.data.approved_ids.join(",")}`)
+      const params = new URLSearchParams({ ids: validation.data.approved_ids.join(",") })
+      if (validation.data.comparison_category?.id) params.set("category_id", validation.data.comparison_category.id)
+      router.push(`/compare?${params.toString()}`)
     } catch (error) {
       notify.error(error, "We could not verify this product for comparison.")
     } finally {
@@ -458,7 +455,9 @@ export default function CbaProductDetail({
       }
       setShowCompareReplacement(false)
       notify.success("Started a new comparison with this product.")
-      router.push(`/compare?ids=${product.id}`)
+      const params = new URLSearchParams({ ids: product.id })
+      if (validation.data.comparison_category?.id) params.set("category_id", validation.data.comparison_category.id)
+      router.push(`/compare?${params.toString()}`)
     } catch (error) {
       notify.error(error, "We could not start a new comparison.")
     } finally {
@@ -945,7 +944,12 @@ export default function CbaProductDetail({
 type CompareValidationResponse =
   | {
       success: true
-      data: { approved_ids: string[]; rejected_ids: string[] }
+      data: {
+        approved_ids: string[]
+        rejected_ids: string[]
+        comparison_category: { id: string; name: string } | null
+        max_compare_products: number
+      }
     }
   | { success: false; error?: { message?: string } }
 
