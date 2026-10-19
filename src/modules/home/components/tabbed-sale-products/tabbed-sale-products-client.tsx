@@ -35,7 +35,7 @@ const TabbedSaleProductsClient = ({
   kokoBranding,
   kokoAvailable = false,
 }: TabbedSaleProductsClientProps) => {
-  const [activeTabKey, setActiveTabKey] = useState(tabs[0]?.key ?? "")
+  const [activeTabKey, setActiveTabKey] = useState<TabbedSaleTab["key"] | "">(tabs[0]?.key ?? "")
   const activeTab = tabs.find((tab) => tab.key === activeTabKey) ?? tabs[0] ?? null
 
   useEffect(() => {

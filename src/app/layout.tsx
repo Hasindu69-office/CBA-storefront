@@ -8,6 +8,12 @@ import GtmBootstrap from "@modules/analytics/gtm-bootstrap"
 import GtmPageViewTrackerBoundary from "@modules/analytics/gtm-page-view-tracker-boundary"
 import MetaPixelBootstrap from "@modules/analytics/meta-pixel-bootstrap"
 import MetaPageViewTrackerBoundary from "@modules/analytics/meta-page-view-tracker-boundary"
+import { getStorefrontTypography } from "@lib/data/typography"
+import { customFontFaceCss, typographyCssVariables } from "@lib/util/typography"
+import type { CSSProperties } from "react"
+import "@fontsource-variable/inter/wght.css"
+import "@fontsource-variable/noto-sans-sinhala/wght.css"
+import "@fontsource-variable/noto-sans-tamil/wght.css"
 import "styles/globals.css"
 
 export const metadata: Metadata = {
@@ -26,9 +32,16 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout(props: { children: React.ReactNode }) {
+export default async function RootLayout(props: { children: React.ReactNode }) {
+  const typography = await getStorefrontTypography()
+  const variables = typographyCssVariables(typography) as CSSProperties
+  const customFaces = customFontFaceCss(typography)
   return (
-    <html lang="en" data-mode="light">
+    <html lang={typography.locale} data-mode="light" style={variables}>
+      <head>
+        {typography.google_stylesheet_url && <><link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" /><link rel="stylesheet" href={typography.google_stylesheet_url} /></>}
+        {customFaces && <style>{customFaces}</style>}
+      </head>
       <body>
         <GtmBootstrap />
         <GtmPageViewTrackerBoundary />
