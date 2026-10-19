@@ -19,6 +19,9 @@ export type StorefrontTypography = {
   revision: string
   heading: ResolvedFont
   body: ResolvedFont
+  contexts: {
+    homepage_hero: { heading: ResolvedFont; body: ResolvedFont }
+  }
   google_stylesheet_url: string | null
   custom_faces: TypographyFace[]
 }
@@ -39,11 +42,14 @@ export function normalizeTypographyLocale(value: unknown): TypographyLocale {
 export function defaultTypography(localeValue: unknown): StorefrontTypography {
   const locale = normalizeTypographyLocale(localeValue)
   const display = locale === "si" ? "Noto Sans Sinhala" : locale === "ta" ? "Noto Sans Tamil" : "Inter"
+  const heading = { source: "google" as const, family: display, display_name: display, category: "sans-serif" }
+  const body = { source: "google" as const, family: display, display_name: display, category: "sans-serif" }
   return {
     locale,
     revision: "local-default",
-    heading: { source: "google", family: display, display_name: display, category: "sans-serif" },
-    body: { source: "google", family: display, display_name: display, category: "sans-serif" },
+    heading,
+    body,
+    contexts: { homepage_hero: { heading, body } },
     google_stylesheet_url: null,
     custom_faces: [],
   }
@@ -57,14 +63,25 @@ export function normalizeStorefrontTypography(value: unknown, localeValue: unkno
   const heading = parseResolvedFont(row.heading)
   const body = parseResolvedFont(row.body)
   if (!heading || !body) return defaultTypography(locale)
-  const customFaces = Array.isArray(row.custom_faces) ? row.custom_faces.flatMap(parseFace).slice(0, 24) : []
+  // Global and hero heading/body selections can reference four distinct families,
+  // with at most twelve managed variants per family.
+  const customFaces = Array.isArray(row.custom_faces) ? row.custom_faces.flatMap(parseFace).slice(0, 48) : []
   const requiredCustom = [heading, body].filter((font) => font.source === "custom")
   if (requiredCustom.some((font) => !customFaces.some((face) => face.family === font.family))) return defaultTypography(locale)
+  const contexts = row.contexts && typeof row.contexts === "object" && !Array.isArray(row.contexts)
+    ? row.contexts as Record<string, unknown> : {}
+  const hero = contexts.homepage_hero && typeof contexts.homepage_hero === "object" && !Array.isArray(contexts.homepage_hero)
+    ? contexts.homepage_hero as Record<string, unknown> : {}
+  const parsedHeroHeading = parseResolvedFont(hero.heading)
+  const parsedHeroBody = parseResolvedFont(hero.body)
+  const heroHeading = isUsableFont(parsedHeroHeading, customFaces) ? parsedHeroHeading : heading
+  const heroBody = isUsableFont(parsedHeroBody, customFaces) ? parsedHeroBody : body
   return {
     locale,
     revision: typeof row.revision === "string" ? row.revision.slice(0, 100) : "unknown",
     heading,
     body,
+    contexts: { homepage_hero: { heading: heroHeading, body: heroBody } },
     google_stylesheet_url: safeGoogleStylesheet(row.google_stylesheet_url),
     custom_faces: customFaces,
   }
@@ -75,7 +92,9 @@ export function typographyCssVariables(typography: StorefrontTypography) {
   return {
     "--font-body": fontStack(typography.body.family, local),
     "--font-heading": fontStack(typography.heading.family, local),
-  } as Record<"--font-body" | "--font-heading", string>
+    "--font-hero-body": fontStack(typography.contexts.homepage_hero.body.family, local),
+    "--font-hero-heading": fontStack(typography.contexts.homepage_hero.heading.family, local),
+  } as Record<"--font-body" | "--font-heading" | "--font-hero-body" | "--font-hero-heading", string>
 }
 
 export function customFontFaceCss(typography: StorefrontTypography) {
@@ -112,6 +131,10 @@ function parseResolvedFont(value: unknown): ResolvedFont | null {
     display_name: typeof row.display_name === "string" ? row.display_name.slice(0, 120) : family,
     category: typeof row.category === "string" ? row.category.slice(0, 30) : "sans-serif",
   }
+}
+
+function isUsableFont(font: ResolvedFont | null, faces: TypographyFace[]): font is ResolvedFont {
+  return Boolean(font && (font.source !== "custom" || faces.some((face) => face.family === font.family)))
 }
 
 function parseFace(value: unknown): TypographyFace[] {

@@ -17,6 +17,10 @@ describe("storefront typography safety", () => {
     assert.equal(normalizeTypographyLocale("unknown"), "en")
     assert.match(typographyCssVariables(defaultTypography("si"))["--font-body"], /Noto Sans Sinhala Variable/)
     assert.match(typographyCssVariables(defaultTypography("ta"))["--font-heading"], /Noto Sans Tamil Variable/)
+    assert.equal(
+      typographyCssVariables(defaultTypography("en"))["--font-hero-heading"],
+      typographyCssVariables(defaultTypography("en"))["--font-heading"]
+    )
   })
 
   it("accepts only the Google CSS2 stylesheet origin", () => {
@@ -69,5 +73,37 @@ describe("storefront typography safety", () => {
     }, "en")
     assert.equal(typography.revision, "local-default")
     assert.equal(typography.heading.family, "Inter")
+  })
+
+  it("resolves hero-only overrides while keeping global typography unchanged", () => {
+    const typography = normalizeStorefrontTypography({
+      locale: "en",
+      heading: { source: "google", family: "Inter" },
+      body: { source: "google", family: "Inter" },
+      contexts: { homepage_hero: {
+        heading: { source: "custom", family_id: "cmsfont_hero", family: "CBAFont_cmsfont_hero" },
+        body: { source: "google", family: "Roboto" },
+      } },
+      custom_faces: [{ family: "CBAFont_cmsfont_hero", asset_id: "d".repeat(32), format: "ttf", style: "normal", weight_min: 400, weight_max: 700 }],
+    }, "en")
+    assert.equal(typography.heading.family, "Inter")
+    assert.equal(typography.contexts.homepage_hero.heading.family, "CBAFont_cmsfont_hero")
+    assert.match(typographyCssVariables(typography)["--font-hero-heading"], /CBAFont_cmsfont_hero/)
+    assert.doesNotMatch(typographyCssVariables(typography)["--font-heading"], /CBAFont_cmsfont_hero/)
+  })
+
+  it("falls back only the invalid hero reference to the global role", () => {
+    const typography = normalizeStorefrontTypography({
+      locale: "en",
+      heading: { source: "google", family: "Inter" },
+      body: { source: "google", family: "Roboto" },
+      contexts: { homepage_hero: {
+        heading: { source: "custom", family_id: "cmsfont_missing", family: "CBAFont_cmsfont_missing" },
+        body: { source: "google", family: "Lato" },
+      } },
+      custom_faces: [],
+    }, "en")
+    assert.equal(typography.contexts.homepage_hero.heading.family, "Inter")
+    assert.equal(typography.contexts.homepage_hero.body.family, "Lato")
   })
 })
