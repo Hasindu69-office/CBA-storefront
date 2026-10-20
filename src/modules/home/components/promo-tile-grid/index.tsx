@@ -3,11 +3,16 @@ import Image from "next/image"
 import type { HomepageCmsItem, HomepageCmsSection } from "@lib/data/homepage"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 
+import PromoTileSlider from "./promo-tile-slider"
+
 type HomepagePromoTileGridProps = {
   sections: HomepageCmsSection[]
 }
 
 const PLACEMENT = "homepage_promo_tile_grid"
+const DEFAULT_AUTOPLAY_INTERVAL_SECONDS = 5
+const MIN_AUTOPLAY_INTERVAL_SECONDS = 3
+const MAX_AUTOPLAY_INTERVAL_SECONDS = 30
 const FALLBACK_TILES = [
   {
     title: "Print. Scan. Performance.",
@@ -106,13 +111,30 @@ const HomepagePromoTileGrid = ({ sections }: HomepagePromoTileGridProps) => {
     return null
   }
 
+  const sliderItems = [...topRowItems, ...bottomRowItems]
+  const autoplayIntervalMs = promoTileAutoplayIntervalMs(section)
+
   return (
     <section
       className="bg-white pb-8 pt-1.5 sm:pb-9 md:pb-10 medium:pb-12 medium:pt-2 large:pt-0"
       aria-label="Homepage product promotions"
     >
       <div className="content-container">
-        <div className="grid w-full gap-4 sm:gap-5 md:gap-6 medium:gap-7">
+        <PromoTileSlider autoAdvanceMs={autoplayIntervalMs}>
+          {sliderItems.map((item, index) => {
+            const slot = slotFromItem(item)
+            return (
+              <div
+                key={tileKey(item, slot)}
+                className="min-w-0 w-full flex-none snap-start md:w-[calc((100%_-_20px)_/_2)]"
+              >
+                <PromoTile item={item} index={slot} priority={index < 2} />
+              </div>
+            )
+          })}
+        </PromoTileSlider>
+
+        <div className="hidden w-full gap-4 sm:gap-5 md:gap-6 medium:grid medium:gap-7">
           {!!topRowItems.length && (
             <div className="grid gap-4 sm:gap-5 md:gap-6 medium:grid-cols-[minmax(0,2.08fr)_minmax(0,1fr)] medium:gap-7">
               {topRowItems.map((item) => {
@@ -239,6 +261,19 @@ function rowVisibilityFromSection(section: HomepageCmsSection) {
     top: typeof visibility.top === "boolean" ? visibility.top : true,
     bottom: typeof visibility.bottom === "boolean" ? visibility.bottom : true,
   }
+}
+
+function promoTileAutoplayIntervalMs(section: HomepageCmsSection) {
+  const value = section.config?.autoplay_interval_seconds
+  const seconds =
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= MIN_AUTOPLAY_INTERVAL_SECONDS &&
+    value <= MAX_AUTOPLAY_INTERVAL_SECONDS
+      ? value
+      : DEFAULT_AUTOPLAY_INTERVAL_SECONDS
+
+  return seconds * 1000
 }
 
 function isCmsItem(item: HomepageCmsItem | undefined): item is HomepageCmsItem {

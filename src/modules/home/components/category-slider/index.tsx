@@ -80,7 +80,7 @@ const CategorySlider = ({ categories }: CategorySliderProps) => {
 
         <div
           ref={scrollerRef}
-          className="no-scrollbar grid auto-cols-[calc((100%_-_12px)_/_2)] grid-flow-col gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 sm:auto-cols-[calc((100%_-_12px)_/_2)] md:auto-cols-[calc((100%_-_20px)_/_2)] md:gap-5 md:pr-1 small:auto-cols-[calc((100%_-_20px)_/_2)] medium:auto-cols-[calc((100%_-_60px)_/_4)]"
+          className="category-slider-track no-scrollbar grid auto-cols-[calc((100%_-_12px)_/_2)] grid-flow-col gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-0 pb-3 sm:auto-cols-[calc((100%_-_12px)_/_2)] md:auto-cols-[calc((100%_-_60px)_/_4)] md:gap-5 md:pr-1 small:auto-cols-[calc((100%_-_60px)_/_4)] medium:auto-cols-[calc((100%_-_60px)_/_4)]"
         >
           {categories.map((category, index) => (
             <LocalizedClientLink

@@ -17,6 +17,7 @@ import {
 } from "@lib/analytics/meta-pixel"
 import KokoCardPaymentLine from "@modules/common/components/koko-card-payment-line"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import ProductCardBrandCategory from "@modules/common/components/product-card-brand-category"
 import ProductCardRating from "@modules/common/components/product-card-rating"
 import PlaceholderImage from "@modules/common/icons/placeholder-image"
 import {
@@ -133,7 +134,7 @@ const BestSellingProductCard = ({
               priority={priority}
               sizes={
                 isFlat
-                  ? "(min-width: 1280px) 20vw, (min-width: 1024px) 28vw, 50vw"
+                  ? "(min-width: 1280px) 20vw, (min-width: 1024px) 28vw, (min-width: 768px) 33vw, 50vw"
                   : "(min-width: 1280px) 20vw, (min-width: 768px) 50vw, 220px"
               }
               className={`object-contain object-center transition-transform duration-300 group-hover:scale-[1.03] ${
@@ -209,37 +210,11 @@ const BestSellingProductCard = ({
       <div className={`flex min-h-0 flex-1 flex-col large:px-3.5 ${
         isFlat ? "px-2.5 py-2 medium:px-3 medium:py-2.5" : "px-3 py-2.5"
       }`}>
-        <div className="flex min-h-[26px] items-center gap-2.5 overflow-hidden">
-          {product.brand?.logo_url ? (
-            <span className={`relative block flex-shrink-0 ${
-              isFlat ? "h-[22px] w-[66px] medium:h-[24px] medium:w-[74px]" : "h-[24px] w-[72px]"
-            }`}>
-              <Image
-                src={product.brand.logo_url}
-                alt={product.brand.logo_alt_text || `${product.brand.name} logo`}
-                fill
-                sizes={isFlat ? "(min-width: 1024px) 74px, 66px" : "72px"}
-                className="object-contain object-left"
-              />
-            </span>
-          ) : product.brand?.name ? (
-            <span className={`line-clamp-1 font-bold uppercase text-black ${
-              isFlat ? "max-w-[66px] text-[10px] leading-4 medium:max-w-[74px] medium:text-[11px]" : "max-w-[72px] text-[11px] leading-4"
-            }`}>
-              {product.brand.name}
-            </span>
-          ) : null}
-          {product.brand?.name && product.category?.name && (
-            <span className="h-4 w-px flex-shrink-0 bg-[#d4d4d8]" />
-          )}
-          {product.category?.name && (
-            <span className={`line-clamp-1 min-w-0 flex-1 leading-4 text-[#9ca3af] ${
-              isFlat ? "text-[9px] medium:text-[10px]" : "text-[10px]"
-            }`}>
-              {product.category.name}
-            </span>
-          )}
-        </div>
+        <ProductCardBrandCategory
+          brand={product.brand}
+          category={product.category}
+          variant={isFlat ? "flat" : "raised"}
+        />
 
         <LocalizedClientLink
           href={`/products/${product.handle}`}

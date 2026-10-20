@@ -80,7 +80,7 @@ const TabbedSaleProductsSection = async ({
   }
 
   const limit = limitConfig(section.config?.limit)
-  const tabs = visibility.tabs
+  const fetchedTabs = visibility.tabs
     ? await Promise.all(
         TAB_CONFIG.map(async (tab) => {
           const tabConfig = tabSourceConfig(section.config?.tabs, tab.key)
@@ -95,19 +95,29 @@ const TabbedSaleProductsSection = async ({
                   limit,
                 }).catch(() => [])
 
-          return { ...tab, products }
+          return {
+            key: tab.key,
+            label: tabConfig.label || tab.label,
+            products,
+          }
         })
       )
     : []
 
+  const tabs = fetchedTabs.filter((tab) => tab.products.length > 0)
+  const effectiveVisibility: TabbedSaleProductsVisibility = {
+    banner: visibility.banner,
+    tabs: visibility.tabs && tabs.length > 0,
+  }
+
   const firstProduct =
     tabs.flatMap((tab) => tab.products).find(Boolean) ?? null
-  if (visibility.tabs && !firstProduct && !section.config) {
+  if (!effectiveVisibility.banner && !effectiveVisibility.tabs) {
     return null
   }
 
   const bannerProductId = stringConfig(section.config?.banner_product_id)
-  const bannerProduct = visibility.banner && bannerProductId
+  const bannerProduct = effectiveVisibility.banner && bannerProductId
     ? await listProductCardsByIds([bannerProductId])
         .then((products) => products[0] ?? null)
         .catch(() => null)
@@ -122,7 +132,7 @@ const TabbedSaleProductsSection = async ({
     <TabbedSaleProductsClient
       banner={banner}
       tabs={tabs}
-      visibility={visibility}
+      visibility={effectiveVisibility}
       kokoBranding={kokoBranding}
       kokoAvailable={kokoAvailable}
     />
@@ -191,6 +201,7 @@ function tabSourceConfig(value: unknown, key: TabbedSaleTabKey) {
   const tabs = objectConfig(value)
   const tab = objectConfig(tabs[key])
   return {
+    label: stringConfig(tab.label),
     sourceType: sourceTypeConfig(tab.source_type),
     sourceId: sourceIdConfig(key, tab.source_type, tab.source_id),
   }

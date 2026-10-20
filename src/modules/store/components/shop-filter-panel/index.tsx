@@ -8,6 +8,10 @@ import { Fragment, type ReactNode, useEffect, useMemo, useState } from "react"
 import type { ShopSidebarPromoContent } from "@lib/data/shop-banner"
 import type { StorefrontBrand } from "@lib/data/brands"
 import type { StoreSearchFacet, StoreSearchFilters, StoreSearchSort } from "@lib/data/store-search"
+import {
+  buildStoreCategoryFilterHref,
+  buildStoreFilterResetHref,
+} from "@lib/util/store-filter-navigation"
 import type { HttpTypes } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { XIcon } from "@modules/layout/components/cba-icons"
@@ -23,6 +27,8 @@ type ShopFilterPanelProps = {
   priceRangeMax: number
   selectedFilters: StoreSearchFilters
   sidebarPromo?: ShopSidebarPromoContent | null
+  routeCategoryId?: string
+  exitPath?: string
   presentation?: "sidebar" | "drawer"
 }
 
@@ -50,6 +56,8 @@ export default function ShopFilterPanel({
   priceRangeMax,
   selectedFilters,
   sidebarPromo,
+  routeCategoryId,
+  exitPath = "/store",
   presentation = "sidebar",
 }: ShopFilterPanelProps) {
   const router = useRouter()
@@ -115,13 +123,15 @@ export default function ShopFilterPanel({
       return
     }
 
-    pushParams((params) => {
-      if (nextCategories.length) {
-        params.set("category", nextCategories.join(","))
-      } else {
-        params.delete("category")
-      }
-    })
+    router.push(
+      buildStoreCategoryFilterHref({
+        pathname,
+        searchParams,
+        nextCategories,
+        routeCategoryId,
+        exitPath,
+      })
+    )
     notifyFilterChange(isRemoving ? "removed" : "applied")
   }
 
@@ -196,15 +206,14 @@ export default function ShopFilterPanel({
   }
 
   function resetAll() {
-    pushParams((params) => {
-      params.delete("category")
-      params.delete("brand")
-      params.delete("min_price")
-      params.delete("max_price")
-      params.delete("price_range")
-      params.delete("filters")
-      params.delete("sortBy")
-    })
+    router.push(
+      buildStoreFilterResetHref({
+        pathname,
+        searchParams,
+        routeCategoryId,
+        exitPath,
+      })
+    )
     notifyFilterChange("cleared")
   }
 
@@ -566,8 +575,26 @@ export function StoreMobileFilterDrawer({
   }
 
   function removeAppliedFilter(item: AppliedFilterItem) {
+    if (item.type === "category") {
+      const nextCategories = parseSelectedTokenParam(
+        filterProps.selectedCategory
+      ).filter((value) => value !== item.value)
+
+      router.push(
+        buildStoreCategoryFilterHref({
+          pathname,
+          searchParams,
+          nextCategories,
+          routeCategoryId: filterProps.routeCategoryId,
+          exitPath: filterProps.exitPath,
+        })
+      )
+      notify.success("Filter removed.", { id: "store-filter" })
+      return
+    }
+
     pushParams((params) => {
-      if (item.type === "category" || item.type === "brand") {
+      if (item.type === "brand") {
         const nextValues = parseSelectedTokenParam(params.get(item.type)).filter(
           (value) => value !== item.value
         )

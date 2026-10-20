@@ -3,10 +3,31 @@ import test from "node:test"
 import { hasPurchasablePrice, variantOptionsMap, visibleProductOptions, visibleVariantTitle } from "../product-options"
 
 test("technical labels disappear but colors remain, including a single color", () => {
-  for (const label of [undefined, "", "Default", " default variant ", "N/A"]) assert.equal(visibleVariantTitle(label), null)
+  for (const label of [
+    undefined,
+    "",
+    "Default",
+    " default variant ",
+    "Default option",
+    "Default option value",
+    " default option value ",
+    "N/A",
+  ]) {
+    assert.equal(visibleVariantTitle(label), null)
+  }
   assert.equal(visibleVariantTitle("Black"), "Black")
-  const options: any = [{ title: "Default", values: [{ value: "Default" }] }, { title: "Color", values: [{ value: "Black" }] }]
+  assert.equal(visibleVariantTitle("Size"), "Size")
+  const options: any = [
+    { title: "Default", values: [{ value: "Default" }] },
+    { title: "Color", values: [{ value: "Black" }] },
+  ]
   assert.deepEqual(visibleProductOptions(options), [options[1]])
+  assert.deepEqual(
+    visibleProductOptions([
+      { title: "Default option", values: [{ value: "Default option value" }] },
+    ] as any),
+    []
+  )
   assert.equal(visibleProductOptions([{ title: "Default", values: [{ value: "Red" }] }] as any).length, 1)
 })
 

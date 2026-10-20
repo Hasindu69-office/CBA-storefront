@@ -79,7 +79,7 @@ const Hero = ({ sections }: HeroProps) => {
   }, [autoplay, intervalMs, isPaused, slides.length])
 
   return (
-    <section className="w-full overflow-hidden bg-white pt-2 sm:pt-3">
+    <section className="font-hero-body w-full overflow-hidden bg-white pt-2 sm:pt-3">
       <div className="mx-0 w-full max-w-full overflow-hidden px-0 small:mx-auto small:w-[90%] small:max-w-[1920px]">
         <div
           className="relative isolate aspect-[16/9] min-h-[210px] overflow-hidden text-white xsmall:min-h-[230px] sm:aspect-[1839/710] sm:min-h-[300px] small:min-h-0"
@@ -91,7 +91,7 @@ const Hero = ({ sections }: HeroProps) => {
           onBlur={() => setIsPaused(false)}
         >
           <div
-            className="absolute inset-0 z-10 overflow-hidden bg-black [--hero-mask-image:url(/images/homepagebanner-01.svg)] [--hero-mask-position:center_47.6%] [--hero-mask-size:156%_auto] sm:[--hero-mask-size:132%_auto] small:[--hero-mask-position:center_47.6%] small:[--hero-mask-size:104.5%_auto]"
+            className="home-hero-mask absolute inset-0 z-10 overflow-hidden bg-black [--hero-mask-image:url(/images/homepagebanner-01.svg)] [--hero-mask-position:center_47.6%] [--hero-mask-size:156%_auto] sm:[--hero-mask-size:132%_auto] small:[--hero-mask-position:center_47.6%] small:[--hero-mask-size:104.5%_auto]"
             style={{
               WebkitMaskImage: "var(--hero-mask-image)",
               WebkitMaskSize: "var(--hero-mask-size)",
@@ -138,7 +138,7 @@ const Hero = ({ sections }: HeroProps) => {
                       )}
                     </div>
 
-                    <h1 className="max-w-[min(100%,280px)] break-words text-[15px] font-bold leading-[1.1] text-white xsmall:text-[16px] sm:max-w-[430px] sm:text-[22px] small:max-w-[560px] small:text-[40px]">
+                    <h1 className="font-hero-heading max-w-[min(100%,280px)] break-words text-[15px] font-bold leading-[1.1] text-white xsmall:text-[16px] sm:max-w-[430px] sm:text-[22px] small:max-w-[560px] small:text-[40px]">
                       {renderHighlightedTitle(slide.title, slide.highlightText)}
                     </h1>
 

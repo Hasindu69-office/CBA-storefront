@@ -1,3 +1,4 @@
+import { visibleVariantTitle } from "@lib/util/product-options"
 import { HttpTypes } from "@medusajs/types"
 import { clx } from "@medusajs/ui"
 import React from "react"
@@ -19,7 +20,9 @@ const OptionSelect: React.FC<OptionSelectProps> = ({
   "data-testid": dataTestId,
   disabled,
 }) => {
-  const filteredOptions = (option.values ?? []).map((v) => v.value)
+  const filteredOptions = (option.values ?? [])
+    .map((v) => v.value)
+    .filter((v): v is string => Boolean(visibleVariantTitle(v)))
 
   return (
     <div className="flex flex-col gap-y-3">

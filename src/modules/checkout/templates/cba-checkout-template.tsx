@@ -1392,7 +1392,7 @@ function PaymentMethodSelector({
                     options={{
                       style: {
                         base: {
-                          fontFamily: "Inter, sans-serif",
+                          fontFamily: "var(--font-body), sans-serif",
                           color: "#252a33",
                           "::placeholder": { color: "#9aa1af" },
                         },

@@ -2,7 +2,10 @@ import type { HttpTypes } from "@medusajs/types"
 
 export function visibleVariantTitle(title?: string | null): string | null {
   const value = title?.trim()
-  return !value || /^(default(?: variant)?|n\/a)$/i.test(value) ? null : value
+  return !value ||
+    /^(default(?:\s+(?:option(?:\s+value)?|variant))?|n\/a)$/i.test(value)
+    ? null
+    : value
 }
 
 export function visibleProductOptions(options: HttpTypes.StoreProduct["options"]) {

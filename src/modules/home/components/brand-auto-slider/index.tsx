@@ -4,6 +4,7 @@ import type { CSSProperties } from "react"
 import { listHomepageBrands } from "@lib/data/brands"
 import type { StorefrontBrand } from "@lib/data/brands"
 import type { HomepageCmsSection } from "@lib/data/homepage"
+import { buildStoreBrandQueryHref } from "@lib/util/store-filter-navigation"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 
 type BrandAutoSliderProps = {
@@ -88,9 +89,29 @@ function BrandLogoLink({
   priority: boolean
   hiddenFromA11y: boolean
 }) {
+  const href = buildStoreBrandQueryHref(brand.id)
+  if (!href) {
+    return (
+      <span
+        aria-hidden={hiddenFromA11y}
+        className="flex h-11 w-[116px] flex-shrink-0 items-center justify-center sm:w-[126px] md:h-12 md:w-[142px] small:w-[158px]"
+      >
+        <Image
+          src={brand.logo_url ?? ""}
+          alt={hiddenFromA11y ? "" : brand.logo_alt_text || `${brand.name} logo`}
+          width={158}
+          height={48}
+          priority={priority}
+          sizes="(min-width: 1024px) 158px, (min-width: 768px) 142px, 126px"
+          className="max-h-11 w-auto max-w-[116px] object-contain sm:max-w-[126px] md:max-h-12 md:max-w-[142px] small:max-w-[158px]"
+        />
+      </span>
+    )
+  }
+
   return (
     <LocalizedClientLink
-      href={`/store?brand=${encodeURIComponent(brand.id)}`}
+      href={href}
       aria-hidden={hiddenFromA11y}
       aria-label={hiddenFromA11y ? undefined : `Browse ${brand.name} products`}
       tabIndex={hiddenFromA11y ? -1 : undefined}

@@ -88,7 +88,7 @@ const CategoryShowcase = ({ sections }: CategoryShowcaseProps) => {
       aria-label="Homepage category showcase"
     >
       <div className="content-container">
-        <div className="grid gap-2 large:grid-cols-3">
+        <div className="grid gap-2 medium:grid-cols-3">
           {cards.map(
             ({
               item,

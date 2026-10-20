@@ -4,6 +4,7 @@ import Image from "next/image"
 import { useMemo, useState } from "react"
 
 import type { StorefrontBrand } from "@lib/data/brands"
+import { buildStoreBrandQueryHref } from "@lib/util/store-filter-navigation"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { SearchIcon, StoreIcon, XIcon } from "@modules/layout/components/cba-icons"
 
@@ -132,9 +133,14 @@ export default function BrandDirectory({ brands }: BrandDirectoryProps) {
 }
 
 function BrandCard({ brand }: { brand: StorefrontBrand }) {
+  const href = buildStoreBrandQueryHref(brand.id)
+  if (!href) {
+    return null
+  }
+
   return (
     <LocalizedClientLink
-      href={`/store?brand=${encodeURIComponent(brand.id)}`}
+      href={href}
       className="group flex h-full min-h-[188px] flex-col rounded-[8px] border border-[#e5e7eb] bg-white p-3 shadow-[0_10px_26px_rgba(17,24,39,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(17,24,39,0.10)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 xsmall:min-h-[202px] xsmall:p-4 small:min-h-[214px]"
       aria-label={`Browse ${brand.name} products`}
     >
