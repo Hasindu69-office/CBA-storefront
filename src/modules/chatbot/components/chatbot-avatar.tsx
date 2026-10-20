@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { CHATBOT_AVATAR_FALLBACK } from "./chatbot-avatar-config"
 
-export const CHATBOT_AVATAR_FALLBACK = "/images/Mr.Biz.png"
+export { CHATBOT_AVATAR_FALLBACK } from "./chatbot-avatar-config"
 
 type Props = {
   src?: string | null

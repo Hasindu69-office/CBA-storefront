@@ -7,6 +7,8 @@ export type ChatbotConfig = {
   handover_enabled: boolean
   avatar_url?: string | null
   avatar_alt_text?: string | null
+  panel_avatar_url?: string | null
+  panel_avatar_alt_text?: string | null
 }
 
 export type ChatbotAction = {
