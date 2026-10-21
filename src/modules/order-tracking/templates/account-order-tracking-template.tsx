@@ -6,6 +6,7 @@ import type { CbaReturnEligibility } from "types/return-intake"
 import {
   currentTimelineHighlight,
   formatOrderNumber,
+  formatOrderStatusLabel,
   formatStatusLabel,
   formatTrackingDate,
   isSafeExternalUrl,
@@ -87,7 +88,7 @@ export default function AccountOrderTrackingTemplate({
             <OrderStatusBadge
               kind="order"
               statusKey={order.status}
-              label={formatStatusLabel(order.status)}
+              label={formatOrderStatusLabel(order.status)}
             />
             <OrderStatusBadge
               kind="payment"
