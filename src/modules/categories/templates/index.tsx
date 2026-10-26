@@ -125,57 +125,61 @@ export default async function CategoryTemplate({
   return (
     <main className="bg-white pb-14" data-testid="category-container">
       <div className="content-container pt-8">
-        <section
-          className="relative min-h-[214px] overflow-hidden rounded-[8px] bg-[#fbfbfb] bg-cover bg-center px-8 py-7 shadow-[0_18px_50px_rgba(0,0,0,0.06)] small:px-11 small:py-9"
-          style={{ backgroundImage: `url("${banner.backgroundImageUrl}")` }}
-          aria-label={category.name}
-        >
-          <nav
-            aria-label="Breadcrumb"
-            className="flex flex-wrap items-center gap-3 text-[13px] font-medium leading-5 text-[#1f1f22]"
+        {banner && (
+          <section
+            className="relative min-h-[214px] overflow-hidden rounded-[8px] bg-[#fbfbfb] bg-cover bg-center px-8 py-7 shadow-[0_18px_50px_rgba(0,0,0,0.06)] small:px-11 small:py-9"
+            style={{ backgroundImage: `url("${banner.backgroundImageUrl}")` }}
+            aria-label={category.name}
           >
-            <LocalizedClientLink
-              href="/"
-              className="transition-colors hover:text-brand"
+            <nav
+              aria-label="Breadcrumb"
+              className="flex flex-wrap items-center gap-3 text-[13px] font-medium leading-5 text-[#1f1f22]"
             >
-              Home
-            </LocalizedClientLink>
-            <span className="text-[#a1a1aa]">/</span>
-            <LocalizedClientLink
-              href="/store"
-              className="transition-colors hover:text-brand"
-            >
-              {banner.breadcrumbLabel}
-            </LocalizedClientLink>
-            {breadcrumbs.map((parent) => (
-              <span key={parent.id} className="contents">
-                <span className="text-[#a1a1aa]">/</span>
-                <LocalizedClientLink
-                  href={`/categories/${parent.handle}`}
-                  className="transition-colors hover:text-brand"
-                >
-                  {parent.name}
-                </LocalizedClientLink>
-              </span>
-            ))}
-            <span className="text-[#a1a1aa]">/</span>
-            <span className="font-bold">{category.name}</span>
-          </nav>
+              <LocalizedClientLink
+                href="/"
+                className="transition-colors hover:text-brand"
+              >
+                Home
+              </LocalizedClientLink>
+              <span className="text-[#a1a1aa]">/</span>
+              <LocalizedClientLink
+                href="/store"
+                className="transition-colors hover:text-brand"
+              >
+                {banner.breadcrumbLabel}
+              </LocalizedClientLink>
+              {breadcrumbs.map((parent) => (
+                <span key={parent.id} className="contents">
+                  <span className="text-[#a1a1aa]">/</span>
+                  <LocalizedClientLink
+                    href={`/categories/${parent.handle}`}
+                    className="transition-colors hover:text-brand"
+                  >
+                    {parent.name}
+                  </LocalizedClientLink>
+                </span>
+              ))}
+              <span className="text-[#a1a1aa]">/</span>
+              <span className="font-bold">{category.name}</span>
+            </nav>
 
-          <div className="mt-8 max-w-[430px]">
-            <h1
-              data-testid="category-page-title"
-              className="text-[30px] font-bold leading-[38px] tracking-normal text-black small:text-[34px]"
-            >
-              {category.name}
-            </h1>
-            <p className="mt-2 text-[15px] leading-6 text-[#18181b]">
-              {category.description || banner.subtitle}
-            </p>
-          </div>
-        </section>
+            <div className="mt-8 max-w-[430px]">
+              <h1
+                data-testid="category-page-title"
+                className="text-[30px] font-bold leading-[38px] tracking-normal text-black small:text-[34px]"
+              >
+                {category.name}
+              </h1>
+              <p className="mt-2 text-[15px] leading-6 text-[#18181b]">
+                {category.description || banner.subtitle}
+              </p>
+            </div>
+          </section>
+        )}
 
-        <div className="mt-8 flex flex-col gap-6 small:flex-row small:items-start">
+        <div
+          className={`${banner ? "mt-8" : "mt-0"} flex flex-col gap-6 small:flex-row small:items-start`}
+        >
           <div className="hidden small:block">
             <ShopFilterPanel
               categories={categories.filter((item) => !item.parent_category)}
