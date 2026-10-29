@@ -1,14 +1,21 @@
 "use client"
 
-import type { HomepageCmsSection } from "@lib/data/homepage"
+import type { HomepageCmsItem, HomepageCmsSection } from "@lib/data/homepage"
+import { localizedPath } from "@lib/util/routes"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
+
+/** Same silhouette as /images/homepagebanner-01.svg — used for click hit-testing. */
+const HERO_BANNER_PATH =
+  "M1879.29,210.14V853.71a32,32,0,0,1-32,32l-649.17-.3c-3.08.45-28.41,3.71-46.59-14.59-7.84-7.88-10-16.47-14-26.31-3.64-9.08-10.31-16.7-17.58-23.1-20.92-18.43-45.38-20.77-54.59-21.17H854.59c-9.21.4-33.67,2.74-54.59,21.17-7.27,6.4-13.94,14-17.58,23.1-3.93,9.84-6.11,18.43-13.95,26.31-18.18,18.3-43.51,15-46.59,14.59l-649.17.3a32,32,0,0,1-32-32V210.14a34.42,34.42,0,0,1,34.43-34.43H1844.86A34.42,34.42,0,0,1,1879.29,210.14Z"
 
 type HeroProps = {
   sections: HomepageCmsSection[]
 }
 
 type HeroSlide = {
+  id: string
   title: string
   highlightText: string
   eyebrow: string
@@ -16,6 +23,8 @@ type HeroSlide = {
   descriptionHtml: string
   imageUrl: string
   imageAlt: string
+  linkUrl: string | null
+  showGradient: boolean
   primaryLabel: string
   primaryUrl: string
   secondaryLabel: string
@@ -23,6 +32,7 @@ type HeroSlide = {
 }
 
 const FALLBACK_SLIDE: HeroSlide = {
+  id: "fallback",
   title: "Powering Business with Smart Solutions",
   highlightText: "Smart Solutions",
   eyebrow: "NEW ARRIVALS",
@@ -30,7 +40,10 @@ const FALLBACK_SLIDE: HeroSlide = {
   descriptionHtml:
     "<p>Explore our premium range of office, retail and security technology built to streamline your operations and drive growth.</p>",
   imageUrl: "/images/bannerimage1.png",
-  imageAlt: "CBA office technology banner with printers, scanner, payment terminal and security camera",
+  imageAlt:
+    "CBA office technology banner with printers, scanner, payment terminal and security camera",
+  linkUrl: null,
+  showGradient: true,
   primaryLabel: "Shop Now",
   primaryUrl: "/store",
   secondaryLabel: "Explore Categories",
@@ -40,6 +53,8 @@ const FALLBACK_SLIDE: HeroSlide = {
 const DEFAULT_INTERVAL_MS = 6000
 const MIN_INTERVAL_MS = 3000
 const MAX_INTERVAL_MS = 15000
+/** Defense-in-depth cap; admin/API also enforce this. */
+const HERO_SLIDER_MAX_SLIDES = 4
 
 const Hero = ({ sections }: HeroProps) => {
   const heroSection = useMemo(
@@ -91,7 +106,7 @@ const Hero = ({ sections }: HeroProps) => {
           onBlur={() => setIsPaused(false)}
         >
           <div
-            className="home-hero-mask absolute inset-0 z-10 overflow-hidden bg-black [--hero-mask-image:url(/images/homepagebanner-01.svg)] [--hero-mask-position:center_47.6%] [--hero-mask-size:156%_auto] sm:[--hero-mask-size:132%_auto] small:[--hero-mask-position:center_47.6%] small:[--hero-mask-size:104.5%_auto]"
+            className="home-hero-mask absolute inset-0 z-10 overflow-hidden bg-black [--hero-mask-image:url(/images/homepagebanner-01.svg)] [--hero-mask-position:center_47.6%] [--hero-mask-size:156%_auto] [--hero-hit-width:156%] [--hero-hit-top:47.6%] sm:[--hero-mask-size:132%_auto] sm:[--hero-hit-width:132%] small:[--hero-mask-position:center_47.6%] small:[--hero-mask-size:104.5%_auto] small:[--hero-hit-width:104.5%]"
             style={{
               WebkitMaskImage: "var(--hero-mask-image)",
               WebkitMaskSize: "var(--hero-mask-size)",
@@ -107,79 +122,118 @@ const Hero = ({ sections }: HeroProps) => {
               className="flex h-full transition-transform duration-700 ease-in-out motion-reduce:transition-none"
               style={{ transform: `translateX(-${activeIndex * 100}%)` }}
             >
-              {slides.map((slide, index) => (
-                <div
-                  key={`${slide.title}-${index}`}
-                  className="relative h-full w-full flex-none"
-                  aria-hidden={index !== activeIndex}
-                >
-                  <img
-                    src={slide.imageUrl}
-                    alt={slide.imageAlt}
-                    className="absolute inset-0 z-0 h-full w-full object-cover"
-                    draggable={false}
-                  />
-                  <div className="absolute inset-0 z-10 bg-gradient-to-r from-black via-black/55 to-transparent" />
+              {slides.map((slide, index) => {
+                const hasOverlay = slideHasOverlay(slide)
 
-                  <div className="relative z-20 flex h-full w-full max-w-full -translate-y-3 flex-col justify-center px-4 py-7 xsmall:px-5 sm:max-w-[720px] sm:-translate-y-2 sm:px-10 small:max-w-[920px] small:-translate-y-8 small:px-20 small:py-12 small:pl-[112px] xl:pl-[132px]">
-                    <div className="mb-2.5 flex max-w-full flex-wrap items-center gap-1.5 text-[7px] leading-none xsmall:text-[8px] sm:mb-4 sm:flex-nowrap sm:gap-2.5 small:mb-6 small:gap-4 small:text-[13px]">
-                      {slide.eyebrow && (
-                        <span className="inline-flex h-5 max-w-full items-center rounded-full border border-[#ff5c0e] px-2 text-[7px] font-bold uppercase tracking-normal text-white xsmall:h-6 xsmall:text-[8px] small:h-[38px] small:px-6 small:text-[13px]">
-                          {slide.eyebrow}
-                        </span>
-                      )}
-                      {slide.subtitle && (
-                        <>
-                          <span className="hidden h-5 w-px bg-white sm:block small:h-6" />
-                          <p className="min-w-0 max-w-full break-words text-[7px] font-bold leading-[10px] text-white xsmall:text-[8px] xsmall:leading-[11px] sm:whitespace-nowrap small:text-[13px] small:leading-[18px]">
-                            {slide.subtitle}
-                          </p>
-                        </>
-                      )}
-                    </div>
+                return (
+                  <div
+                    key={slide.id}
+                    className="relative h-full w-full flex-none"
+                    aria-hidden={index !== activeIndex}
+                  >
+                    <img
+                      src={slide.imageUrl}
+                      alt={slide.imageAlt}
+                      className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
+                      draggable={false}
+                    />
 
-                    <h1 className="font-hero-heading max-w-[min(100%,280px)] break-words text-[15px] font-bold leading-[1.1] text-white xsmall:text-[16px] sm:max-w-[430px] sm:text-[22px] small:max-w-[560px] small:text-[40px]">
-                      {renderHighlightedTitle(slide.title, slide.highlightText)}
-                    </h1>
+                    {slide.showGradient && (
+                      <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-r from-black via-black/55 to-transparent" />
+                    )}
 
-                    {slide.descriptionHtml && (
-                      <div
-                        className="mt-2.5 max-w-[52%] break-words text-justify text-[8px] leading-[11px] text-white/90 xsmall:max-w-[min(60%,280px)] xsmall:text-[9px] xsmall:leading-[12px] sm:mt-3 sm:max-w-[360px] sm:text-[10px] sm:leading-[15px] small:mt-4 small:max-w-[410px] small:text-[13px] small:leading-[20px]"
-                        dangerouslySetInnerHTML={{ __html: slide.descriptionHtml }}
+                    {slide.linkUrl && (
+                      <HeroBannerShapeLink
+                        href={slide.linkUrl}
+                        aria-label={
+                          slide.title ||
+                          slide.imageAlt ||
+                          "Open featured banner"
+                        }
+                        tabIndex={index === activeIndex ? 0 : -1}
                       />
                     )}
 
-                    <div className="mt-3.5 flex max-w-full flex-wrap gap-2 sm:mt-4 sm:flex-nowrap small:mt-6 small:gap-5">
-                      {slide.primaryLabel && slide.primaryUrl && (
-                        <LocalizedClientLink
-                          href={slide.primaryUrl}
-                          className="inline-flex h-7 min-w-0 max-w-full items-center justify-center rounded-[6px] bg-[#ff5c0e] px-3 text-[8px] font-bold text-white transition-colors hover:bg-[#e6530c] xsmall:text-[9px] small:h-[43px] small:min-w-[174px] small:rounded-[7px] small:px-7 small:text-[13px]"
-                        >
-                          {slide.primaryLabel}
-                          <span className="ml-2 text-sm leading-none small:ml-3 small:text-base" aria-hidden="true">
-                            &rsaquo;
-                          </span>
-                        </LocalizedClientLink>
-                      )}
-                      {slide.secondaryLabel && slide.secondaryUrl && (
-                        <LocalizedClientLink
-                          href={slide.secondaryUrl}
-                          className="inline-flex h-7 min-w-0 max-w-full items-center justify-center rounded-[6px] border border-white px-3 text-[8px] font-bold text-white transition-colors hover:bg-white hover:text-black xsmall:text-[9px] small:h-[43px] small:min-w-[198px] small:rounded-[7px] small:px-7 small:text-[13px]"
-                        >
-                          {slide.secondaryLabel}
-                        </LocalizedClientLink>
-                      )}
-                    </div>
+                    {hasOverlay && (
+                      <div className="pointer-events-none relative z-20 flex h-full w-full max-w-full -translate-y-3 flex-col justify-center px-4 py-7 xsmall:px-5 sm:max-w-[720px] sm:-translate-y-2 sm:px-10 small:max-w-[920px] small:-translate-y-8 small:px-20 small:py-12 small:pl-[112px] xl:pl-[132px]">
+                        {(slide.eyebrow || slide.subtitle) && (
+                          <div className="mb-2.5 flex max-w-full flex-wrap items-center gap-1.5 text-[7px] leading-none xsmall:text-[8px] sm:mb-4 sm:flex-nowrap sm:gap-2.5 small:mb-6 small:gap-4 small:text-[13px]">
+                            {slide.eyebrow && (
+                              <span className="inline-flex h-5 max-w-full items-center rounded-full border border-[#ff5c0e] px-2 text-[7px] font-bold uppercase tracking-normal text-white xsmall:h-6 xsmall:text-[8px] small:h-[38px] small:px-6 small:text-[13px]">
+                                {slide.eyebrow}
+                              </span>
+                            )}
+                            {slide.subtitle && (
+                              <>
+                                {slide.eyebrow && (
+                                  <span className="hidden h-5 w-px bg-white sm:block small:h-6" />
+                                )}
+                                <p className="min-w-0 max-w-full break-words text-[7px] font-bold leading-[10px] text-white xsmall:text-[8px] xsmall:leading-[11px] sm:whitespace-nowrap small:text-[13px] small:leading-[18px]">
+                                  {slide.subtitle}
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        )}
+
+                        {slide.title && (
+                          <h1 className="font-hero-heading max-w-[min(100%,280px)] break-words text-[15px] font-bold leading-[1.1] text-white xsmall:text-[16px] sm:max-w-[430px] sm:text-[22px] small:max-w-[560px] small:text-[40px]">
+                            {renderHighlightedTitle(
+                              slide.title,
+                              slide.highlightText
+                            )}
+                          </h1>
+                        )}
+
+                        {slide.descriptionHtml && (
+                          <div
+                            className="mt-2.5 max-w-[52%] break-words text-justify text-[8px] leading-[11px] text-white/90 xsmall:max-w-[min(60%,280px)] xsmall:text-[9px] xsmall:leading-[12px] sm:mt-3 sm:max-w-[360px] sm:text-[10px] sm:leading-[15px] small:mt-4 small:max-w-[410px] small:text-[13px] small:leading-[20px]"
+                            dangerouslySetInnerHTML={{
+                              __html: slide.descriptionHtml,
+                            }}
+                          />
+                        )}
+
+                        {(slide.primaryLabel || slide.secondaryLabel) && (
+                          <div className="pointer-events-auto mt-3.5 flex max-w-full flex-wrap gap-2 sm:mt-4 sm:flex-nowrap small:mt-6 small:gap-5">
+                            {slide.primaryLabel && slide.primaryUrl && (
+                              <HeroSlideLink
+                                href={slide.primaryUrl}
+                                className="inline-flex h-7 min-w-0 max-w-full items-center justify-center rounded-[6px] bg-[#ff5c0e] px-3 text-[8px] font-bold text-white transition-colors hover:bg-[#e6530c] xsmall:text-[9px] small:h-[43px] small:min-w-[174px] small:rounded-[7px] small:px-7 small:text-[13px]"
+                                tabIndex={index === activeIndex ? 0 : -1}
+                              >
+                                {slide.primaryLabel}
+                                <span
+                                  className="ml-2 text-sm leading-none small:ml-3 small:text-base"
+                                  aria-hidden="true"
+                                >
+                                  &rsaquo;
+                                </span>
+                              </HeroSlideLink>
+                            )}
+                            {slide.secondaryLabel && slide.secondaryUrl && (
+                              <HeroSlideLink
+                                href={slide.secondaryUrl}
+                                className="inline-flex h-7 min-w-0 max-w-full items-center justify-center rounded-[6px] border border-white px-3 text-[8px] font-bold text-white transition-colors hover:bg-white hover:text-black xsmall:text-[9px] small:h-[43px] small:min-w-[198px] small:rounded-[7px] small:px-7 small:text-[13px]"
+                                tabIndex={index === activeIndex ? 0 : -1}
+                              >
+                                {slide.secondaryLabel}
+                              </HeroSlideLink>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 
           <div className="absolute bottom-[3.6%] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2.5 small:bottom-[4.4%] small:gap-4">
             {slides.map((slide, index) => (
               <button
-                key={`${slide.title}-${index}`}
+                key={`${slide.id}-dot`}
                 type="button"
                 className={`h-2.5 w-2.5 rounded-full border-0 p-0 transition-colors small:h-[13px] small:w-[13px] ${
                   index === activeIndex ? "bg-[#ff5c0e]" : "bg-[#d4d7da]"
@@ -196,36 +250,192 @@ const Hero = ({ sections }: HeroProps) => {
   )
 }
 
+/**
+ * Clickable region matching the banner SVG silhouette.
+ * Outside the path (white cutout / corners) does not navigate.
+ */
+function HeroBannerShapeLink({
+  href,
+  "aria-label": ariaLabel,
+  tabIndex,
+}: {
+  href: string
+  "aria-label"?: string
+  tabIndex?: number
+}) {
+  const router = useRouter()
+  const external = isExternalHttpUrl(href)
+  const resolvedHref = external ? href : localizedPath(href)
+
+  return (
+    <svg
+      className="home-hero-hit-svg pointer-events-none absolute left-1/2 z-[15] h-auto max-w-none -translate-x-1/2 -translate-y-1/2 overflow-visible"
+      viewBox="0 0 1920 1080"
+      aria-hidden={tabIndex === -1 ? true : undefined}
+      style={{
+        width: "var(--hero-hit-width, 156%)",
+        top: "var(--hero-hit-top, 47.6%)",
+      }}
+    >
+      <a
+        href={resolvedHref}
+        aria-label={ariaLabel}
+        tabIndex={tabIndex}
+        className="pointer-events-auto cursor-pointer outline-none"
+        rel={external ? "noopener noreferrer" : undefined}
+        target={external ? "_blank" : undefined}
+        onClick={(event) => {
+          if (external || event.defaultPrevented) {
+            return
+          }
+          if (
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+          ) {
+            return
+          }
+          event.preventDefault()
+          if (href.startsWith("#")) {
+            const id = href.slice(1)
+            document.getElementById(id)?.scrollIntoView({ behavior: "smooth" })
+            return
+          }
+          router.push(resolvedHref)
+        }}
+      >
+        <path d={HERO_BANNER_PATH} fill="transparent" />
+      </a>
+    </svg>
+  )
+}
+
+function HeroSlideLink({
+  href,
+  className,
+  children,
+  "aria-label": ariaLabel,
+  tabIndex,
+}: {
+  href: string
+  className?: string
+  children?: ReactNode
+  "aria-label"?: string
+  tabIndex?: number
+}) {
+  if (isExternalHttpUrl(href)) {
+    return (
+      <a
+        href={href}
+        className={className}
+        aria-label={ariaLabel}
+        tabIndex={tabIndex}
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        {children}
+      </a>
+    )
+  }
+
+  return (
+    <LocalizedClientLink
+      href={href}
+      className={className}
+      aria-label={ariaLabel}
+      tabIndex={tabIndex}
+    >
+      {children}
+    </LocalizedClientLink>
+  )
+}
+
 function normalizeSlides(section?: HomepageCmsSection): HeroSlide[] {
   const items = section?.items
     ?.slice()
     .sort((a, b) => a.sort_order - b.sort_order)
-    .map((item) => {
-      const config = item.config ?? {}
-      const imageUrl = item.media?.url ?? item.media_url ?? ""
-
-      return {
-        title: item.title?.trim() || FALLBACK_SLIDE.title,
-        highlightText: textConfig(config.highlight_text) || FALLBACK_SLIDE.highlightText,
-        eyebrow: textConfig(config.badge_label) || FALLBACK_SLIDE.eyebrow,
-        subtitle: item.subtitle?.trim() || FALLBACK_SLIDE.subtitle,
-        descriptionHtml: item.body_html?.trim() || FALLBACK_SLIDE.descriptionHtml,
-        imageUrl: imageUrl || FALLBACK_SLIDE.imageUrl,
-        imageAlt:
-          item.media?.alt_text?.trim() ||
-          item.media_alt_text?.trim() ||
-          FALLBACK_SLIDE.imageAlt,
-        primaryLabel: textConfig(config.cta_label) || FALLBACK_SLIDE.primaryLabel,
-        primaryUrl: item.url?.trim() || FALLBACK_SLIDE.primaryUrl,
-        secondaryLabel:
-          textConfig(config.secondary_cta_label) || FALLBACK_SLIDE.secondaryLabel,
-        secondaryUrl:
-          textConfig(config.secondary_cta_url) || FALLBACK_SLIDE.secondaryUrl,
-      }
-    })
-    .filter((slide) => slide.imageUrl)
+    .map((item, index) => mapCmsItemToSlide(item, index))
+    .filter((slide): slide is HeroSlide => Boolean(slide))
+    .slice(0, HERO_SLIDER_MAX_SLIDES)
 
   return items?.length ? items : [FALLBACK_SLIDE]
+}
+
+function mapCmsItemToSlide(
+  item: HomepageCmsItem,
+  index: number
+): HeroSlide | null {
+  const config = item.config ?? {}
+  const imageUrl = (item.media?.url ?? item.media_url ?? "").trim()
+  if (!imageUrl) {
+    return null
+  }
+
+  const primaryLabel = textConfig(config.cta_label)
+  const primaryUrl = item.url?.trim() ?? ""
+  const secondaryLabel = textConfig(config.secondary_cta_label)
+  const secondaryUrl = textConfig(config.secondary_cta_url)
+  const linkUrl = sanitizeSlideUrl(textConfig(config.link_url))
+
+  return {
+    id: item.id?.trim() || `hero-slide-${index}`,
+    title: item.title?.trim() ?? "",
+    highlightText: textConfig(config.highlight_text),
+    eyebrow: textConfig(config.badge_label),
+    subtitle: item.subtitle?.trim() ?? "",
+    descriptionHtml: item.body_html?.trim() ?? "",
+    imageUrl,
+    imageAlt:
+      item.media?.alt_text?.trim() ||
+      item.media_alt_text?.trim() ||
+      item.title?.trim() ||
+      "Homepage banner",
+    linkUrl,
+    showGradient: config.show_gradient !== false,
+    primaryLabel: primaryLabel && primaryUrl ? primaryLabel : "",
+    primaryUrl: primaryLabel && primaryUrl ? primaryUrl : "",
+    secondaryLabel: secondaryLabel && secondaryUrl ? secondaryLabel : "",
+    secondaryUrl: secondaryLabel && secondaryUrl ? secondaryUrl : "",
+  }
+}
+
+function slideHasOverlay(slide: HeroSlide) {
+  return Boolean(
+    slide.eyebrow ||
+      slide.subtitle ||
+      slide.title ||
+      slide.descriptionHtml ||
+      slide.primaryLabel ||
+      slide.secondaryLabel
+  )
+}
+
+function sanitizeSlideUrl(value: string): string | null {
+  const url = value.trim()
+  if (!url) {
+    return null
+  }
+  if (url.startsWith("#") && /^#[A-Za-z0-9_-]+$/.test(url)) {
+    return url
+  }
+  if (url.startsWith("/") && !url.startsWith("//") && !url.includes("\\")) {
+    return url
+  }
+  if (isExternalHttpUrl(url)) {
+    return url
+  }
+  return null
+}
+
+function isExternalHttpUrl(value: string) {
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+  } catch {
+    return false
+  }
 }
 
 function textConfig(value: unknown) {
