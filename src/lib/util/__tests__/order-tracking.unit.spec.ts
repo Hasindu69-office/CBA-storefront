@@ -1,5 +1,6 @@
 import {
   formatOrderNumber,
+  formatOrderStatusLabel,
   formatStatusLabel,
   isSafeExternalUrl,
   validateGuestLookupClient,
@@ -11,6 +12,8 @@ import test from "node:test"
 test("formats order number and status labels", () => {
   assert.equal(formatOrderNumber(1001), "CBA-1001")
   assert.equal(formatStatusLabel("ready_for_dispatch"), "Ready For Dispatch")
+  assert.equal(formatOrderStatusLabel("pending"), "Order Received")
+  assert.equal(formatOrderStatusLabel("completed"), "Completed")
 })
 
 test("validates external tracking URLs", () => {

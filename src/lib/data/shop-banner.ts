@@ -21,7 +21,7 @@ export type ShopSidebarPromoContent = {
 }
 
 export type ShopPageContent = {
-  banner: ShopBannerContent
+  banner: ShopBannerContent | null
   sidebarPromo: ShopSidebarPromoContent | null
 }
 
@@ -43,15 +43,6 @@ export const SHOP_BANNER_FALLBACK: ShopBannerContent = {
   backgroundAltText: "Office equipment shop banner",
 }
 
-export const SHOP_SIDEBAR_PROMO_FALLBACK: ShopSidebarPromoContent = {
-  title: "OKODo hero 11+ 5K wireless",
-  eyebrow: "FROM",
-  priceText: "Rs. 70,000",
-  imageUrl: "/images/storepagebanner.png",
-  imageAltText: "OKODo hero 11 plus wireless camera promo",
-  href: "/store",
-}
-
 export async function listShopPageContent(): Promise<ShopPageContent> {
   try {
     const payload = await sdk.client.fetch<ShopSectionsResponse>(
@@ -61,8 +52,8 @@ export async function listShopPageContent(): Promise<ShopPageContent> {
 
     if (!payload.success) {
       return {
-        banner: SHOP_BANNER_FALLBACK,
-        sidebarPromo: SHOP_SIDEBAR_PROMO_FALLBACK,
+        banner: null,
+        sidebarPromo: null,
       }
     }
 
@@ -80,7 +71,7 @@ export async function listShopPageContent(): Promise<ShopPageContent> {
 
     if (!section?.title) {
       return {
-        banner: SHOP_BANNER_FALLBACK,
+        banner: null,
         sidebarPromo,
       }
     }
@@ -109,13 +100,13 @@ export async function listShopPageContent(): Promise<ShopPageContent> {
     }
   } catch {
     return {
-      banner: SHOP_BANNER_FALLBACK,
-      sidebarPromo: SHOP_SIDEBAR_PROMO_FALLBACK,
+      banner: null,
+      sidebarPromo: null,
     }
   }
 }
 
-export async function listShopBannerContent(): Promise<ShopBannerContent> {
+export async function listShopBannerContent(): Promise<ShopBannerContent | null> {
   return (await listShopPageContent()).banner
 }
 
@@ -141,13 +132,13 @@ function parseSidebarPromo(
   section?: HomepageCmsSection
 ): Promise<ShopSidebarPromoContent | null> {
   if (!section?.config) {
-    return Promise.resolve(SHOP_SIDEBAR_PROMO_FALLBACK)
+    return Promise.resolve(null)
   }
   const config = section.config
   const title = safeText(config.title, "")
   const href = safeStorefrontPath(config.href)
   if (!title || !href) {
-    return Promise.resolve(SHOP_SIDEBAR_PROMO_FALLBACK)
+    return Promise.resolve(null)
   }
   return resolveSidebarPromoPrice(config.product_id).then((priceText) => ({
     title,

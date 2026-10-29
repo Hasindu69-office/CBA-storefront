@@ -73,6 +73,7 @@ h6,
 @media (min-width: 768px) and (max-width: 1023px) and (orientation: portrait) {
   .home-hero-mask {
     --hero-mask-size: 104.5% auto !important;
+    --hero-hit-width: 104.5% !important;
   }
 }
 
@@ -80,6 +81,7 @@ h6,
 @media (min-width: 540px) and (max-width: 767px) and (orientation: landscape) {
   .home-hero-mask {
     --hero-mask-size: 104.5% auto !important;
+    --hero-hit-width: 104.5% !important;
   }
 }
 

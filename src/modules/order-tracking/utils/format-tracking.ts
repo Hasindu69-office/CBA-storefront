@@ -173,6 +173,25 @@ export function formatStatusLabel(value?: string | null) {
     .join(" ")
 }
 
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: "Order Received",
+  completed: "Completed",
+  draft: "Draft",
+  archived: "Archived",
+  canceled: "Cancelled",
+  requires_action: "Action Required",
+}
+
+/**
+ * Present native order lifecycle keys in customer-facing language.
+ * A pending Medusa order has been received and can independently have a
+ * captured payment or delivered fulfillment.
+ */
+export function formatOrderStatusLabel(value?: string | null) {
+  const normalized = String(value ?? "").toLowerCase()
+  return ORDER_STATUS_LABELS[normalized] ?? formatStatusLabel(value)
+}
+
 export function statusBadgeTone(
   kind: "payment" | "fulfillment" | "order" | "shipment",
   key?: string | null
