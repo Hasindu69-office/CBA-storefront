@@ -1484,6 +1484,7 @@ function PaymentMethodSelector({
                   disabled={isPending || isSavingCheckoutDetails}
                   onClick={selectInstallmentPayment}
                   icon={<CreditCard />}
+                  showLabel
                 />
               )}
             </div>
@@ -1562,12 +1563,14 @@ function PaymentMethodTile({
   disabled,
   onClick,
   icon,
+  showLabel = false,
 }: {
   label: string
   checked: boolean
   disabled: boolean
   onClick: () => void
   icon: ReactNode
+  showLabel?: boolean
 }) {
   return (
     <button
@@ -1579,6 +1582,8 @@ function PaymentMethodTile({
       onClick={onClick}
       disabled={disabled}
       className={`relative flex min-h-[60px] min-w-0 max-w-[160px] flex-1 basis-[68px] items-center justify-center rounded-md border px-2 py-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:ring-offset-2 small:min-h-[72px] small:rounded-lg small:px-4 small:py-3 ${
+        showLabel ? "flex-col gap-0.5" : ""
+      } ${
         checked
           ? "border-brand bg-brand/5 shadow-[0_5px_16px_rgba(255,92,14,0.12)] ring-1 ring-inset ring-brand"
           : "border-gray-200 bg-white hover:border-brand/40 hover:bg-gray-50"
@@ -1593,6 +1598,11 @@ function PaymentMethodTile({
       >
         {icon}
       </span>
+      {showLabel && (
+        <span className="max-w-full text-center text-[9px] font-bold leading-[11px] text-[#252a33] xsmall:text-[10px] xsmall:leading-3">
+          {label}
+        </span>
+      )}
       <span className="sr-only">{label}</span>
     </button>
   )
