@@ -620,6 +620,156 @@ export default function CbaProductDetail({
               ))}
             </div>}
 
+            <div className="mt-6 border-t border-gray-200 pt-5">
+              <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <span
+                  className={
+                    inStock
+                      ? "h-2 w-2 rounded-circle bg-green-500"
+                      : "h-2 w-2 rounded-circle bg-red-500"
+                  }
+                />
+                <span>{inStock ? "In stock" : "Out of stock"}</span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-[minmax(118px,140px)_minmax(0,1fr)] gap-3">
+                <div className="grid h-12 w-full grid-cols-[40px_1fr_40px] overflow-hidden rounded-base border border-gray-200 bg-white xsmall:grid-cols-[44px_1fr_44px]">
+                  <button
+                    type="button"
+                    className="flex h-full items-center justify-center text-xl font-bold transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => clampQuantity(quantity - 1)}
+                    disabled={isPending}
+                    aria-label="Decrease quantity"
+                  >
+                    -
+                  </button>
+                  <input
+                    value={quantity}
+                    onChange={(event) => clampQuantity(Number(event.target.value))}
+                    className="h-full w-full border-x border-gray-200 text-center text-sm font-bold outline-none focus:border-brand focus:ring-1 focus:ring-inset focus:ring-brand/30"
+                    inputMode="numeric"
+                    min={1}
+                    max={Math.max(1, maxQuantity)}
+                    aria-label="Quantity"
+                  />
+                  <button
+                    type="button"
+                    className="flex h-full items-center justify-center text-xl font-bold transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => clampQuantity(quantity + 1)}
+                    disabled={isPending || quantity >= maxQuantity}
+                    aria-label="Increase quantity"
+                  >
+                    +
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={submitAddToCart}
+                  disabled={!selectedVariant || !isValidVariant || !inStock || !hasPrice || maxQuantity === 0 || isPending}
+                  className="flex min-h-12 min-w-0 w-full items-center justify-center gap-2 rounded-rounded border border-brand bg-brand px-3 py-3 text-xs font-bold uppercase leading-none text-white shadow-[0_6px_16px_rgba(255,92,14,0.22)] transition-colors hover:border-brand-hover hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:shadow-none disabled:opacity-50 xsmall:px-5 xsmall:text-sm"
+                >
+                  <ShoppingCartIcon size={18} />
+                  Add to cart
+                </button>
+              </div>
+
+              {selectedVariant?.id && isValidVariant && inStock && maxQuantity > 0 && (
+                <p className="mt-2 text-xs text-gray-500">
+                  {finiteVariantQuantity(selectedVariant) === null
+                    ? "Available for purchase"
+                    : quantityAlreadyInCart > 0
+                    ? `Only ${maxQuantity} more unit${maxQuantity === 1 ? "" : "s"} can be added.`
+                    : finiteVariantQuantity(selectedVariant)! <= 5
+                      ? `Only ${finiteVariantQuantity(selectedVariant)} left.`
+                      : `Available quantity: ${finiteVariantQuantity(selectedVariant)}`}
+                </p>
+              )}
+
+              {!inStock && selectedVariant?.id && isValidVariant && (
+                <div className="mt-4 rounded-rounded border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-xs font-black uppercase text-gray-700">
+                    Notify me when available
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    <input
+                      type="email"
+                      value={waitlistEmail}
+                      onChange={(event) => {
+                        setWaitlistEmail(event.target.value)
+                        const emailError = validateEmail(normalizeEmail(event.target.value))
+                        setWaitlistState(
+                          emailError
+                            ? { type: "error", message: emailError }
+                            : { type: null, message: "" }
+                        )
+                      }}
+                      placeholder="Email address"
+                      aria-invalid={waitlistState.type === "error" || undefined}
+                      aria-describedby={
+                        waitlistState.type === "error"
+                          ? "back-in-stock-email-error"
+                          : undefined
+                      }
+                      className={`h-11 w-full rounded-base border bg-white px-3 text-sm outline-none focus:border-brand ${
+                        waitlistState.type === "error"
+                          ? "border-rose-300 bg-rose-50/40"
+                          : "border-gray-200"
+                      }`}
+                      autoComplete="email"
+                      disabled={isPending}
+                    />
+                    <label className="flex gap-2 text-xs leading-5 text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={waitlistConsent}
+                        onChange={(event) => setWaitlistConsent(event.target.checked)}
+                        className="mt-1"
+                        disabled={isPending}
+                      />
+                      Email me once for this item when it is available.
+                    </label>
+                    <button
+                      type="button"
+                      onClick={submitBackInStock}
+                      disabled={isPending}
+                      className="h-10 w-full rounded-base bg-brand text-xs font-bold uppercase text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Notify me
+                    </button>
+                    <RecaptchaDisclosure className="text-center" />
+                    {waitlistState.message && (
+                      <p
+                        id={
+                          waitlistState.type === "error"
+                            ? "back-in-stock-email-error"
+                            : undefined
+                        }
+                        className={
+                          waitlistState.type === "success"
+                            ? "text-xs text-green-700"
+                            : "text-xs text-red-600"
+                        }
+                      >
+                        {waitlistState.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {actionState.message && (
+                <p
+                  className={
+                    actionState.type === "success"
+                      ? "mt-3 text-sm text-green-700"
+                      : "mt-3 text-sm text-red-600"
+                  }
+                >
+                  {actionState.message}
+                </p>
+              )}
+            </div>
+
             <ProductMeta
               product={product}
               selectedVariant={selectedVariant}
@@ -674,134 +824,6 @@ export default function CbaProductDetail({
               currencyCode={price?.currency_code ?? "lkr"}
               eligible={installmentEligible}
             />
-            <div className="mt-5 flex items-center gap-2 text-sm">
-              <span
-                className={
-                  inStock
-                    ? "h-2 w-2 rounded-circle bg-green-500"
-                    : "h-2 w-2 rounded-circle bg-red-500"
-                }
-              />
-              <span>{inStock ? "In stock" : "Out of stock"}</span>
-            </div>
-            <div className="mt-4 grid w-full grid-cols-[44px_1fr_44px] overflow-hidden rounded-base border border-gray-200 bg-white">
-              <button
-                type="button"
-                className="h-11 text-xl font-bold"
-                onClick={() => clampQuantity(quantity - 1)}
-                disabled={isPending}
-                aria-label="Decrease quantity"
-              >
-                -
-              </button>
-              <input
-                value={quantity}
-                onChange={(event) => clampQuantity(Number(event.target.value))}
-                className="h-11 w-full border-x border-gray-200 text-center text-sm font-bold outline-none"
-                inputMode="numeric"
-                min={1}
-                max={Math.max(1, maxQuantity)}
-                aria-label="Quantity"
-              />
-              <button
-                type="button"
-                className="h-11 text-xl font-bold"
-                onClick={() => clampQuantity(quantity + 1)}
-                disabled={isPending || quantity >= maxQuantity}
-                aria-label="Increase quantity"
-              >
-                +
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={submitAddToCart}
-              disabled={!selectedVariant || !isValidVariant || !inStock || !hasPrice || maxQuantity === 0 || isPending}
-              className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-base border border-brand bg-white text-xs font-bold uppercase text-brand transition hover:bg-brand hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <ShoppingCartIcon size={16} />
-              Add to cart
-            </button>
-            {finiteVariantQuantity(selectedVariant) !== null && maxQuantity > 0 && (
-              <p className="mt-2 text-xs text-gray-500">
-                {quantityAlreadyInCart > 0
-                  ? `Only ${maxQuantity} more unit${maxQuantity === 1 ? "" : "s"} can be added.`
-                  : finiteVariantQuantity(selectedVariant)! <= 5
-                    ? `Only ${finiteVariantQuantity(selectedVariant)} left.`
-                    : `Available quantity: ${finiteVariantQuantity(selectedVariant)}`}
-              </p>
-            )}
-            {!inStock && selectedVariant?.id && isValidVariant && (
-              <div className="mt-4 rounded-base border border-gray-200 bg-white p-4">
-                <p className="text-xs font-black uppercase text-gray-700">
-                  Notify me when available
-                </p>
-                <div className="mt-3 space-y-3">
-                  <input
-                    type="email"
-                    value={waitlistEmail}
-                    onChange={(event) => {
-                      setWaitlistEmail(event.target.value)
-                      const emailError = validateEmail(normalizeEmail(event.target.value))
-                      setWaitlistState(
-                        emailError
-                          ? { type: "error", message: emailError }
-                          : { type: null, message: "" }
-                      )
-                    }}
-                    placeholder="Email address"
-                    aria-invalid={waitlistState.type === "error" || undefined}
-                    aria-describedby={
-                      waitlistState.type === "error"
-                        ? "back-in-stock-email-error"
-                        : undefined
-                    }
-                    className={`h-11 w-full rounded-base border px-3 text-sm outline-none focus:border-brand ${
-                      waitlistState.type === "error"
-                        ? "border-rose-300 bg-rose-50/40"
-                        : "border-gray-200"
-                    }`}
-                    autoComplete="email"
-                    disabled={isPending}
-                  />
-                  <label className="flex gap-2 text-xs leading-5 text-gray-600">
-                    <input
-                      type="checkbox"
-                      checked={waitlistConsent}
-                      onChange={(event) => setWaitlistConsent(event.target.checked)}
-                      className="mt-1"
-                      disabled={isPending}
-                    />
-                    Email me once for this item when it is available.
-                  </label>
-                  <button
-                    type="button"
-                    onClick={submitBackInStock}
-                    disabled={isPending}
-                    className="h-10 w-full rounded-base bg-brand text-xs font-bold uppercase text-white disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Notify me
-                  </button>
-                  <RecaptchaDisclosure className="text-center" />
-                  {waitlistState.message && (
-                    <p
-                      id={
-                        waitlistState.type === "error"
-                          ? "back-in-stock-email-error"
-                          : undefined
-                      }
-                      className={
-                        waitlistState.type === "success"
-                          ? "text-xs text-green-700"
-                          : "text-xs text-red-600"
-                      }
-                    >
-                      {waitlistState.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
             <div className="mt-5 flex items-center justify-between text-xs text-gray-600">
               <WishlistProductButton
                 productId={product.id}
@@ -846,17 +868,6 @@ export default function CbaProductDetail({
               height={32}
               className="mt-4 h-auto w-full max-w-[190px]"
             />
-            {actionState.message && (
-              <p
-                className={
-                  actionState.type === "success"
-                    ? "mt-4 text-sm text-green-700"
-                    : "mt-4 text-sm text-red-600"
-                }
-              >
-                {actionState.message}
-              </p>
-            )}
           </aside>
         </section>
 
