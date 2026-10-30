@@ -55,35 +55,26 @@ const BestSellingProductsSection = async ({
       aria-labelledby="best-selling-products-title"
     >
       <div className="content-container">
-        <div className="relative isolate overflow-visible">
-          <div className="surface-duo-best-selling-clip">
-          <div className="surface-duo-best-selling-shell relative left-1/2 aspect-[326.5/569.13] w-screen max-w-[100vw] -translate-x-1/2 md:aspect-[1728/1500] small:left-auto small:mx-auto small:aspect-[1728/830] small:w-full small:max-w-full small:translate-x-0 small:max-[1279px]:aspect-[1728/1200]">
-            <MaskedBackground
-              className="md:hidden"
-              maskImage="/images/Asset 2_updated.svg"
-              backgroundImageUrl={backgroundImageUrl}
-              backgroundPosition="center"
-            />
-            <MaskedBackground
-              className="hidden md:block"
-              maskImage="/images/svgviewer-output.svg"
-              backgroundImageUrl={backgroundImageUrl}
-              backgroundPosition="center"
-            />
+        <div
+          className="relative isolate overflow-hidden rounded-2xl bg-[#111820] bg-cover bg-center py-8 xsmall:py-10 small:py-12"
+          style={{ backgroundImage: `url("${backgroundImageUrl}")` }}
+        >
+          <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/55 via-black/30 to-black/45" />
 
-            <div className="surface-duo-best-selling-heading pointer-events-none absolute left-1/2 top-[-10px] z-30 flex h-[92px] w-[min(330px,78%)] -translate-x-1/2 flex-col items-center justify-center px-4 pb-6 text-center xsmall:top-[-8px] xsmall:h-[104px] xsmall:pb-7 md:top-[-12px] md:h-[104px] md:w-[min(620px,48%)] md:pb-2 small:max-[1279px]:top-[-24px]">
+          <div className="relative z-10 px-4 xsmall:px-6 small:px-8 large:px-10">
+            <div className="mx-auto max-w-[720px] text-center text-white">
               <h2
                 id="best-selling-products-title"
-                className="text-[22px] font-bold leading-[1.12] tracking-normal text-black max-[340px]:text-[20px] max-[340px]:leading-[1.05] xsmall:text-[26px] md:text-[24px] small:text-[34px]"
+                className="font-heading text-[24px] font-bold leading-tight tracking-normal xsmall:text-[28px] small:text-[34px]"
               >
                 {title}
               </h2>
-              <p className="mt-2 max-w-[620px] text-[13px] leading-5 tracking-normal text-black max-[340px]:mt-0 max-[340px]:text-[11px] max-[340px]:leading-[14px] xsmall:text-[14px] md:text-[12px] small:text-[16px]">
+              <p className="mx-auto mt-2 max-w-[620px] text-[13px] leading-5 tracking-normal text-white/85 xsmall:text-[14px] small:text-[16px] small:leading-6">
                 {description}
               </p>
             </div>
 
-            <div className="absolute inset-x-0 top-[156px] z-20 px-[4vw] max-[340px]:top-[88px] xsmall:top-[172px] md:top-[134px] medium:top-[152px] medium:px-7 large:px-9">
+            <div className="mt-8 xsmall:mt-10 small:mt-12">
               <BestSellingProductsCarousel
                 products={products}
                 kokoBranding={kokoBranding}
@@ -91,47 +82,9 @@ const BestSellingProductsSection = async ({
               />
             </div>
           </div>
-          </div>
         </div>
       </div>
     </section>
-  )
-}
-
-function MaskedBackground({
-  className,
-  maskImage,
-  backgroundImageUrl,
-  backgroundPosition,
-}: {
-  className: string
-  maskImage: string
-  backgroundImageUrl: string
-  backgroundPosition: string
-}) {
-  return (
-    <div
-      className={`absolute inset-0 z-10 overflow-hidden bg-[#111820] ${className}`}
-      style={{
-        WebkitMaskImage: `url("${maskImage}")`,
-        maskImage: `url("${maskImage}")`,
-        WebkitMaskSize: "100% 100%",
-        maskSize: "100% 100%",
-        WebkitMaskRepeat: "no-repeat",
-        maskRepeat: "no-repeat",
-        WebkitMaskPosition: "center top",
-        maskPosition: "center top",
-      }}
-    >
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundImage: `url("${backgroundImageUrl}")`,
-          backgroundSize: "cover",
-          backgroundPosition,
-        }}
-      />
-    </div>
   )
 }
 
