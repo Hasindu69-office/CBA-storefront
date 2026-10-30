@@ -30,6 +30,7 @@ import { convertToLocale } from "@lib/util/money"
 import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
 import { calculateCartInstallmentPricing } from "@lib/util/installment-totals"
 import {
+  checkoutAddressErrorSummary,
   firstCheckoutAddressErrorField,
   validateCheckoutAddressFormData,
   type CheckoutAddressFieldName,
@@ -108,6 +109,11 @@ type CbaCheckoutCart = HttpTypes.StoreCart & {
 type CheckoutAddressFieldErrors = Partial<
   Record<CheckoutAddressFieldName, string>
 >
+
+type CheckoutValidationPopupState = {
+  message: string
+  firstField: CheckoutAddressFieldName | null
+}
 
 function money(amount: number | null | undefined, currencyCode: string) {
   return convertToLocale({
@@ -271,6 +277,8 @@ export default function CbaCheckoutTemplate({
   const [addressFieldErrors, setAddressFieldErrors] =
     useState<CheckoutAddressFieldErrors>({})
   const [addressFormError, setAddressFormError] = useState<string | null>(null)
+  const [checkoutValidationPopup, setCheckoutValidationPopup] =
+    useState<CheckoutValidationPopupState | null>(null)
 
   const metaCheckoutLines = useMemo(
     () => linesFromCartLikeItems(cart.items),
@@ -330,6 +338,25 @@ export default function CbaCheckoutTemplate({
     []
   )
 
+  const showCheckoutValidationPopup = useCallback(
+    (fieldErrors: CheckoutAddressFieldErrors) => {
+      notify.dismiss("checkout-details")
+      setCheckoutValidationPopup({
+        message: checkoutAddressErrorSummary(fieldErrors),
+        firstField: firstCheckoutAddressErrorField(fieldErrors),
+      })
+    },
+    []
+  )
+
+  const reviewCheckoutValidationFields = useCallback(() => {
+    const firstField = checkoutValidationPopup?.firstField ?? null
+    setCheckoutValidationPopup(null)
+    if (firstField) {
+      window.requestAnimationFrame(() => focusAddressField(firstField))
+    }
+  }, [checkoutValidationPopup, focusAddressField])
+
   const saveCurrentCheckoutDetails = useCallback(async () => {
     const form = addressFormRef.current
     if (!form) {
@@ -342,9 +369,7 @@ export default function CbaCheckoutTemplate({
     if (!clientValidation.ok) {
       setAddressFieldErrors(clientValidation.fieldErrors)
       setAddressFormError(clientValidation.formError)
-      focusAddressField(
-        firstCheckoutAddressErrorField(clientValidation.fieldErrors)
-      )
+      showCheckoutValidationPopup(clientValidation.fieldErrors)
       return clientValidation.formError
     }
 
@@ -371,7 +396,7 @@ export default function CbaCheckoutTemplate({
       if (result.fieldErrors && Object.keys(result.fieldErrors).length) {
         setAddressFieldErrors(result.fieldErrors)
         setAddressFormError(result.error)
-        focusAddressField(firstCheckoutAddressErrorField(result.fieldErrors))
+        showCheckoutValidationPopup(result.fieldErrors)
       } else {
         notify.error(result.error, "Could not save delivery details.", {
           id: "checkout-details",
@@ -382,6 +407,7 @@ export default function CbaCheckoutTemplate({
 
     setAddressFieldErrors({})
     setAddressFormError(null)
+    setCheckoutValidationPopup(null)
     if (result.addressSaveWarning) {
       notify.warning(result.addressSaveWarning, { id: "checkout-address-save" })
     } else {
@@ -389,7 +415,7 @@ export default function CbaCheckoutTemplate({
     }
     notify.dismiss("checkout-details")
     return null
-  }, [focusAddressField])
+  }, [showCheckoutValidationPopup])
 
   return (
     <div className="content-container py-10 small:py-12">
@@ -467,6 +493,100 @@ export default function CbaCheckoutTemplate({
             selectedInstallment={selectedInstallment}
           />
         </aside>
+      </div>
+      {checkoutValidationPopup && (
+        <CheckoutValidationPopup
+          message={checkoutValidationPopup.message}
+          onReview={reviewCheckoutValidationFields}
+        />
+      )}
+    </div>
+  )
+}
+
+function CheckoutValidationPopup({
+  message,
+  onReview,
+}: {
+  message: string
+  onReview: () => void
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const closeTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const animationFrame = window.requestAnimationFrame(() => setIsVisible(true))
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame)
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
+    }
+  }, [])
+
+  const closePopup = () => {
+    if (closeTimerRef.current) return
+    setIsVisible(false)
+    closeTimerRef.current = window.setTimeout(onReview, 200)
+  }
+
+  return (
+    <div
+      className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px] transition-opacity duration-200 ease-out motion-reduce:transition-none ${
+        isVisible ? "opacity-100" : "opacity-0"
+      }`}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) closePopup()
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="checkout-validation-title"
+        aria-describedby="checkout-validation-description"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") closePopup()
+          if (event.key === "Tab") {
+            event.preventDefault()
+            event.currentTarget.querySelector<HTMLButtonElement>("button")?.focus()
+          }
+        }}
+        className={`w-[calc(100vw-2.5rem)] max-w-md rounded-xl border border-rose-100 bg-white p-5 shadow-[0_24px_70px_rgba(17,24,39,0.28)] transition-[opacity,transform] duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none small:w-full small:p-6 ${
+          isVisible
+            ? "translate-y-0 scale-100 opacity-100"
+            : "translate-y-2 scale-[0.97] opacity-0"
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <span
+            aria-hidden="true"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-50 text-lg font-black text-rose-600"
+          >
+            !
+          </span>
+          <div className="min-w-0">
+            <h2
+              id="checkout-validation-title"
+              className="text-lg font-bold text-[#252a33]"
+            >
+              Complete the required details
+            </h2>
+            <p
+              id="checkout-validation-description"
+              className="mt-2 text-sm leading-6 text-[#5f6878]"
+            >
+              {message}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          autoFocus
+          onClick={closePopup}
+          className="mt-5 flex h-11 w-full items-center justify-center rounded-md bg-brand px-4 text-sm font-bold text-white transition-colors hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:ring-offset-2"
+        >
+          Review fields
+        </button>
       </div>
     </div>
   )
@@ -1343,104 +1463,86 @@ function PaymentMethodSelector({
       <div
         role="radiogroup"
         aria-label="Payment method"
-        className="mt-4 overflow-hidden rounded-md border border-gray-200"
+        className="mt-4 flex flex-nowrap justify-center gap-2 small:gap-3"
       >
         {paymentMethods.map((method) => {
           const checked = selectedPaymentMethod === method.id
-          const isActiveSession = activeSession?.provider_id === method.id
+          const title = paymentTitle(method.id, webxpayBranding, kokoBranding)
           return (
-            <div key={method.id}>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={checked}
+            <div key={method.id} className="contents">
+              <PaymentMethodTile
+                label={title}
+                checked={checked}
                 onClick={() => selectPayment(method.id)}
                 disabled={isPending || isSavingCheckoutDetails}
-                className={`flex min-h-[42px] w-full items-center gap-4 border-b border-gray-100 px-4 text-left last:border-b-0 ${
-                  checked ? "bg-brand/5 ring-1 ring-inset ring-brand" : ""
-                } disabled:cursor-not-allowed disabled:opacity-60`}
-              >
-                <Radio checked={checked} />
-                <span className="text-[#6f7b8e]">
-                  {paymentIcon(method.id, webxpayBranding, kokoBranding)}
-                </span>
-                <span className="flex-1 text-[13px] font-bold text-[#252a33]">
-                  {paymentTitle(method.id, webxpayBranding, kokoBranding)}
-                  {checked && isWebxpay(method.id) ? (
-                    <span className="mt-1 block text-[11px] font-medium text-[#6b7280]">
-                      You will be redirected to WEBXPAY to complete payment
-                      securely.
-                    </span>
-                  ) : null}
-                  {checked && isKoko(method.id) ? (
-                    <span className="mt-1 block text-[11px] font-medium text-[#6b7280]">
-                      You will be redirected to Koko to complete payment
-                      securely.
-                    </span>
-                  ) : null}
-                </span>
-                <span className="text-[#1f4f8a]">
-                  {(isWebxpay(method.id) && webxpayBranding?.image_url) ||
-                  (isKoko(method.id) && kokoBranding?.image_url)
-                    ? null
-                    : paymentInfoMap[method.id]?.icon}
-                </span>
-              </button>
-              {checked && isStripeLike(method.id) && isActiveSession && (
-                <div className="border-b border-gray-100 px-4 py-4">
-                  <CardElement
-                    options={{
-                      style: {
-                        base: {
-                          fontFamily: "var(--font-body), sans-serif",
-                          color: "#252a33",
-                          "::placeholder": { color: "#9aa1af" },
-                        },
-                      },
-                      classes: {
-                        base: "rounded-md border border-gray-200 px-4 py-3",
-                      },
-                    }}
-                    onChange={(event) => {
-                      setCardComplete(event.complete)
-                      if (event.error?.message) {
-                        setCardError(event.error.message)
-                      } else {
-                        setCardError(null)
-                      }
-                    }}
-                  />
-                  {cardError && (
-                    <p
-                      role="status"
-                      aria-live="polite"
-                      className="mt-2 text-[12px] font-medium text-rose-600"
-                    >
-                      {cardError}
-                    </p>
-                  )}
-                </div>
-              )}
+                icon={paymentIcon(method.id, webxpayBranding, kokoBranding)}
+              />
               {isWebxpay(method.id) && showInstallments && (
-                <InstallmentPaymentOption
+                <PaymentMethodTile
+                  label="Installment Plans"
                   checked={isInstallmentMethod(selectedPaymentMethod)}
-                  plans={installmentPlans}
-                  selectedPlanId={selectedPlanId}
-                  currencyCode={cart.currency_code}
                   disabled={isPending || isSavingCheckoutDetails}
-                  onSelectMethod={selectInstallmentPayment}
-                  onSelectPlan={selectPlan}
+                  onClick={selectInstallmentPayment}
+                  icon={<CreditCard />}
                 />
               )}
             </div>
           )
         })}
-        {!showInstallments && installmentLoadError ? (
-          <div className="border-t border-gray-100 px-4 py-3 text-[12px] font-medium text-[#7b8493]">
-            Installment Plans unavailable for this cart.
-          </div>
-        ) : null}
       </div>
+
+      {isStripeLike(selectedPaymentMethod) &&
+        activeSession?.provider_id === selectedPaymentMethod && (
+          <div className="mt-3 rounded-md border border-gray-200 bg-white px-4 py-4">
+            <CardElement
+              options={{
+                style: {
+                  base: {
+                    fontFamily: "var(--font-body), sans-serif",
+                    color: "#252a33",
+                    "::placeholder": { color: "#9aa1af" },
+                  },
+                },
+                classes: {
+                  base: "rounded-md border border-gray-200 px-4 py-3",
+                },
+              }}
+              onChange={(event) => {
+                setCardComplete(event.complete)
+                if (event.error?.message) {
+                  setCardError(event.error.message)
+                } else {
+                  setCardError(null)
+                }
+              }}
+            />
+            {cardError && (
+              <p
+                role="status"
+                aria-live="polite"
+                className="mt-2 text-[12px] font-medium text-rose-600"
+              >
+                {cardError}
+              </p>
+            )}
+          </div>
+        )}
+
+      {isInstallmentMethod(selectedPaymentMethod) && showInstallments && (
+        <InstallmentPlanSelector
+          plans={installmentPlans}
+          selectedPlanId={selectedPlanId}
+          currencyCode={cart.currency_code}
+          disabled={isPending || isSavingCheckoutDetails}
+          onSelectPlan={selectPlan}
+        />
+      )}
+
+      {!showInstallments && installmentLoadError ? (
+        <div className="mt-3 rounded-md border border-gray-200 px-4 py-3 text-[12px] font-medium text-[#7b8493]">
+          Installment Plans unavailable for this cart.
+        </div>
+      ) : null}
       {actionError && (
         <p
           role="status"
@@ -1454,96 +1556,112 @@ function PaymentMethodSelector({
   )
 }
 
-function InstallmentPaymentOption({
+function PaymentMethodTile({
+  label,
   checked,
+  disabled,
+  onClick,
+  icon,
+}: {
+  label: string
+  checked: boolean
+  disabled: boolean
+  onClick: () => void
+  icon: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-label={label}
+      aria-checked={checked}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className={`relative flex min-h-[60px] min-w-0 max-w-[160px] flex-1 basis-[68px] items-center justify-center rounded-md border px-2 py-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:ring-offset-2 small:min-h-[72px] small:rounded-lg small:px-4 small:py-3 ${
+        checked
+          ? "border-brand bg-brand/5 shadow-[0_5px_16px_rgba(255,92,14,0.12)] ring-1 ring-inset ring-brand"
+          : "border-gray-200 bg-white hover:border-brand/40 hover:bg-gray-50"
+      } disabled:cursor-not-allowed disabled:opacity-60`}
+    >
+      <span className="absolute right-0.5 top-0.5 scale-75 small:right-2 small:top-2 small:scale-90">
+        <Radio checked={checked} />
+      </span>
+      <span
+        aria-hidden="true"
+        className="flex h-8 min-w-0 w-full items-center justify-center text-[#4b5563] small:h-10 [&>img]:h-7 [&>img]:w-full [&>img]:max-w-[76px] [&>img]:object-contain small:[&>img]:h-9 small:[&>img]:max-w-[112px] [&>svg]:h-5 [&>svg]:w-5 small:[&>svg]:h-7 small:[&>svg]:w-7"
+      >
+        {icon}
+      </span>
+      <span className="sr-only">{label}</span>
+    </button>
+  )
+}
+
+function InstallmentPlanSelector({
   plans,
   selectedPlanId,
   currencyCode,
   disabled,
-  onSelectMethod,
   onSelectPlan,
 }: {
-  checked: boolean
   plans: StoreInstallmentPlan[]
   selectedPlanId: string
   currencyCode: string
   disabled: boolean
-  onSelectMethod: () => void
   onSelectPlan: (planId: string) => void
 }) {
   return (
-    <div className="border-b border-gray-100">
-      <button
-        type="button"
-        role="radio"
-        aria-checked={checked}
-        onClick={onSelectMethod}
-        disabled={disabled}
-        className={`flex min-h-[42px] w-full items-center gap-4 px-4 text-left ${
-          checked ? "bg-brand/5 ring-1 ring-inset ring-brand" : ""
-        } disabled:cursor-not-allowed disabled:opacity-60`}
-      >
-        <Radio checked={checked} />
-        <span className="text-[#6f7b8e]">
-          <CreditCard />
-        </span>
-        <span className="flex-1 text-[13px] font-bold text-[#252a33]">
-          Installment Plans
-          <span className="mt-1 block text-[11px] font-medium text-[#6b7280]">
-            Choose a bank plan and complete payment through WEBXPAY.
+    <div
+      role="radiogroup"
+      aria-label="Installment plan"
+      className="mt-3 max-h-[360px] overflow-y-auto rounded-md border border-gray-200 bg-white px-4 py-2"
+    >
+      {plans.map((plan) => (
+        <button
+          key={plan.id}
+          type="button"
+          role="radio"
+          aria-checked={selectedPlanId === plan.id}
+          onClick={() => onSelectPlan(plan.id)}
+          disabled={disabled}
+          className={`grid min-h-[50px] w-full grid-cols-[22px_minmax(0,1fr)_82px] items-center gap-3 border-b border-gray-100 py-2 text-left last:border-b-0 ${
+            selectedPlanId === plan.id ? "text-brand" : "text-[#4b5260]"
+          } disabled:cursor-not-allowed disabled:opacity-60`}
+        >
+          <Radio checked={selectedPlanId === plan.id} />
+          <span className="min-w-0">
+            <span className="block truncate text-[13px] font-bold">
+              {plan.tenor_months} Months
+              {plan.installment_charge_amount !== undefined
+                ? ` (${installmentMoney(
+                    plan.installment_charge_amount,
+                    currencyCode
+                  )})`
+                : ""}{" "}
+              {formatInstallmentRate(plan.fee_percentage)}
+            </span>
+            <span className="block text-[11px] font-medium text-[#8b93a3]">
+              {plan.bank_name}
+            </span>
           </span>
-        </span>
-      </button>
-
-      {checked && (
-        <div className="max-h-[360px] overflow-y-auto border-t border-gray-100 bg-white px-4 py-2">
-          {plans.map((plan) => (
-            <button
-              key={plan.id}
-              type="button"
-              role="radio"
-              aria-checked={selectedPlanId === plan.id}
-              onClick={() => onSelectPlan(plan.id)}
-              disabled={disabled}
-              className={`grid min-h-[50px] w-full grid-cols-[22px_minmax(0,1fr)_82px] items-center gap-3 border-b border-gray-100 py-2 text-left last:border-b-0 ${
-                selectedPlanId === plan.id ? "text-brand" : "text-[#4b5260]"
-              } disabled:cursor-not-allowed disabled:opacity-60`}
-            >
-              <Radio checked={selectedPlanId === plan.id} />
-              <span className="min-w-0">
-                <span className="block truncate text-[13px] font-bold">
-                  {plan.tenor_months} Months
-                  {plan.installment_charge_amount !== undefined
-                    ? ` (${installmentMoney(
-                        plan.installment_charge_amount,
-                        currencyCode
-                      )})`
-                    : ""}{" "}
-                  {formatInstallmentRate(plan.fee_percentage)}
-                </span>
-                <span className="block text-[11px] font-medium text-[#8b93a3]">
-                  {plan.bank_name}
-                </span>
-              </span>
-              {plan.logo_path ? (
-                <span className="relative h-8 w-[82px] justify-self-end rounded bg-white">
-                  <Image
-                    src={plan.logo_path}
-                    alt={plan.bank_name}
-                    fill
-                    sizes="82px"
-                    className="object-contain"
-                  />
-                </span>
-              ) : (
-                <span className="justify-self-end text-[11px] font-bold">
-                  {plan.bank_code.toUpperCase()}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
+          {plan.logo_path ? (
+            <span className="relative h-8 w-[82px] justify-self-end rounded bg-white">
+              <Image
+                src={plan.logo_path}
+                alt={plan.bank_name}
+                fill
+                sizes="82px"
+                className="object-contain"
+              />
+            </span>
+          ) : (
+            <span className="justify-self-end text-[11px] font-bold">
+              {plan.bank_code.toUpperCase()}
+            </span>
+          )}
+        </button>
+      ))}
     </div>
   )
 }

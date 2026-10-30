@@ -6,10 +6,6 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 
-/** Same silhouette as /images/homepagebanner-01.svg — used for click hit-testing. */
-const HERO_BANNER_PATH =
-  "M1879.29,210.14V853.71a32,32,0,0,1-32,32l-649.17-.3c-3.08.45-28.41,3.71-46.59-14.59-7.84-7.88-10-16.47-14-26.31-3.64-9.08-10.31-16.7-17.58-23.1-20.92-18.43-45.38-20.77-54.59-21.17H854.59c-9.21.4-33.67,2.74-54.59,21.17-7.27,6.4-13.94,14-17.58,23.1-3.93,9.84-6.11,18.43-13.95,26.31-18.18,18.3-43.51,15-46.59,14.59l-649.17.3a32,32,0,0,1-32-32V210.14a34.42,34.42,0,0,1,34.43-34.43H1844.86A34.42,34.42,0,0,1,1879.29,210.14Z"
-
 type HeroProps = {
   sections: HomepageCmsSection[]
 }
@@ -95,7 +91,7 @@ const Hero = ({ sections }: HeroProps) => {
 
   return (
     <section className="font-hero-body w-full overflow-hidden bg-white pt-2 sm:pt-3">
-      <div className="mx-0 w-full max-w-full overflow-hidden px-0 small:mx-auto small:w-[90%] small:max-w-[1920px]">
+      <div className="w-full overflow-hidden">
         <div
           className="relative isolate aspect-[16/9] min-h-[210px] overflow-hidden text-white xsmall:min-h-[230px] sm:aspect-[1839/710] sm:min-h-[300px] small:min-h-0"
           aria-roledescription="carousel"
@@ -105,19 +101,7 @@ const Hero = ({ sections }: HeroProps) => {
           onFocus={() => setIsPaused(true)}
           onBlur={() => setIsPaused(false)}
         >
-          <div
-            className="home-hero-mask absolute inset-0 z-10 overflow-hidden bg-black [--hero-mask-image:url(/images/homepagebanner-01.svg)] [--hero-mask-position:center_47.6%] [--hero-mask-size:156%_auto] [--hero-hit-width:156%] [--hero-hit-top:47.6%] sm:[--hero-mask-size:132%_auto] sm:[--hero-hit-width:132%] small:[--hero-mask-position:center_47.6%] small:[--hero-mask-size:104.5%_auto] small:[--hero-hit-width:104.5%]"
-            style={{
-              WebkitMaskImage: "var(--hero-mask-image)",
-              WebkitMaskSize: "var(--hero-mask-size)",
-              WebkitMaskPosition: "var(--hero-mask-position)",
-              WebkitMaskRepeat: "no-repeat",
-              maskImage: "var(--hero-mask-image)",
-              maskSize: "var(--hero-mask-size)",
-              maskPosition: "var(--hero-mask-position)",
-              maskRepeat: "no-repeat",
-            }}
-          >
+          <div className="absolute inset-0 z-10 overflow-hidden bg-black">
             <div
               className="flex h-full transition-transform duration-700 ease-in-out motion-reduce:transition-none"
               style={{ transform: `translateX(-${activeIndex * 100}%)` }}
@@ -143,7 +127,7 @@ const Hero = ({ sections }: HeroProps) => {
                     )}
 
                     {slide.linkUrl && (
-                      <HeroBannerShapeLink
+                      <HeroBannerLink
                         href={slide.linkUrl}
                         aria-label={
                           slide.title ||
@@ -250,11 +234,7 @@ const Hero = ({ sections }: HeroProps) => {
   )
 }
 
-/**
- * Clickable region matching the banner SVG silhouette.
- * Outside the path (white cutout / corners) does not navigate.
- */
-function HeroBannerShapeLink({
+function HeroBannerLink({
   href,
   "aria-label": ariaLabel,
   tabIndex,
@@ -268,47 +248,38 @@ function HeroBannerShapeLink({
   const resolvedHref = external ? href : localizedPath(href)
 
   return (
-    <svg
-      className="home-hero-hit-svg pointer-events-none absolute left-1/2 z-[15] h-auto max-w-none -translate-x-1/2 -translate-y-1/2 overflow-visible"
-      viewBox="0 0 1920 1080"
+    <a
+      href={resolvedHref}
+      aria-label={ariaLabel}
       aria-hidden={tabIndex === -1 ? true : undefined}
-      style={{
-        width: "var(--hero-hit-width, 156%)",
-        top: "var(--hero-hit-top, 47.6%)",
+      tabIndex={tabIndex}
+      className="absolute inset-0 z-[15] block cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
+      rel={external ? "noopener noreferrer" : undefined}
+      target={external ? "_blank" : undefined}
+      onClick={(event) => {
+        if (external || event.defaultPrevented) {
+          return
+        }
+        if (
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return
+        }
+        event.preventDefault()
+        if (href.startsWith("#")) {
+          const id = href.slice(1)
+          document.getElementById(id)?.scrollIntoView({ behavior: "smooth" })
+          return
+        }
+        router.push(resolvedHref)
       }}
     >
-      <a
-        href={resolvedHref}
-        aria-label={ariaLabel}
-        tabIndex={tabIndex}
-        className="pointer-events-auto cursor-pointer outline-none"
-        rel={external ? "noopener noreferrer" : undefined}
-        target={external ? "_blank" : undefined}
-        onClick={(event) => {
-          if (external || event.defaultPrevented) {
-            return
-          }
-          if (
-            event.button !== 0 ||
-            event.metaKey ||
-            event.ctrlKey ||
-            event.shiftKey ||
-            event.altKey
-          ) {
-            return
-          }
-          event.preventDefault()
-          if (href.startsWith("#")) {
-            const id = href.slice(1)
-            document.getElementById(id)?.scrollIntoView({ behavior: "smooth" })
-            return
-          }
-          router.push(resolvedHref)
-        }}
-      >
-        <path d={HERO_BANNER_PATH} fill="transparent" />
-      </a>
-    </svg>
+      <span className="sr-only">{ariaLabel}</span>
+    </a>
   )
 }
 

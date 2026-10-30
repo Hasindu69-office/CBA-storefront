@@ -1,6 +1,9 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { validateCheckoutAddressFormData } from "../checkout-address-validation"
+import {
+  checkoutAddressErrorSummary,
+  validateCheckoutAddressFormData,
+} from "../checkout-address-validation"
 import { resolveCheckoutValidationFieldName } from "../checkout-validation-focus"
 import {
   normalizeSriLankanPhone,
@@ -140,6 +143,36 @@ describe("validateCheckoutAddressFormData", () => {
     assert.equal(
       result.fieldErrors.delivery_instructions,
       "Delivery instructions must be between 1 and 500 characters."
+    )
+  })
+})
+
+describe("checkoutAddressErrorSummary", () => {
+  it("lists missing and invalid fields in checkout display order", () => {
+    assert.equal(
+      checkoutAddressErrorSummary({
+        email: "Enter a valid email address.",
+        "shipping_address.postal_code": "Postal code is required.",
+        full_name: "Full name is required.",
+        "shipping_address.phone": "Enter a valid Sri Lankan phone number.",
+      }),
+      "Please complete or correct these fields: Full Name, Phone Number, Email Address, Postal Code."
+    )
+  })
+
+  it("includes optional fields when their supplied value is invalid", () => {
+    assert.equal(
+      checkoutAddressErrorSummary({
+        delivery_instructions: "Delivery instructions contain invalid characters.",
+      }),
+      "Please complete or correct these fields: Delivery Instructions."
+    )
+  })
+
+  it("falls back to the existing form-level guidance", () => {
+    assert.equal(
+      checkoutAddressErrorSummary({}),
+      "Please check the highlighted delivery details."
     )
   })
 })
