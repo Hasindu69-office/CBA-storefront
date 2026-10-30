@@ -30,6 +30,7 @@ import { convertToLocale } from "@lib/util/money"
 import { mapAuthoritativeTotals } from "@lib/util/cart-totals"
 import { calculateCartInstallmentPricing } from "@lib/util/installment-totals"
 import {
+  checkoutAddressErrorSummary,
   firstCheckoutAddressErrorField,
   validateCheckoutAddressFormData,
   type CheckoutAddressFieldName,
@@ -108,6 +109,11 @@ type CbaCheckoutCart = HttpTypes.StoreCart & {
 type CheckoutAddressFieldErrors = Partial<
   Record<CheckoutAddressFieldName, string>
 >
+
+type CheckoutValidationPopupState = {
+  message: string
+  firstField: CheckoutAddressFieldName | null
+}
 
 function money(amount: number | null | undefined, currencyCode: string) {
   return convertToLocale({
@@ -271,6 +277,8 @@ export default function CbaCheckoutTemplate({
   const [addressFieldErrors, setAddressFieldErrors] =
     useState<CheckoutAddressFieldErrors>({})
   const [addressFormError, setAddressFormError] = useState<string | null>(null)
+  const [checkoutValidationPopup, setCheckoutValidationPopup] =
+    useState<CheckoutValidationPopupState | null>(null)
 
   const metaCheckoutLines = useMemo(
     () => linesFromCartLikeItems(cart.items),
@@ -330,6 +338,25 @@ export default function CbaCheckoutTemplate({
     []
   )
 
+  const showCheckoutValidationPopup = useCallback(
+    (fieldErrors: CheckoutAddressFieldErrors) => {
+      notify.dismiss("checkout-details")
+      setCheckoutValidationPopup({
+        message: checkoutAddressErrorSummary(fieldErrors),
+        firstField: firstCheckoutAddressErrorField(fieldErrors),
+      })
+    },
+    []
+  )
+
+  const reviewCheckoutValidationFields = useCallback(() => {
+    const firstField = checkoutValidationPopup?.firstField ?? null
+    setCheckoutValidationPopup(null)
+    if (firstField) {
+      window.requestAnimationFrame(() => focusAddressField(firstField))
+    }
+  }, [checkoutValidationPopup, focusAddressField])
+
   const saveCurrentCheckoutDetails = useCallback(async () => {
     const form = addressFormRef.current
     if (!form) {
@@ -342,9 +369,7 @@ export default function CbaCheckoutTemplate({
     if (!clientValidation.ok) {
       setAddressFieldErrors(clientValidation.fieldErrors)
       setAddressFormError(clientValidation.formError)
-      focusAddressField(
-        firstCheckoutAddressErrorField(clientValidation.fieldErrors)
-      )
+      showCheckoutValidationPopup(clientValidation.fieldErrors)
       return clientValidation.formError
     }
 
@@ -371,7 +396,7 @@ export default function CbaCheckoutTemplate({
       if (result.fieldErrors && Object.keys(result.fieldErrors).length) {
         setAddressFieldErrors(result.fieldErrors)
         setAddressFormError(result.error)
-        focusAddressField(firstCheckoutAddressErrorField(result.fieldErrors))
+        showCheckoutValidationPopup(result.fieldErrors)
       } else {
         notify.error(result.error, "Could not save delivery details.", {
           id: "checkout-details",
@@ -382,6 +407,7 @@ export default function CbaCheckoutTemplate({
 
     setAddressFieldErrors({})
     setAddressFormError(null)
+    setCheckoutValidationPopup(null)
     if (result.addressSaveWarning) {
       notify.warning(result.addressSaveWarning, { id: "checkout-address-save" })
     } else {
@@ -389,7 +415,7 @@ export default function CbaCheckoutTemplate({
     }
     notify.dismiss("checkout-details")
     return null
-  }, [focusAddressField])
+  }, [showCheckoutValidationPopup])
 
   return (
     <div className="content-container py-10 small:py-12">
@@ -467,6 +493,100 @@ export default function CbaCheckoutTemplate({
             selectedInstallment={selectedInstallment}
           />
         </aside>
+      </div>
+      {checkoutValidationPopup && (
+        <CheckoutValidationPopup
+          message={checkoutValidationPopup.message}
+          onReview={reviewCheckoutValidationFields}
+        />
+      )}
+    </div>
+  )
+}
+
+function CheckoutValidationPopup({
+  message,
+  onReview,
+}: {
+  message: string
+  onReview: () => void
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const closeTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const animationFrame = window.requestAnimationFrame(() => setIsVisible(true))
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame)
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
+    }
+  }, [])
+
+  const closePopup = () => {
+    if (closeTimerRef.current) return
+    setIsVisible(false)
+    closeTimerRef.current = window.setTimeout(onReview, 200)
+  }
+
+  return (
+    <div
+      className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px] transition-opacity duration-200 ease-out motion-reduce:transition-none ${
+        isVisible ? "opacity-100" : "opacity-0"
+      }`}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) closePopup()
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="checkout-validation-title"
+        aria-describedby="checkout-validation-description"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") closePopup()
+          if (event.key === "Tab") {
+            event.preventDefault()
+            event.currentTarget.querySelector<HTMLButtonElement>("button")?.focus()
+          }
+        }}
+        className={`w-[calc(100vw-2.5rem)] max-w-md rounded-xl border border-rose-100 bg-white p-5 shadow-[0_24px_70px_rgba(17,24,39,0.28)] transition-[opacity,transform] duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none small:w-full small:p-6 ${
+          isVisible
+            ? "translate-y-0 scale-100 opacity-100"
+            : "translate-y-2 scale-[0.97] opacity-0"
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <span
+            aria-hidden="true"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-50 text-lg font-black text-rose-600"
+          >
+            !
+          </span>
+          <div className="min-w-0">
+            <h2
+              id="checkout-validation-title"
+              className="text-lg font-bold text-[#252a33]"
+            >
+              Complete the required details
+            </h2>
+            <p
+              id="checkout-validation-description"
+              className="mt-2 text-sm leading-6 text-[#5f6878]"
+            >
+              {message}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          autoFocus
+          onClick={closePopup}
+          className="mt-5 flex h-11 w-full items-center justify-center rounded-md bg-brand px-4 text-sm font-bold text-white transition-colors hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:ring-offset-2"
+        >
+          Review fields
+        </button>
       </div>
     </div>
   )
