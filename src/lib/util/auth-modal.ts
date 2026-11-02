@@ -20,3 +20,16 @@ export function safeAuthDestination(value?: string | null) {
   }
 }
 
+export function routeHostedAuthDestination(
+  pathname: string,
+  search = "",
+  hash = ""
+) {
+  if (/\/account\/(?:forgot-password|reset-password|email-change\/confirm)\/?$/.test(pathname)) {
+    return "/account"
+  }
+  const normalizedSearch = search && !search.startsWith("?") ? `?${search}` : search
+  const normalizedHash = hash && !hash.startsWith("#") ? `#${hash}` : hash
+  return safeAuthDestination(`${pathname}${normalizedSearch}${normalizedHash}`) ?? "/account"
+}
+
