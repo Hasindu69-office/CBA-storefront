@@ -93,7 +93,7 @@ const Hero = ({ sections }: HeroProps) => {
     <section className="font-hero-body w-full overflow-hidden bg-white pt-2 sm:pt-3">
       <div className="w-full overflow-hidden">
         <div
-          className="relative isolate aspect-[16/9] min-h-[210px] w-full overflow-hidden text-white xsmall:min-h-[230px] sm:aspect-[1839/710] sm:min-h-[300px] small:aspect-[32/9] small:min-h-0"
+          className="relative isolate aspect-[16/9] min-h-[210px] w-full overflow-hidden text-white xsmall:min-h-[230px] sm:aspect-[1839/710] sm:min-h-[300px] small:aspect-[16/5] small:min-h-0"
           aria-roledescription="carousel"
           aria-label="Homepage featured banners"
           onMouseEnter={() => setIsPaused(true)}
@@ -219,7 +219,7 @@ const Hero = ({ sections }: HeroProps) => {
               <button
                 key={`${slide.id}-dot`}
                 type="button"
-                className={`h-2.5 w-2.5 rounded-full border-0 p-0 transition-colors small:h-[13px] small:w-[13px] ${
+                className={`h-2 w-2 rounded-full border-0 p-0 transition-colors small:h-2.5 small:w-2.5 ${
                   index === activeIndex ? "bg-[#ff5c0e]" : "bg-[#d4d7da]"
                 }`}
                 aria-label={`Show banner ${index + 1}`}
