@@ -2,6 +2,7 @@
 
 import type { AccountAuthSettings } from "@lib/data/account-auth"
 import type { AuthView } from "@lib/util/auth-modal"
+import { routeHostedAuthDestination } from "@lib/util/auth-modal"
 import { useAuthModal } from "@modules/account/context/auth-modal-context"
 import { usePathname, useSearchParams } from "next/navigation"
 import { useEffect, useRef } from "react"
@@ -12,8 +13,8 @@ export enum LOGIN_VIEW {
 }
 
 export default function LoginTemplate({ settings, countryCode }: {
-  settings: AccountAuthSettings
-  countryCode: string
+  settings?: AccountAuthSettings
+  countryCode?: string
 }) {
   void settings
   void countryCode
@@ -33,12 +34,17 @@ export default function LoginTemplate({ settings, countryCode }: {
       : searchParams.get("email_changed") === "1"
         ? "Your email was updated successfully. Sign in with your new email and existing password."
         : undefined
+    const destination = routeHostedAuthDestination(
+      pathname,
+      searchParams.toString(),
+      window.location.hash
+    )
     modal.open(view, {
       routeHosted: true,
       token: searchParams.get("token") ?? "",
       email: searchParams.get("email") ?? "",
       notice,
-      intent: { behavior: "navigate-after-auth", destination: "/account" },
+      intent: { behavior: "navigate-after-auth", destination },
     })
   }, [modal, pathname, searchParams])
 
