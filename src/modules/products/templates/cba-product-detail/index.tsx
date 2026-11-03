@@ -269,8 +269,7 @@ export default function CbaProductDetail({
     quantity,
     onActionMessage: setActionState,
   }
-  const shortDescription =
-    detail?.catalog_profile?.short_description ?? product.description ?? ""
+  const shortDescription = product.description ?? ""
   const bulletSpecs =
     detail?.specification_groups
       .flatMap((group) => group.specifications)
@@ -580,7 +579,9 @@ export default function CbaProductDetail({
             )}
             <ul className="mt-4 space-y-1.5 text-sm text-gray-700">
               {shortDescription && (
-                <li className="text-justify leading-6">{shortDescription}</li>
+                <li className="whitespace-pre-line text-justify leading-6">
+                  {shortDescription}
+                </li>
               )}
               {bulletSpecs.map((spec) => (
                 <li key={spec.definition_id}>
