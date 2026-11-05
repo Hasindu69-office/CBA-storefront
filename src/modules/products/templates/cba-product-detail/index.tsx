@@ -543,6 +543,14 @@ export default function CbaProductDetail({
             <h1 className="mt-2 max-w-xl text-2xl font-bold leading-tight small:text-[28px]">
               {product.title}
             </h1>
+            {product.subtitle && (
+              <p
+                className="mt-1.5 max-w-xl text-sm leading-6 text-gray-600 small:text-[15px]"
+                data-testid="pdp-product-subtitle"
+              >
+                {product.subtitle}
+              </p>
+            )}
             {price && (
               <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <span
@@ -1303,7 +1311,7 @@ function ProductGallery({
   return (
     <div className="min-w-0">
       <div
-        className={`relative aspect-[4/3] overflow-hidden rounded-rounded bg-gray-50 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${
+        className={`relative aspect-[4/3] overflow-hidden rounded-rounded bg-white outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${
           activeImage
             ? isTouchZoomed
               ? "cursor-zoom-out"
