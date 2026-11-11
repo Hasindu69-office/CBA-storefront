@@ -1,37 +1,39 @@
 import { sdk } from "@lib/config"
 import { HttpTypes } from "@medusajs/types"
-import { getCacheOptions } from "./cookies"
 
 export const listCategories = async (query?: Record<string, any>) => {
-  const next = {
-    ...(await getCacheOptions("categories")),
+  const limit = query?.limit || 100
+  const fetchPage = (offset: number) =>
+    sdk.client.fetch<{
+      product_categories: HttpTypes.StoreProductCategory[]
+      count: number
+    }>("/store/product-categories", {
+      query: {
+        fields:
+          "*category_children, *products, *parent_category, *parent_category.parent_category",
+        limit,
+        offset,
+        ...query,
+      },
+      cache: "no-store",
+    })
+
+  const firstPage = await fetchPage(query?.offset ?? 0)
+  if (query) {
+    return firstPage.product_categories
   }
 
-  const limit = query?.limit || 100
+  const categories = [...firstPage.product_categories]
+  for (let offset = limit; offset < firstPage.count; offset += limit) {
+    const page = await fetchPage(offset)
+    categories.push(...page.product_categories)
+  }
 
-  return sdk.client
-    .fetch<{ product_categories: HttpTypes.StoreProductCategory[] }>(
-      "/store/product-categories",
-      {
-        query: {
-          fields:
-            "*category_children, *products, *parent_category, *parent_category.parent_category",
-          limit,
-          ...query,
-        },
-        next,
-        cache: "force-cache",
-      }
-    )
-    .then(({ product_categories }) => product_categories)
+  return categories
 }
 
 export const getCategoryByHandle = async (categoryHandle: string[]) => {
   const handle = `${categoryHandle.join("/")}`
-
-  const next = {
-    ...(await getCacheOptions("categories")),
-  }
 
   return sdk.client
     .fetch<HttpTypes.StoreProductCategoryListResponse>(
@@ -41,8 +43,7 @@ export const getCategoryByHandle = async (categoryHandle: string[]) => {
           fields: "*category_children, *products",
           handle,
         },
-        next,
-        cache: "force-cache",
+        cache: "no-store",
       }
     )
     .then(({ product_categories }) => product_categories[0])
