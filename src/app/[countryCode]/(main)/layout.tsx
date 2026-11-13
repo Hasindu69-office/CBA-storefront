@@ -17,10 +17,13 @@ export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
 }
 
-export default async function PageLayout(props: { children: React.ReactNode; params: Promise<{ countryCode: string }> }) {
+export default async function PageLayout(props: {
+  children: React.ReactNode
+  params: Promise<{ countryCode: string }>
+}) {
   const { countryCode } = await props.params
   const [customer, cart, authSettings] = await Promise.all([
-    retrieveCustomer(),
+    retrieveCustomer({ mode: "chrome" }),
     retrieveCart(),
     retrieveAccountAuthSettings(),
   ])
@@ -33,10 +36,18 @@ export default async function PageLayout(props: { children: React.ReactNode; par
   }
 
   return (
-    <AuthModalProvider settings={authSettings} countryCode={countryCode} authenticated={Boolean(customer)}>
+    <AuthModalProvider
+      settings={authSettings}
+      countryCode={countryCode}
+      authenticated={Boolean(customer)}
+    >
       <LogoutNotice />
       <div className="cba-site-chrome">
-        <Nav customer={customer} />
+        <Nav
+          customer={customer}
+          cart={cart}
+          shippingOptions={shippingOptions}
+        />
       </div>
       {customer && cart && (
         <div className="cba-site-chrome">

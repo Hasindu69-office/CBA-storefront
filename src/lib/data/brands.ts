@@ -1,4 +1,5 @@
 import { sdk } from "@lib/config"
+import { PUBLIC_CACHE_TAGS, publicContentFetchOptions } from "./public-cache"
 
 export type StorefrontBrand = {
   id: string
@@ -30,7 +31,7 @@ export const listHomepageBrands = async ({ limit = 24 }: { limit?: number }) => 
 
   return sdk.client
     .fetch<BrandListResponse>("/store/cba/v1/brands", {
-      cache: "no-store",
+      ...publicContentFetchOptions([PUBLIC_CACHE_TAGS.homepageBrands]),
       query: {
         homepage_visible: true,
         sort: "homepage_sort_order",

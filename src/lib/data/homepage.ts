@@ -1,4 +1,5 @@
 import { sdk } from "@lib/config"
+import { PUBLIC_CACHE_TAGS, publicContentFetchOptions } from "./public-cache"
 
 export type HomepageCmsItem = {
   id?: string
@@ -54,7 +55,7 @@ type HomepageResponse =
 export const listHomepageContent = async () => {
   return sdk.client
     .fetch<HomepageResponse>("/store/cba/v1/homepage", {
-      cache: "no-store",
+      ...publicContentFetchOptions([PUBLIC_CACHE_TAGS.homepage]),
     })
     .then((payload) => {
       if (!payload.success) {
