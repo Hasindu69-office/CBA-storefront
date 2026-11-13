@@ -1,7 +1,13 @@
 import { sdk } from "@lib/config"
 import { HttpTypes } from "@medusajs/types"
+import { cache } from "react"
+import { PUBLIC_CACHE_TAGS, publicContentFetchOptions } from "./public-cache"
 
-export const listCategories = async (query?: Record<string, any>) => {
+/** Fields needed for nav/footer category trees — never expand *products here. */
+const NAV_CATEGORY_FIELDS =
+  "id,name,handle,parent_category_id,parent_category.id,parent_category.name,parent_category.handle,*category_children"
+
+export const listCategories = cache(async (query?: Record<string, any>) => {
   const limit = query?.limit || 100
   const fetchPage = (offset: number) =>
     sdk.client.fetch<{
@@ -9,13 +15,12 @@ export const listCategories = async (query?: Record<string, any>) => {
       count: number
     }>("/store/product-categories", {
       query: {
-        fields:
-          "*category_children, *products, *parent_category, *parent_category.parent_category",
+        fields: NAV_CATEGORY_FIELDS,
         limit,
         offset,
         ...query,
       },
-      cache: "no-store",
+      ...publicContentFetchOptions([PUBLIC_CACHE_TAGS.productCategories]),
     })
 
   const firstPage = await fetchPage(query?.offset ?? 0)
@@ -30,7 +35,7 @@ export const listCategories = async (query?: Record<string, any>) => {
   }
 
   return categories
-}
+})
 
 export const getCategoryByHandle = async (categoryHandle: string[]) => {
   const handle = `${categoryHandle.join("/")}`

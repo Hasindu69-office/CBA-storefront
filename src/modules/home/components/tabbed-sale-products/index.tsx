@@ -13,6 +13,8 @@ import TabbedSaleProductsClient from "./tabbed-sale-products-client"
 
 type TabbedSaleProductsSectionProps = {
   sections: HomepageCmsSection[]
+  /** Reuse homepage featured payload to avoid a duplicate featured API call. */
+  featuredProducts?: FeaturedProductCard[]
   kokoBranding?: KokoCheckoutBranding | null
   kokoAvailable?: boolean
 }
@@ -66,6 +68,7 @@ const TAB_CONFIG: Array<{ key: TabbedSaleTabKey; label: string }> = [
 
 const TabbedSaleProductsSection = async ({
   sections,
+  featuredProducts,
   kokoBranding,
   kokoAvailable = false,
 }: TabbedSaleProductsSectionProps) => {
@@ -80,6 +83,9 @@ const TabbedSaleProductsSection = async ({
   }
 
   const limit = limitConfig(section.config?.limit)
+  const reusedFeaturedProducts = Array.isArray(featuredProducts)
+    ? featuredProducts.slice(0, limit)
+    : null
   const fetchedTabs = visibility.tabs
     ? await Promise.all(
         TAB_CONFIG.map(async (tab) => {
@@ -87,7 +93,8 @@ const TabbedSaleProductsSection = async ({
 
           const products =
             tab.key === "featured" && !tabConfig.sourceId
-              ? await listFeaturedProductCards(limit).catch(() => [])
+              ? reusedFeaturedProducts ??
+                (await listFeaturedProductCards(limit).catch(() => []))
               : await listTabbedSaleProductCards({
                   tabKey: tab.key,
                   sourceType: tabConfig.sourceType,
