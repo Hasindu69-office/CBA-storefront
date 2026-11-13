@@ -1,9 +1,10 @@
 "use client"
 
+import { cancelOpenPaymentAttemptsAction } from "@lib/data/cancel-open-payments"
 import { prepareWebxpayRedirectAction } from "@lib/data/webxpay"
 import { localizedPath } from "@lib/util/routes"
-import Link from "next/link"
-import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useEffect, useRef, useState, useTransition } from "react"
 
 type Props = {
   countryCode: string
@@ -11,12 +12,21 @@ type Props = {
 }
 
 export default function WebxpayRedirectClient({ countryCode, cartId }: Props) {
+  const router = useRouter()
+  const [isCancelling, startCancel] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
   const startedRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const [fields, setFields] = useState<Record<string, string> | null>(null)
   const [actionUrl, setActionUrl] = useState<string | null>(null)
   const [amountLabel, setAmountLabel] = useState<string | null>(null)
+
+  const cancelAndReturn = () => {
+    startCancel(async () => {
+      await cancelOpenPaymentAttemptsAction("WEBXPAY_STATUS_DECLINED")
+      router.push(localizedPath(`/${countryCode}/checkout`))
+    })
+  }
 
   useEffect(() => {
     if (startedRef.current) return
@@ -73,12 +83,14 @@ export default function WebxpayRedirectClient({ countryCode, cartId }: Props) {
       <div className="w-full max-w-md rounded-md border border-gray-100 bg-white p-6 shadow-sm">
         <h1 className="text-[22px] font-bold text-[#111111]">Payment could not start</h1>
         <p className="mt-3 text-[14px] text-[#626978]">{error}</p>
-        <Link
-          href={localizedPath(`/${countryCode}/checkout`)}
-          className="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-brand px-5 text-[14px] font-bold text-white hover:bg-brand-hover"
+        <button
+          type="button"
+          disabled={isCancelling}
+          onClick={cancelAndReturn}
+          className="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-brand px-5 text-[14px] font-bold text-white hover:bg-brand-hover disabled:opacity-60"
         >
-          Return to checkout
-        </Link>
+          {isCancelling ? "Returning…" : "Return to checkout"}
+        </button>
       </div>
     )
   }
@@ -118,12 +130,14 @@ export default function WebxpayRedirectClient({ countryCode, cartId }: Props) {
           Continue to WEBXPAY
         </button>
       </form>
-      <Link
-        href={localizedPath(`/${countryCode}/checkout`)}
-        className="mt-4 inline-flex w-full items-center justify-center text-[13px] font-semibold text-[#626978] underline"
+      <button
+        type="button"
+        disabled={isCancelling}
+        onClick={cancelAndReturn}
+        className="mt-4 inline-flex w-full items-center justify-center text-[13px] font-semibold text-[#626978] underline disabled:opacity-60"
       >
-        Cancel and return to checkout
-      </Link>
+        {isCancelling ? "Cancelling…" : "Cancel and return to checkout"}
+      </button>
     </div>
   )
 }

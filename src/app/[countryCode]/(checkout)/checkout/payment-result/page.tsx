@@ -1,3 +1,4 @@
+import { cancelOpenPaymentAttemptsAction } from "@lib/data/cancel-open-payments"
 import { Metadata } from "next"
 import Link from "next/link"
 import { localizedPath } from "@lib/util/routes"
@@ -79,6 +80,14 @@ export default async function PaymentResultPage({ params, searchParams }: Props)
     query.message.length < 200
       ? query.message
       : copy.message
+
+  // Non-success gateway exits: close leftover open attempts so admin is not stuck
+  // on redirect_ready after cancel/invalid returns that never marked the attempt.
+  if (["declined", "cancelled", "expired", "failed", "unknown"].includes(status)) {
+    await cancelOpenPaymentAttemptsAction(
+      typeof query.code === "string" ? query.code.slice(0, 64) : undefined
+    )
+  }
 
   if (status === "declined" || status === "cancelled" || status === "expired") {
     return (
