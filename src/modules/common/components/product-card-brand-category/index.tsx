@@ -12,6 +12,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 export type ProductCardBrandCategoryBrand = {
   id: string
   name: string
+  slug?: string | null
   logo_url?: string | null
   logo_alt_text?: string | null
 } | null
@@ -19,6 +20,7 @@ export type ProductCardBrandCategoryBrand = {
 export type ProductCardBrandCategoryCategory = {
   id: string
   name: string
+  handle?: string | null
 } | null
 
 type ProductCardBrandCategoryProps = {
@@ -71,9 +73,11 @@ const ProductCardBrandCategory = ({
   variant = "raised",
 }: ProductCardBrandCategoryProps) => {
   const styles = VARIANT_STYLES[variant]
-  const brandHref = brand?.id ? buildStoreBrandQueryHref(brand.id) : null
-  const categoryHref = category?.id
-    ? buildStoreCategoryQueryHref(category.id)
+  const brandHref = brand?.slug
+    ? buildStoreBrandQueryHref(brand.slug)
+    : null
+  const categoryHref = category?.handle
+    ? buildStoreCategoryQueryHref(category.handle)
     : null
   const hasBrand = Boolean(brand?.logo_url || brand?.name)
   const hasCategory = Boolean(category?.name)

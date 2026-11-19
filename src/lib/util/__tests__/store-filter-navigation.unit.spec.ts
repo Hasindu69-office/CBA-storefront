@@ -14,7 +14,7 @@ test("removing the only route category exits to the store", () => {
     pathname: "/categories/scanner",
     searchParams: new URLSearchParams(),
     nextCategories: [],
-    routeCategoryId: "pcat_scanner",
+    routeCategoryHandle: "scanner",
   })
 
   assert.equal(href, "/store")
@@ -24,42 +24,42 @@ test("removing the route category preserves remaining categories on the store", 
   const href = buildStoreCategoryFilterHref({
     pathname: "/categories/scanner",
     searchParams: new URLSearchParams(
-      "brand=brand_1&min_price=1000&filters=%7B%22stock_status%22%3A%5B%22in_stock%22%5D%7D&page=2"
+      "brand=cba&min_price=1000&filters=%7B%22stock_status%22%3A%5B%22in_stock%22%5D%7D&page=2"
     ),
-    nextCategories: ["pcat_other"],
-    routeCategoryId: "pcat_scanner",
+    nextCategories: ["other"],
+    routeCategoryHandle: "scanner",
   })
 
   assert.equal(
     href,
-    "/store?brand=brand_1&min_price=1000&filters=%7B%22stock_status%22%3A%5B%22in_stock%22%5D%7D&category=pcat_other"
+    "/store?brand=cba&min_price=1000&filters=%7B%22stock_status%22%3A%5B%22in_stock%22%5D%7D&category=other"
   )
 })
 
 test("removing a non-route category keeps the category landing page", () => {
   const href = buildStoreCategoryFilterHref({
     pathname: "/categories/scanner",
-    searchParams: new URLSearchParams("category=pcat_scanner,pcat_other&page=3"),
-    nextCategories: ["pcat_scanner"],
-    routeCategoryId: "pcat_scanner",
+    searchParams: new URLSearchParams("category=scanner,other&page=3"),
+    nextCategories: ["scanner"],
+    routeCategoryHandle: "scanner",
   })
 
-  assert.equal(href, "/categories/scanner?category=pcat_scanner")
+  assert.equal(href, "/categories/scanner?category=scanner")
 })
 
 test("category navigation preserves search, sort, sale, and other filters", () => {
   const href = buildStoreCategoryFilterHref({
     pathname: "/categories/scanner",
     searchParams: new URLSearchParams(
-      "query=laser&sortBy=price_asc&on_sale=true&brand=brand_1&max_price=50000&page=4"
+      "query=laser&sortBy=price_asc&on_sale=true&brand=cba&max_price=50000&page=4"
     ),
-    nextCategories: ["pcat_scanner"],
-    routeCategoryId: "pcat_scanner",
+    nextCategories: ["scanner"],
+    routeCategoryHandle: "scanner",
   })
 
   assert.equal(
     href,
-    "/categories/scanner?query=laser&sortBy=price_asc&on_sale=true&brand=brand_1&max_price=50000&category=pcat_scanner"
+    "/categories/scanner?query=laser&sortBy=price_asc&on_sale=true&brand=cba&max_price=50000&category=scanner"
   )
 })
 
@@ -67,9 +67,9 @@ test("reset exits a category page and clears filter parameters", () => {
   const href = buildStoreFilterResetHref({
     pathname: "/categories/scanner",
     searchParams: new URLSearchParams(
-      "query=laser&on_sale=true&category=pcat_scanner&brand=brand_1&min_price=1000&max_price=50000&price_range=100000&filters=%7B%22stock_status%22%3A%5B%22in_stock%22%5D%7D&sortBy=price_asc&page=2"
+      "query=laser&on_sale=true&category=scanner&brand=cba&min_price=1000&max_price=50000&price_range=100000&filters=%7B%22stock_status%22%3A%5B%22in_stock%22%5D%7D&sortBy=price_asc&page=2"
     ),
-    routeCategoryId: "pcat_scanner",
+    routeCategoryHandle: "scanner",
   })
 
   assert.equal(href, "/store?query=laser&on_sale=true")
@@ -79,21 +79,21 @@ test("store-page reset stays on the store page", () => {
   const href = buildStoreFilterResetHref({
     pathname: "/store",
     searchParams: new URLSearchParams(
-      "category=pcat_scanner&brand=brand_1&query=laser&page=2"
+      "category=scanner&brand=cba&query=laser&page=2"
     ),
   })
 
   assert.equal(href, "/store?query=laser")
 })
 
-test("brand query href builds a clean store URL", () => {
-  assert.equal(buildStoreBrandQueryHref("brand_1"), "/store?brand=brand_1")
+test("brand query href builds a clean store URL from slug", () => {
+  assert.equal(buildStoreBrandQueryHref("cba"), "/store?brand=cba")
 })
 
-test("category query href builds a clean store URL", () => {
+test("category query href builds a clean store URL from handle", () => {
   assert.equal(
-    buildStoreCategoryQueryHref("pcat_scanner"),
-    "/store?category=pcat_scanner"
+    buildStoreCategoryQueryHref("scanner"),
+    "/store?category=scanner"
   )
 })
 
@@ -122,9 +122,9 @@ test("single-filter query hrefs encode special characters", () => {
   )
 })
 
-test("isValidStoreFilterToken accepts trimmed valid ids", () => {
-  assert.equal(isValidStoreFilterToken("brand_1"), true)
-  assert.equal(isValidStoreFilterToken("  pcat_scanner  "), true)
+test("isValidStoreFilterToken accepts trimmed valid tokens", () => {
+  assert.equal(isValidStoreFilterToken("cba"), true)
+  assert.equal(isValidStoreFilterToken("  scanner  "), true)
   assert.equal(isValidStoreFilterToken(null), false)
   assert.equal(isValidStoreFilterToken(undefined), false)
 })

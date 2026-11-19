@@ -27,7 +27,7 @@ type ShopFilterPanelProps = {
   priceRangeMax: number
   selectedFilters: StoreSearchFilters
   sidebarPromo?: ShopSidebarPromoContent | null
-  routeCategoryId?: string
+  routeCategoryHandle?: string
   exitPath?: string
   presentation?: "sidebar" | "drawer"
 }
@@ -56,7 +56,7 @@ export default function ShopFilterPanel({
   priceRangeMax,
   selectedFilters,
   sidebarPromo,
-  routeCategoryId,
+  routeCategoryHandle,
   exitPath = "/store",
   presentation = "sidebar",
 }: ShopFilterPanelProps) {
@@ -115,8 +115,19 @@ export default function ShopFilterPanel({
     router.push(query ? `${pathname}?${query}` : pathname)
   }
 
-  function toggleCategory(categoryId: string) {
-    const nextCategories = toggleSelectedToken(selectedCategories, categoryId)
+  function toggleCategory(category: HttpTypes.StoreProductCategory) {
+    const categoryHandle = category.handle?.trim()
+    if (!categoryHandle) {
+      return
+    }
+    const isSelected =
+      selectedCategories.includes(categoryHandle) ||
+      selectedCategories.includes(category.id)
+    const nextCategories = isSelected
+      ? selectedCategories.filter(
+          (token) => token !== categoryHandle && token !== category.id
+        )
+      : [...selectedCategories, categoryHandle]
     const isRemoving = nextCategories.length < selectedCategories.length
     if (nextCategories.length > MAX_SELECTED_FILTER_VALUES) {
       notify.warning(`You can select up to ${MAX_SELECTED_FILTER_VALUES} categories.`)
@@ -128,15 +139,25 @@ export default function ShopFilterPanel({
         pathname,
         searchParams,
         nextCategories,
-        routeCategoryId,
+        routeCategoryHandle,
         exitPath,
       })
     )
     notifyFilterChange(isRemoving ? "removed" : "applied")
   }
 
-  function toggleBrand(brandId: string) {
-    const nextBrands = toggleSelectedToken(selectedBrands, brandId)
+  function toggleBrand(brand: StorefrontBrand) {
+    const brandSlug = brand.slug?.trim()
+    if (!brandSlug) {
+      return
+    }
+    const isSelected =
+      selectedBrands.includes(brandSlug) || selectedBrands.includes(brand.id)
+    const nextBrands = isSelected
+      ? selectedBrands.filter(
+          (token) => token !== brandSlug && token !== brand.id
+        )
+      : [...selectedBrands, brandSlug]
     const isRemoving = nextBrands.length < selectedBrands.length
     if (nextBrands.length > MAX_SELECTED_FILTER_VALUES) {
       notify.warning(`You can select up to ${MAX_SELECTED_FILTER_VALUES} brands.`)
@@ -210,7 +231,7 @@ export default function ShopFilterPanel({
       buildStoreFilterResetHref({
         pathname,
         searchParams,
-        routeCategoryId,
+        routeCategoryHandle,
         exitPath,
       })
     )
@@ -293,10 +314,16 @@ export default function ShopFilterPanel({
 
         <div className={`mt-5 ${FILTER_OPTION_LIST_CLASS}`}>
           {visibleCategories.map((category) => {
+            const categoryHandle = category.handle?.trim()
+            if (!categoryHandle) {
+              return null
+            }
             const count = Array.isArray(category.products)
               ? category.products.length
               : undefined
-            const checked = selectedCategories.includes(category.id)
+            const checked =
+              selectedCategories.includes(categoryHandle) ||
+              selectedCategories.includes(category.id)
             return (
               <label
                 key={category.id}
@@ -305,7 +332,7 @@ export default function ShopFilterPanel({
                 <input
                   type="checkbox"
                   checked={checked}
-                  onChange={() => toggleCategory(category.id)}
+                  onChange={() => toggleCategory(category)}
                   className="h-4 w-4 rounded border-[#d4d4d8] accent-brand"
                 />
                 <span className="min-w-0 flex-1 truncate">{category.name}</span>
@@ -337,7 +364,13 @@ export default function ShopFilterPanel({
             />
             <div className={`mt-5 ${FILTER_OPTION_LIST_CLASS}`}>
               {visibleBrands.map((brand) => {
-                const checked = selectedBrands.includes(brand.id)
+                const brandSlug = brand.slug?.trim()
+                if (!brandSlug) {
+                  return null
+                }
+                const checked =
+                  selectedBrands.includes(brandSlug) ||
+                  selectedBrands.includes(brand.id)
                 return (
                   <label
                     key={brand.id}
@@ -346,7 +379,7 @@ export default function ShopFilterPanel({
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={() => toggleBrand(brand.id)}
+                      onChange={() => toggleBrand(brand)}
                       className="h-4 w-4 rounded border-[#d4d4d8] accent-brand"
                     />
                     <span className="min-w-0 flex-1 truncate">{brand.name}</span>
@@ -585,7 +618,7 @@ export function StoreMobileFilterDrawer({
           pathname,
           searchParams,
           nextCategories,
-          routeCategoryId: filterProps.routeCategoryId,
+          routeCategoryHandle: filterProps.routeCategoryHandle,
           exitPath: filterProps.exitPath,
         })
       )
@@ -950,23 +983,29 @@ function buildAppliedFilterItems({
 }) {
   const items: AppliedFilterItem[] = []
 
-  for (const categoryId of parseSelectedTokenParam(selectedCategory)) {
+  for (const categoryToken of parseSelectedTokenParam(selectedCategory)) {
     const categoryName =
-      categories.find((category) => category.id === categoryId)?.name ?? "Category"
+      categories.find(
+        (category) =>
+          category.handle === categoryToken || category.id === categoryToken
+      )?.name ?? "Category"
     items.push({
-      id: `category:${categoryId}`,
+      id: `category:${categoryToken}`,
       type: "category",
-      value: categoryId,
+      value: categoryToken,
       label: categoryName,
     })
   }
 
-  for (const brandId of parseSelectedTokenParam(selectedBrand)) {
-    const brandName = brands.find((brand) => brand.id === brandId)?.name ?? "Brand"
+  for (const brandToken of parseSelectedTokenParam(selectedBrand)) {
+    const brandName =
+      brands.find(
+        (brand) => brand.slug === brandToken || brand.id === brandToken
+      )?.name ?? "Brand"
     items.push({
-      id: `brand:${brandId}`,
+      id: `brand:${brandToken}`,
       type: "brand",
-      value: brandId,
+      value: brandToken,
       label: brandName,
     })
   }

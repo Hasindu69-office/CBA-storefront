@@ -89,7 +89,7 @@ function BrandLogoLink({
   priority: boolean
   hiddenFromA11y: boolean
 }) {
-  const href = buildStoreBrandQueryHref(brand.id)
+  const href = buildStoreBrandQueryHref(brand.slug)
   if (!href) {
     return (
       <span

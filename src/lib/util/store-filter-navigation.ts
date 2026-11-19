@@ -2,14 +2,14 @@ export type StoreFilterNavigationOptions = {
   pathname: string
   searchParams: URLSearchParams
   nextCategories: string[]
-  routeCategoryId?: string
+  routeCategoryHandle?: string
   exitPath?: string
 }
 
 export type StoreFilterResetOptions = {
   pathname: string
   searchParams: URLSearchParams
-  routeCategoryId?: string
+  routeCategoryHandle?: string
   exitPath?: string
 }
 
@@ -17,7 +17,7 @@ export function buildStoreCategoryFilterHref({
   pathname,
   searchParams,
   nextCategories,
-  routeCategoryId,
+  routeCategoryHandle,
   exitPath = "/store",
 }: StoreFilterNavigationOptions) {
   const params = new URLSearchParams(searchParams)
@@ -34,7 +34,7 @@ export function buildStoreCategoryFilterHref({
   params.delete("page")
 
   const targetPath =
-    routeCategoryId && !normalizedCategories.includes(routeCategoryId)
+    routeCategoryHandle && !normalizedCategories.includes(routeCategoryHandle)
       ? exitPath
       : pathname
 
@@ -44,7 +44,7 @@ export function buildStoreCategoryFilterHref({
 export function buildStoreFilterResetHref({
   pathname,
   searchParams,
-  routeCategoryId,
+  routeCategoryHandle,
   exitPath = "/store",
 }: StoreFilterResetOptions) {
   const params = new URLSearchParams(searchParams)
@@ -57,26 +57,28 @@ export function buildStoreFilterResetHref({
   params.delete("sortBy")
   params.delete("page")
 
-  const targetPath = routeCategoryId ? exitPath : pathname
+  const targetPath = routeCategoryHandle ? exitPath : pathname
   return buildStoreFilterHref(targetPath, params)
 }
 
 const MAX_STORE_FILTER_TOKEN_LENGTH = 255
 
 /**
- * Clean store URL filtered to a single brand. Returns null when the id is
- * empty or exceeds the store multi-select token limit.
+ * Clean store URL filtered to a single brand slug. Returns null when the slug
+ * is empty or exceeds the store multi-select token limit.
  */
-export function buildStoreBrandQueryHref(brandId: string): string | null {
-  return buildStoreSingleFilterQueryHref("brand", brandId)
+export function buildStoreBrandQueryHref(brandSlug: string): string | null {
+  return buildStoreSingleFilterQueryHref("brand", brandSlug)
 }
 
 /**
- * Clean store URL filtered to a single category. Returns null when the id is
- * empty or exceeds the store multi-select token limit.
+ * Clean store URL filtered to a single category handle. Returns null when the
+ * handle is empty or exceeds the store multi-select token limit.
  */
-export function buildStoreCategoryQueryHref(categoryId: string): string | null {
-  return buildStoreSingleFilterQueryHref("category", categoryId)
+export function buildStoreCategoryQueryHref(
+  categoryHandle: string
+): string | null {
+  return buildStoreSingleFilterQueryHref("category", categoryHandle)
 }
 
 export function isValidStoreFilterToken(value?: string | null): value is string {
@@ -86,9 +88,9 @@ export function isValidStoreFilterToken(value?: string | null): value is string 
 
 function buildStoreSingleFilterQueryHref(
   key: "brand" | "category",
-  id: string
+  tokenValue: string
 ): string | null {
-  const token = id?.trim()
+  const token = tokenValue?.trim()
   if (!token || token.length > MAX_STORE_FILTER_TOKEN_LENGTH) {
     return null
   }
