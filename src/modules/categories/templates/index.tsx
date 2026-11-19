@@ -57,9 +57,10 @@ export default async function CategoryTemplate({
   const sort = parseStoreSearchSort(sortBy)
   const selectedCategories = parseStoreMultiSelectParam(selectedCategory)
   const selectedBrands = parseStoreMultiSelectParam(brand)
+  const routeCategoryHandle = category.handle?.trim() || category.id
   const activeCategories = selectedCategories.length
     ? selectedCategories
-    : [category.id]
+    : [routeCategoryHandle]
   const selectedFilters = parseStoreFilters(filters)
   const selectedMinPrice = parseStorePriceBound(minPrice)
   const selectedMaxPrice = parseStorePriceBound(maxPrice)
@@ -192,7 +193,7 @@ export default async function CategoryTemplate({
               priceRangeMax={priceRangeMax}
               selectedFilters={selectedFilters}
               sidebarPromo={shopContent.sidebarPromo}
-              routeCategoryId={category.id}
+              routeCategoryHandle={routeCategoryHandle}
               exitPath="/store"
             />
           </div>
@@ -209,7 +210,7 @@ export default async function CategoryTemplate({
               priceRangeMax={priceRangeMax}
               selectedFilters={selectedFilters}
               resultCount={resultCount}
-              routeCategoryId={category.id}
+              routeCategoryHandle={routeCategoryHandle}
               exitPath="/store"
             />
 

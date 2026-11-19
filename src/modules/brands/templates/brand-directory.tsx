@@ -133,7 +133,7 @@ export default function BrandDirectory({ brands }: BrandDirectoryProps) {
 }
 
 function BrandCard({ brand }: { brand: StorefrontBrand }) {
-  const href = buildStoreBrandQueryHref(brand.id)
+  const href = buildStoreBrandQueryHref(brand.slug)
   if (!href) {
     return null
   }
