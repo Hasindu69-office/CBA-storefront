@@ -63,6 +63,30 @@ const FIELD_LIMITS: Partial<Record<CheckoutAddressFieldName, number>> = {
   delivery_instructions: 500,
 }
 
+const CHECKOUT_ADDRESS_FIELD_ORDER: CheckoutAddressFieldName[] = [
+  "full_name",
+  "shipping_address.phone",
+  "email",
+  "shipping_address.address_1",
+  "shipping_address.city",
+  "shipping_address.province",
+  "shipping_address.postal_code",
+  "delivery_instructions",
+  "shipping_address.country_code",
+]
+
+const CHECKOUT_ADDRESS_FIELD_LABELS: Record<CheckoutAddressFieldName, string> = {
+  full_name: "Full Name",
+  email: "Email Address",
+  "shipping_address.phone": "Phone Number",
+  "shipping_address.address_1": "Street Address",
+  "shipping_address.city": "City",
+  "shipping_address.province": "District",
+  "shipping_address.postal_code": "Postal Code",
+  "shipping_address.country_code": "Delivery Country",
+  delivery_instructions: "Delivery Instructions",
+}
+
 export function checkoutAddressValuesFromFormData(
   formData: FormData
 ): CheckoutAddressValues {
@@ -171,18 +195,24 @@ export function validateCheckoutAddressValues(
 export function firstCheckoutAddressErrorField(
   fieldErrors: Partial<Record<CheckoutAddressFieldName, string>>
 ) {
-  const order: CheckoutAddressFieldName[] = [
-    "full_name",
-    "shipping_address.phone",
-    "email",
-    "shipping_address.address_1",
-    "shipping_address.city",
-    "shipping_address.province",
-    "shipping_address.postal_code",
-    "delivery_instructions",
-    "shipping_address.country_code",
-  ]
-  return order.find((field) => Boolean(fieldErrors[field])) ?? null
+  return (
+    CHECKOUT_ADDRESS_FIELD_ORDER.find((field) => Boolean(fieldErrors[field])) ??
+    null
+  )
+}
+
+export function checkoutAddressErrorSummary(
+  fieldErrors: Partial<Record<CheckoutAddressFieldName, string>>
+) {
+  const labels = CHECKOUT_ADDRESS_FIELD_ORDER.filter((field) =>
+    Boolean(fieldErrors[field])
+  ).map((field) => CHECKOUT_ADDRESS_FIELD_LABELS[field])
+
+  if (!labels.length) {
+    return "Please check the highlighted delivery details."
+  }
+
+  return `Please complete or correct these fields: ${labels.join(", ")}.`
 }
 
 function addLengthError(

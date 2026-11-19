@@ -33,7 +33,6 @@ import {
 import {
   ArrowRight,
   CheckCircleSolid,
-  LockClosedSolid,
   Minus,
   Plus,
   Tag,
@@ -1065,7 +1064,6 @@ function SideCartSummary({
           className="inline-flex h-10 w-full cursor-not-allowed items-center justify-center gap-2.5 rounded-md bg-brand px-4 text-[13px] font-bold text-white opacity-60 small:h-11 small:gap-3 small:px-5 small:text-[15px]"
           data-testid="side-cart-checkout"
         >
-          <LockClosedSolid className="h-5 w-5" />
           Proceed to Checkout
           <ArrowRight className="h-5 w-5" />
         </button>
@@ -1076,7 +1074,6 @@ function SideCartSummary({
           className="inline-flex h-10 w-full items-center justify-center gap-2.5 rounded-md bg-brand px-4 text-[13px] font-bold text-white transition hover:bg-brand-hover small:h-11 small:gap-3 small:px-5 small:text-[15px]"
           data-testid="side-cart-checkout"
         >
-          <LockClosedSolid className="h-5 w-5" />
           Proceed to Checkout
           <ArrowRight className="h-5 w-5" />
         </LocalizedClientLink>

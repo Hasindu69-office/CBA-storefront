@@ -1,4 +1,5 @@
 import { sdk } from "@lib/config"
+import { PUBLIC_CACHE_TAGS, publicContentFetchOptions } from "./public-cache"
 
 export type FeaturedProductCard = {
   id: string
@@ -91,7 +92,7 @@ type FeaturedProductsResponse =
 export const listFeaturedProductCards = async (limit = 12) => {
   return sdk.client
     .fetch<FeaturedProductsResponse>("/store/cba/v1/products/featured", {
-      cache: "no-store",
+      ...publicContentFetchOptions([PUBLIC_CACHE_TAGS.featuredProducts]),
       query: {
         limit,
       },

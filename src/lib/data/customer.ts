@@ -55,50 +55,67 @@ export type CartTransferActionResult = {
   needsRefresh?: boolean
 }
 
-export const retrieveCustomer =
-  async (): Promise<HttpTypes.StoreCustomer | null> => {
-    const authHeaders = await getAuthHeaders()
+export type RetrieveCustomerOptions = {
+  /**
+   * `chrome` skips address-book + orders expansions used only by account/checkout.
+   * Layout/nav should use this to keep authenticated homepage TTFB down.
+   */
+  mode?: "full" | "chrome"
+}
 
-    if (!("authorization" in authHeaders) || !authHeaders.authorization) {
-      return null
-    }
+export const retrieveCustomer = async (
+  options?: RetrieveCustomerOptions
+): Promise<HttpTypes.StoreCustomer | null> => {
+  const mode = options?.mode ?? "full"
+  const authHeaders = await getAuthHeaders()
 
-    return await sdk.client
-      .fetch<{ customer: HttpTypes.StoreCustomer }>(`/store/customers/me`, {
-        method: "GET",
-        query: {
-          // Explicit field selection replaces Medusa's default selection. Include
-          // addresses here so account pages and checkout see addresses created by
-          // the CBA address API immediately after revalidation.
-          fields: "*addresses,*orders",
-        },
-        headers: authHeaders,
-        cache: "no-store",
-      })
-      .then(async ({ customer }) => {
-        // The CBA address API is the storefront's mutation authority. Read the
-        // address book from the same contract instead of depending on a
-        // relation expansion on /customers/me, which can omit addresses when
-        // Medusa query fields change.
-        const addressBook = await sdk.client
-          .fetch<{ addresses: HttpTypes.StoreCustomerAddress[] }>(
-            "/store/cba/v1/account/addresses",
-            {
-              method: "GET",
-              query: { limit: 20, offset: 0 },
-              headers: authHeaders,
-              cache: "no-store",
-            }
-          )
-          .catch(() => null)
-
-        return {
-          ...customer,
-          addresses: addressBook?.addresses ?? customer.addresses ?? [],
-        }
-      })
-      .catch(() => null)
+  if (!("authorization" in authHeaders) || !authHeaders.authorization) {
+    return null
   }
+
+  return await sdk.client
+    .fetch<{ customer: HttpTypes.StoreCustomer }>(`/store/customers/me`, {
+      method: "GET",
+      query: {
+        // Explicit field selection replaces Medusa's default selection. Include
+        // addresses here so account pages and checkout see addresses created by
+        // the CBA address API immediately after revalidation.
+        fields:
+          mode === "chrome"
+            ? "id,email,first_name,last_name,phone,*metadata"
+            : "*addresses,*orders",
+      },
+      headers: authHeaders,
+      cache: "no-store",
+    })
+    .then(async ({ customer }) => {
+      if (mode === "chrome") {
+        return customer
+      }
+
+      // The CBA address API is the storefront's mutation authority. Read the
+      // address book from the same contract instead of depending on a
+      // relation expansion on /customers/me, which can omit addresses when
+      // Medusa query fields change.
+      const addressBook = await sdk.client
+        .fetch<{ addresses: HttpTypes.StoreCustomerAddress[] }>(
+          "/store/cba/v1/account/addresses",
+          {
+            method: "GET",
+            query: { limit: 20, offset: 0 },
+            headers: authHeaders,
+            cache: "no-store",
+          }
+        )
+        .catch(() => null)
+
+      return {
+        ...customer,
+        addresses: addressBook?.addresses ?? customer.addresses ?? [],
+      }
+    })
+    .catch(() => null)
+}
 
 export const updateCustomer = async (body: HttpTypes.StoreUpdateCustomer) => {
   const validationError = validateCustomerProfileUpdate(body)

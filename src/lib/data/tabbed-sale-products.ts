@@ -1,5 +1,6 @@
 import { sdk } from "@lib/config"
 import type { FeaturedProductCard } from "./featured-products"
+import { PUBLIC_CACHE_TAGS, publicContentFetchOptions } from "./public-cache"
 
 export type TabbedSaleProductSourceType = "category" | "brand" | "badge"
 export type TabbedSaleProductTabKey =
@@ -43,7 +44,7 @@ export const listTabbedSaleProductCards = async ({
 
   return sdk.client
     .fetch<TabbedSaleProductsResponse>("/store/cba/v1/products/tabbed-sale", {
-      cache: "no-store",
+      ...publicContentFetchOptions([PUBLIC_CACHE_TAGS.tabbedSaleProducts]),
       query: {
         tab_key: tabKey,
         source_type: selectedSourceId ? selectedSourceType : undefined,
@@ -88,7 +89,7 @@ export const listProductCardsByIds = async (ids: string[]) => {
 
   return sdk.client
     .fetch<ProductCardsResponse>("/store/cba/v1/products/cards", {
-      cache: "no-store",
+      ...publicContentFetchOptions([PUBLIC_CACHE_TAGS.productCards]),
       query: {
         ids: selectedIds.join(","),
       },

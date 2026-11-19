@@ -4,6 +4,7 @@ import { sdk } from "@lib/config"
 import { getLocale } from "@lib/data/locale-actions"
 import { HttpTypes } from "@medusajs/types"
 import { cache } from "react"
+import { PUBLIC_CACHE_TAGS, publicContentFetchOptions } from "./public-cache"
 
 type CmsSiteSetting = {
   group: string
@@ -187,18 +188,19 @@ export const DEFAULT_FOOTER_LAYOUT: FooterLayoutSettings = {
 export const retrieveCmsLayout = cache(async (): Promise<CmsLayoutContent> => {
   try {
     const locale = await getLocale()
+    const publicCache = publicContentFetchOptions([PUBLIC_CACHE_TAGS.cmsLayout])
     const [settingsResponse, headerResponse, footerResponse] = await Promise.all([
       sdk.client.fetch<SiteSettingsResponse>("/store/cba/v1/site-settings", {
         query: { groups: "header,footer,social" },
-        cache: "no-store",
+        ...publicCache,
       }),
       sdk.client.fetch<NavigationResponse>("/store/cba/v1/navigation/header", {
         query: locale ? { locale } : undefined,
-        cache: "no-store",
+        ...publicCache,
       }),
       sdk.client.fetch<NavigationResponse>("/store/cba/v1/navigation/footer", {
         query: locale ? { locale } : undefined,
-        cache: "no-store",
+        ...publicCache,
       }),
     ])
 

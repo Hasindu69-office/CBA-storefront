@@ -1,4 +1,5 @@
 import { sdk } from "@lib/config"
+import { PUBLIC_CACHE_TAGS, publicContentFetchOptions } from "./public-cache"
 
 export type CategorySliderItem = {
   id: string
@@ -35,7 +36,7 @@ type CategorySliderResponse =
 export const listCategorySliderItems = async () => {
   return sdk.client
     .fetch<CategorySliderResponse>("/store/cba/v1/categories/slider", {
-      cache: "no-store",
+      ...publicContentFetchOptions([PUBLIC_CACHE_TAGS.categorySlider]),
     })
     .then((payload) => {
       if (!payload.success) {

@@ -36,6 +36,8 @@ type FeaturedProductSliderProps = {
   titleId?: string
   embedded?: boolean
   mobileCompactCards?: boolean
+  /** Cap LCP priority images; homepage featured uses 1, secondary rails use 0. */
+  priorityImageCount?: number
   sectionClassName?: string
   kokoBranding?: KokoCheckoutBranding | null
   kokoAvailable?: boolean
@@ -50,6 +52,7 @@ const FeaturedProductSlider = ({
   titleId = "featured-products-title",
   embedded = false,
   mobileCompactCards = false,
+  priorityImageCount = 1,
   sectionClassName,
   kokoBranding,
   kokoAvailable = false,
@@ -158,7 +161,7 @@ const FeaturedProductSlider = ({
           <FeaturedProductCardItem
             key={product.id}
             product={product}
-            priority={index < 4}
+            priority={index < priorityImageCount}
             mobileCompact={mobileCompactCards}
             kokoBranding={kokoBranding}
             kokoAvailable={kokoAvailable}

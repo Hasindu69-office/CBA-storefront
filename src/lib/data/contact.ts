@@ -3,6 +3,7 @@ import "server-only"
 import { sdk } from "@lib/config"
 import type { HomepageCmsSection } from "@lib/data/homepage"
 import { getLocale } from "@lib/data/locale-actions"
+import { PUBLIC_CACHE_TAGS, publicContentFetchOptions } from "./public-cache"
 
 type CmsSiteSetting = {
   group: string
@@ -189,7 +190,7 @@ export async function retrieveContactDetails(): Promise<ContactDetails> {
       "/store/cba/v1/site-settings",
       {
         query: { groups: "contact" },
-        cache: "no-store",
+        ...publicContentFetchOptions([PUBLIC_CACHE_TAGS.contactDetails]),
       }
     )
 

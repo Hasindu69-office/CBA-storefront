@@ -1,5 +1,4 @@
 import { listCategories } from "@lib/data/categories"
-import { listCartOptions, retrieveCart } from "@lib/data/cart"
 import {
   navigationItemsToLinks,
   retrieveCmsLayout,
@@ -120,23 +119,18 @@ function customerFirstDisplayName(customer?: HttpTypes.StoreCustomer | null) {
 
 export default async function Nav({
   customer = null,
+  cart = null,
+  shippingOptions = [],
 }: {
   customer?: HttpTypes.StoreCustomer | null
+  cart?: HttpTypes.StoreCart | null
+  shippingOptions?: StoreCartShippingOption[]
 }) {
-  const [categories, cart, wishlistCount, cmsLayout] = await Promise.all([
+  const [categories, wishlistCount, cmsLayout] = await Promise.all([
     listCategories().catch(() => []),
-    retrieveCart().catch(() => null),
     retrieveWishlistCount().catch(() => 0),
     retrieveCmsLayout(),
   ])
-  let shippingOptions: StoreCartShippingOption[] = []
-
-  if (cart) {
-    const cartOptions = await listCartOptions().catch(() => ({
-      shipping_options: [],
-    }))
-    shippingOptions = cartOptions.shipping_options
-  }
 
   const navCategories = topLevelCategories(categories)
   const navCategoryLinks = categoryLinks(navCategories)

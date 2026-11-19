@@ -1,6 +1,7 @@
 import "server-only"
 
 import { sdk } from "@lib/config"
+import { PUBLIC_CACHE_TAGS, publicContentFetchOptions } from "./public-cache"
 
 export type AuthProviderId = "google" | "facebook" | "apple"
 
@@ -97,7 +98,7 @@ export async function retrieveAccountAuthSettings(): Promise<AccountAuthSettings
   return sdk.client
     .fetch<SiteSettingsResponse>("/store/cba/v1/site-settings", {
       query: { groups: "account" },
-      cache: "no-store",
+      ...publicContentFetchOptions([PUBLIC_CACHE_TAGS.accountAuthSettings]),
     })
     .then((payload) => {
       if (!payload.success) {

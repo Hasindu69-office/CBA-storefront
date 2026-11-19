@@ -68,74 +68,11 @@ h6,
   }
 }
 
-/* Keep the hero's bottom cutout inside the taller Galaxy Tab portrait viewport.
-   The landscape tablet layout keeps its existing mask scale. */
-@media (min-width: 768px) and (max-width: 1023px) and (orientation: portrait) {
-  .home-hero-mask {
-    --hero-mask-size: 104.5% auto !important;
-    --hero-hit-width: 104.5% !important;
-  }
-}
-
-/* Keep the hero cutout visible in the Surface Duo landscape viewport only. */
-@media (min-width: 540px) and (max-width: 767px) and (orientation: landscape) {
-  .home-hero-mask {
-    --hero-mask-size: 104.5% auto !important;
-    --hero-hit-width: 104.5% !important;
-  }
-}
-
 /* Keep the category rail compact in portrait tablet layouts. */
 @media (min-width: 768px) and (max-width: 1279px) and (orientation: portrait),
   (min-width: 768px) and (max-width: 1279px) and (max-aspect-ratio: 1 / 1) {
   .category-slider-track {
     grid-auto-columns: calc((100% - 20px) / 2) !important;
-  }
-}
-
-/* Crop only the lower part of the best-selling background on Surface Duo portrait. */
-@media (min-width: 540px) and (max-width: 767px) and (orientation: portrait) {
-  .surface-duo-best-selling-clip {
-    position: relative;
-    left: 50%;
-    width: 100vw;
-    height: calc(100vw * 420 / 326.5);
-    overflow: hidden;
-    transform: translateX(-50%);
-  }
-
-  .surface-duo-best-selling-shell {
-    left: 0;
-    width: 100%;
-    max-width: none;
-    transform: none;
-  }
-
-  .surface-duo-best-selling-heading {
-    top: 4px !important;
-  }
-}
-
-/* Crop the lower best-selling background in Surface Duo landscape mode only. */
-@media (min-width: 540px) and (max-width: 767px) and (orientation: landscape) {
-  .surface-duo-best-selling-clip {
-    position: relative;
-    left: 50%;
-    width: 100vw;
-    height: calc(100vw * 300 / 326.5);
-    overflow: hidden;
-    transform: translateX(-50%);
-  }
-
-  .surface-duo-best-selling-shell {
-    left: 0;
-    width: 100%;
-    max-width: none;
-    transform: none;
-  }
-
-  .surface-duo-best-selling-heading {
-    top: 4px !important;
   }
 }
 

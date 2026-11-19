@@ -2,6 +2,7 @@
 
 import { sdk } from "@lib/config"
 import { cache } from "react"
+import { PUBLIC_CACHE_TAGS, publicContentFetchOptions } from "./public-cache"
 
 type CmsSiteSetting = {
   group: string
@@ -34,7 +35,10 @@ export const retrieveKokoCheckoutBranding = cache(
     try {
       const response = await sdk.client.fetch<SiteSettingsResponse>(
         "/store/cba/v1/site-settings",
-        { query: { groups: "checkout" }, cache: "no-store" }
+        {
+          query: { groups: "checkout" },
+          ...publicContentFetchOptions([PUBLIC_CACHE_TAGS.kokoBranding]),
+        }
       )
       if (!response.success) return DEFAULT_BRANDING
       const setting = response.data.settings.find(
@@ -64,7 +68,7 @@ export const retrieveKokoPaymentAvailability = cache(
         "/store/cba/v1/payments/koko/availability",
         {
           query: { region_id: regionId },
-          cache: "no-store",
+          ...publicContentFetchOptions([PUBLIC_CACHE_TAGS.kokoAvailability]),
         }
       )
       return Boolean(response.success && response.data.available)

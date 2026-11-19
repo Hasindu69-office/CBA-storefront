@@ -8,6 +8,7 @@ import {
   normalizeTypographyLocale,
   type StorefrontTypography,
 } from "@lib/util/typography"
+import { PUBLIC_CACHE_TAGS, publicContentFetchOptions } from "./public-cache"
 
 type Envelope = { success: true; data: unknown } | { success: false }
 
@@ -20,7 +21,7 @@ export async function getStorefrontTypography(): Promise<StorefrontTypography> {
       headers: process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
         ? { "x-publishable-api-key": process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY }
         : undefined,
-      cache: "no-store",
+      ...publicContentFetchOptions([PUBLIC_CACHE_TAGS.typography]),
       signal: controller.signal,
     })
     if (!response.ok) return defaultTypography(locale)

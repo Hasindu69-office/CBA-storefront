@@ -62,6 +62,7 @@ const TopSellingProductsSection = async ({
       ctaHref={ctaHref}
       titleId="top-selling-products-title"
       mobileCompactCards
+      priorityImageCount={0}
       sectionClassName="bg-white pt-7 pb-11 sm:pt-9 sm:pb-14 md:pb-16 small:py-14"
       kokoBranding={kokoBranding}
       kokoAvailable={kokoAvailable}

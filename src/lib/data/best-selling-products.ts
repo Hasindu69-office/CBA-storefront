@@ -1,5 +1,6 @@
 import { sdk } from "@lib/config"
 import type { FeaturedProductCard } from "./featured-products"
+import { PUBLIC_CACHE_TAGS, publicContentFetchOptions } from "./public-cache"
 
 type BestSellingProductsResponse =
   | {
@@ -37,7 +38,7 @@ export const listBestSellingProductCards = async ({
 
   return sdk.client
     .fetch<BestSellingProductsResponse>("/store/cba/v1/products/best-selling", {
-      cache: "no-store",
+      ...publicContentFetchOptions([PUBLIC_CACHE_TAGS.bestSellingProducts]),
       query: {
         source_type: selectedSourceType,
         source_id: selectedSourceId,
