@@ -5,8 +5,55 @@ import {
   buildSingleProductParams,
   linesFromCartLikeItems,
 } from "../build"
+import {
+  getMetaPixelId,
+  isMetaPixelEnabled,
+  isValidMetaPixelId,
+} from "../config"
 import { claimPurchaseEvent, clearPurchaseClaim } from "../dedupe"
 import { validateMetaEcommerceParams } from "../validate"
+
+test("isValidMetaPixelId accepts numeric Meta pixel IDs", () => {
+  assert.equal(isValidMetaPixelId("1361822756100417"), true)
+  assert.equal(isValidMetaPixelId("12345"), true)
+  assert.equal(isValidMetaPixelId("  1234567890  "), true)
+})
+
+test("isValidMetaPixelId rejects empty or malformed values", () => {
+  assert.equal(isValidMetaPixelId(""), false)
+  assert.equal(isValidMetaPixelId(null), false)
+  assert.equal(isValidMetaPixelId(undefined), false)
+  assert.equal(isValidMetaPixelId("abc"), false)
+  assert.equal(isValidMetaPixelId("1234"), false)
+  assert.equal(isValidMetaPixelId("1361822756100417;alert(1)"), false)
+})
+
+test("getMetaPixelId stays off when env is missing or invalid", () => {
+  const previous = process.env.NEXT_PUBLIC_META_PIXEL_ID
+  try {
+    delete process.env.NEXT_PUBLIC_META_PIXEL_ID
+    assert.equal(getMetaPixelId(), null)
+    assert.equal(isMetaPixelEnabled(), false)
+
+    process.env.NEXT_PUBLIC_META_PIXEL_ID = ""
+    assert.equal(getMetaPixelId(), null)
+    assert.equal(isMetaPixelEnabled(), false)
+
+    process.env.NEXT_PUBLIC_META_PIXEL_ID = "not-a-pixel"
+    assert.equal(getMetaPixelId(), null)
+    assert.equal(isMetaPixelEnabled(), false)
+
+    process.env.NEXT_PUBLIC_META_PIXEL_ID = "1361822756100417"
+    assert.equal(getMetaPixelId(), "1361822756100417")
+    assert.equal(isMetaPixelEnabled(), true)
+  } finally {
+    if (previous === undefined) {
+      delete process.env.NEXT_PUBLIC_META_PIXEL_ID
+    } else {
+      process.env.NEXT_PUBLIC_META_PIXEL_ID = previous
+    }
+  }
+})
 
 test("validate rejects unsupported events and missing ecommerce content", () => {
   assert.equal(validateMetaEcommerceParams("CustomEvent" as never, {}).ok, false)

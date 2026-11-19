@@ -93,7 +93,7 @@ const Hero = ({ sections }: HeroProps) => {
     <section className="font-hero-body w-full overflow-hidden bg-white pt-2 sm:pt-3">
       <div className="w-full overflow-hidden">
         <div
-          className="relative isolate aspect-[16/9] min-h-[210px] w-full overflow-hidden text-white xsmall:min-h-[230px] sm:aspect-[1839/710] sm:min-h-[300px] small:aspect-[16/5] small:min-h-0"
+          className="relative isolate aspect-[16/5] w-full overflow-hidden text-white"
           aria-roledescription="carousel"
           aria-label="Homepage featured banners"
           onMouseEnter={() => setIsPaused(true)}
@@ -139,11 +139,11 @@ const Hero = ({ sections }: HeroProps) => {
                     )}
 
                     {hasOverlay && (
-                      <div className="pointer-events-none relative z-20 flex h-full w-full max-w-full -translate-y-3 flex-col justify-center px-4 py-7 xsmall:px-5 sm:max-w-[720px] sm:-translate-y-2 sm:px-10 small:max-w-[920px] small:-translate-y-8 small:px-20 small:py-12 small:pl-[112px] xl:pl-[132px]">
+                      <div className="pointer-events-none relative z-20 flex h-full w-full max-w-full flex-col justify-center px-3 py-1.5 xsmall:px-5 sm:max-w-[720px] sm:px-10 sm:py-3 small:max-w-[920px] small:-translate-y-8 small:px-20 small:py-12 small:pl-[112px] xl:pl-[132px]">
                         {(slide.eyebrow || slide.subtitle) && (
-                          <div className="mb-2.5 flex max-w-full flex-wrap items-center gap-1.5 text-[7px] leading-none xsmall:text-[8px] sm:mb-4 sm:flex-nowrap sm:gap-2.5 small:mb-6 small:gap-4 small:text-[13px]">
+                          <div className="mb-1 flex max-w-full flex-wrap items-center gap-1 text-[6px] leading-none xsmall:mb-1.5 xsmall:gap-1.5 xsmall:text-[7px] sm:mb-3 sm:flex-nowrap sm:gap-2.5 sm:text-[8px] small:mb-6 small:gap-4 small:text-[13px]">
                             {slide.eyebrow && (
-                              <span className="inline-flex h-5 max-w-full items-center rounded-full border border-[#ff5c0e] px-2 text-[7px] font-bold uppercase tracking-normal text-white xsmall:h-6 xsmall:text-[8px] small:h-[38px] small:px-6 small:text-[13px]">
+                              <span className="inline-flex h-4 max-w-full items-center rounded-full border border-[#ff5c0e] px-1.5 text-[6px] font-bold uppercase tracking-normal text-white xsmall:h-5 xsmall:px-2 xsmall:text-[7px] sm:h-6 sm:text-[8px] small:h-[38px] small:px-6 small:text-[13px]">
                                 {slide.eyebrow}
                               </span>
                             )}
@@ -152,7 +152,7 @@ const Hero = ({ sections }: HeroProps) => {
                                 {slide.eyebrow && (
                                   <span className="hidden h-5 w-px bg-white sm:block small:h-6" />
                                 )}
-                                <p className="min-w-0 max-w-full break-words text-[7px] font-bold leading-[10px] text-white xsmall:text-[8px] xsmall:leading-[11px] sm:whitespace-nowrap small:text-[13px] small:leading-[18px]">
+                                <p className="min-w-0 max-w-full break-words text-[6px] font-bold leading-[8px] text-white xsmall:text-[7px] xsmall:leading-[10px] sm:whitespace-nowrap sm:text-[8px] sm:leading-[11px] small:text-[13px] small:leading-[18px]">
                                   {slide.subtitle}
                                 </p>
                               </>
@@ -161,7 +161,7 @@ const Hero = ({ sections }: HeroProps) => {
                         )}
 
                         {slide.title && (
-                          <h1 className="font-hero-heading max-w-[min(100%,280px)] break-words text-[15px] font-bold leading-[1.1] text-white xsmall:text-[16px] sm:max-w-[430px] sm:text-[22px] small:max-w-[560px] small:text-[40px]">
+                          <h1 className="font-hero-heading max-w-[min(100%,240px)] break-words text-[11px] font-bold leading-[1.1] text-white xsmall:max-w-[min(100%,280px)] xsmall:text-[13px] sm:max-w-[430px] sm:text-[18px] small:max-w-[560px] small:text-[40px]">
                             {renderHighlightedTitle(
                               slide.title,
                               slide.highlightText
@@ -171,7 +171,7 @@ const Hero = ({ sections }: HeroProps) => {
 
                         {slide.descriptionHtml && (
                           <div
-                            className="mt-2.5 max-w-[52%] break-words text-justify text-[8px] leading-[11px] text-white/90 xsmall:max-w-[min(60%,280px)] xsmall:text-[9px] xsmall:leading-[12px] sm:mt-3 sm:max-w-[360px] sm:text-[10px] sm:leading-[15px] small:mt-4 small:max-w-[410px] small:text-[13px] small:leading-[20px]"
+                            className="mt-1 hidden max-w-[52%] break-words text-justify text-[8px] leading-[11px] text-white/90 xsmall:mt-1.5 xsmall:max-w-[min(60%,280px)] xsmall:text-[8px] xsmall:leading-[11px] sm:mt-2.5 sm:block sm:max-w-[360px] sm:text-[10px] sm:leading-[15px] small:mt-4 small:max-w-[410px] small:text-[13px] small:leading-[20px]"
                             dangerouslySetInnerHTML={{
                               __html: slide.descriptionHtml,
                             }}
@@ -179,16 +179,16 @@ const Hero = ({ sections }: HeroProps) => {
                         )}
 
                         {(slide.primaryLabel || slide.secondaryLabel) && (
-                          <div className="pointer-events-auto mt-3.5 flex max-w-full flex-wrap gap-2 sm:mt-4 sm:flex-nowrap small:mt-6 small:gap-5">
+                          <div className="pointer-events-auto mt-1.5 flex max-w-full flex-wrap gap-1.5 xsmall:mt-2 sm:mt-3 sm:flex-nowrap sm:gap-2 small:mt-6 small:gap-5">
                             {slide.primaryLabel && slide.primaryUrl && (
                               <HeroSlideLink
                                 href={slide.primaryUrl}
-                                className="inline-flex h-7 min-w-0 max-w-full items-center justify-center rounded-[6px] bg-[#ff5c0e] px-3 text-[8px] font-bold text-white transition-colors hover:bg-[#e6530c] xsmall:text-[9px] small:h-[43px] small:min-w-[174px] small:rounded-[7px] small:px-7 small:text-[13px]"
+                                className="inline-flex h-5 min-w-0 max-w-full items-center justify-center rounded-[5px] bg-[#ff5c0e] px-2.5 text-[7px] font-bold text-white transition-colors hover:bg-[#e6530c] xsmall:h-6 xsmall:px-3 xsmall:text-[8px] sm:text-[9px] small:h-[43px] small:min-w-[174px] small:rounded-[7px] small:px-7 small:text-[13px]"
                                 tabIndex={index === activeIndex ? 0 : -1}
                               >
                                 {slide.primaryLabel}
                                 <span
-                                  className="ml-2 text-sm leading-none small:ml-3 small:text-base"
+                                  className="ml-1.5 text-[10px] leading-none xsmall:ml-2 xsmall:text-xs small:ml-3 small:text-base"
                                   aria-hidden="true"
                                 >
                                   &rsaquo;
@@ -198,7 +198,7 @@ const Hero = ({ sections }: HeroProps) => {
                             {slide.secondaryLabel && slide.secondaryUrl && (
                               <HeroSlideLink
                                 href={slide.secondaryUrl}
-                                className="inline-flex h-7 min-w-0 max-w-full items-center justify-center rounded-[6px] border border-white px-3 text-[8px] font-bold text-white transition-colors hover:bg-white hover:text-black xsmall:text-[9px] small:h-[43px] small:min-w-[198px] small:rounded-[7px] small:px-7 small:text-[13px]"
+                                className="inline-flex h-5 min-w-0 max-w-full items-center justify-center rounded-[5px] border border-white px-2.5 text-[7px] font-bold text-white transition-colors hover:bg-white hover:text-black xsmall:h-6 xsmall:px-3 xsmall:text-[8px] sm:text-[9px] small:h-[43px] small:min-w-[198px] small:rounded-[7px] small:px-7 small:text-[13px]"
                                 tabIndex={index === activeIndex ? 0 : -1}
                               >
                                 {slide.secondaryLabel}

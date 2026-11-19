@@ -38,7 +38,8 @@ Optional variables:
 
 ```env
 NEXT_PUBLIC_DEFAULT_REGION=lk
-NEXT_PUBLIC_META_PIXEL_ID=1361822756100417
+# Leave NEXT_PUBLIC_META_PIXEL_ID unset to keep Meta Pixel off.
+# NEXT_PUBLIC_META_PIXEL_ID=your-meta-pixel-id
 NEXT_PUBLIC_GTM_ID=GTM-WPLSJRPK
 NEXT_PUBLIC_STRIPE_KEY=replace-with-stripe-public-key
 NEXT_PUBLIC_MEDUSA_PAYMENTS_PUBLISHABLE_KEY=replace-with-medusa-payments-key
