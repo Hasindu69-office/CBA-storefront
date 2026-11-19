@@ -1,4 +1,8 @@
-export { getMetaPixelId, isValidMetaPixelId, META_PIXEL_ID_FALLBACK } from "./config"
+export {
+  getMetaPixelId,
+  isMetaPixelEnabled,
+  isValidMetaPixelId,
+} from "./config"
 export {
   buildMetaEcommerceParams,
   buildSingleProductParams,

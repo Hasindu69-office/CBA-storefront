@@ -1,12 +1,17 @@
 import Script from "next/script"
-import { getMetaPixelId } from "@lib/analytics/meta-pixel"
+import { getMetaPixelId, isValidMetaPixelId } from "@lib/analytics/meta-pixel"
 
 /**
  * Loads the Meta Pixel base snippet once for the app.
+ * Skips entirely when NEXT_PUBLIC_META_PIXEL_ID is unset or invalid.
  * Initial PageView is fired here; client route changes use MetaPageViewTracker.
  */
 export default function MetaPixelBootstrap() {
   const pixelId = getMetaPixelId()
+
+  if (!pixelId || !isValidMetaPixelId(pixelId)) {
+    return null
+  }
 
   return (
     <>
