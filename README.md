@@ -30,6 +30,14 @@ Optional analytics (Meta Pixel stays off when unset):
 # NEXT_PUBLIC_META_PIXEL_ID=your-meta-pixel-id
 ```
 
+One-time launch gate (remove after go-live; see `src/modules/launch/README.md`):
+
+```env
+LAUNCH_GATE_ENABLED=false
+LAUNCH_UNLOCK_SECRET=replace-with-shared-launch-secret
+LAUNCH_ALLOW_RESET=false
+```
+
 Optional payment variables:
 
 ```env
