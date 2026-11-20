@@ -13,6 +13,60 @@ const CACHE_COOKIE_NAME = process.env.CACHE_COOKIE_NAME || "_cba_cache_id"
 const LEGACY_CACHE_COOKIE_NAMES = ["_medusa_cache_id"].filter(
   (name) => name !== CACHE_COOKIE_NAME
 )
+const LAUNCH_STATUS_CACHE_TTL_MS = 3000
+const LAUNCH_STATUS_LOCKED_CACHE_TTL_MS = 1000
+
+const launchStatusCache = {
+  launched: false as boolean | null,
+  checkedAt: 0,
+}
+
+function isLaunchGateEnabled() {
+  return process.env.LAUNCH_GATE_ENABLED?.trim().toLowerCase() === "true"
+}
+
+function isLaunchPath(pathname: string) {
+  return pathname === "/launch" || pathname.startsWith("/launch/")
+}
+
+async function getCachedLaunchStatus(): Promise<boolean> {
+  const now = Date.now()
+  const ttl =
+    launchStatusCache.launched === true
+      ? LAUNCH_STATUS_CACHE_TTL_MS
+      : LAUNCH_STATUS_LOCKED_CACHE_TTL_MS
+  if (
+    launchStatusCache.launched !== null &&
+    now - launchStatusCache.checkedAt < ttl
+  ) {
+    return launchStatusCache.launched
+  }
+
+  if (!BACKEND_URL) {
+    return false
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/store/cba/v1/launch/status`, {
+      headers: PUBLISHABLE_API_KEY
+        ? { "x-publishable-api-key": PUBLISHABLE_API_KEY }
+        : {},
+      cache: "no-store",
+    })
+    if (!response.ok) {
+      return launchStatusCache.launched === true
+    }
+    const json = (await response.json()) as {
+      data?: { launched?: boolean }
+    }
+    const launched = Boolean(json?.data?.launched)
+    launchStatusCache.launched = launched
+    launchStatusCache.checkedAt = now
+    return launched
+  } catch {
+    return launchStatusCache.launched === true
+  }
+}
 
 const regionMapCache = {
   regionMap: new Map<string, HttpTypes.StoreRegion>(),
@@ -119,6 +173,29 @@ async function getCountryCode(
 export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.includes(".")) {
     return NextResponse.next()
+  }
+
+  if (isLaunchGateEnabled()) {
+    const launched = await getCachedLaunchStatus()
+    const onLaunchPath = isLaunchPath(request.nextUrl.pathname)
+
+    if (!launched) {
+      if (onLaunchPath) {
+        return NextResponse.next()
+      }
+      // Use redirect (not rewrite) so the browser URL becomes /launch.
+      // Otherwise location.replace("/") is a same-URL no-op after the ceremony.
+      const launchUrl = request.nextUrl.clone()
+      launchUrl.pathname = "/launch"
+      return NextResponse.redirect(launchUrl)
+    }
+
+    if (onLaunchPath) {
+      const homeUrl = request.nextUrl.clone()
+      homeUrl.pathname = "/"
+      homeUrl.search = ""
+      return NextResponse.redirect(homeUrl)
+    }
   }
 
   let cacheIdCookie =

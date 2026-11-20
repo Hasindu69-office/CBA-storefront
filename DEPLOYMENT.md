@@ -49,6 +49,10 @@ MEDUSA_CLOUD_S3_PATHNAME=replace-with-s3-pathname
 AUTH_COOKIE_NAME=_CBA_Ebiz
 CART_COOKIE_NAME=_cba_cart_id
 CACHE_COOKIE_NAME=_cba_cache_id
+# One-time launch gate (delete after go-live). Must match backend LAUNCH_UNLOCK_SECRET.
+LAUNCH_GATE_ENABLED=false
+LAUNCH_UNLOCK_SECRET=replace-with-shared-launch-secret
+LAUNCH_ALLOW_RESET=false
 ```
 
 Use the public Coolify/backend URL for both `MEDUSA_BACKEND_URL` and `NEXT_PUBLIC_MEDUSA_BACKEND_URL`, not `localhost`. The `NEXT_PUBLIC_*` value is embedded into the browser bundle and is required for browser API requests. If you override `MEDUSA_FILE_BACKEND_URL`, use the public URL that serves uploaded Medusa files.
