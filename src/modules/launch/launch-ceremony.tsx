@@ -1,15 +1,19 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { LAUNCH_STATUS_POLL_MS } from "@lib/launch/config"
 import {
   armLaunchAudio,
   playCinematicBoom,
-  playCountTick,
-  playRevealHarmonics,
-  playStepDone,
+  playIgnitePulse,
+  playSparkWord,
+  playOrbitChime,
+  playPortalWhoosh,
+  playSignatureSwell,
   playSystemCharge,
+  startLaunchMusic,
+  stopLaunchMusic,
 } from "./launch-audio"
 import {
   captureLaunchKeyFromSearch,
@@ -18,32 +22,31 @@ import {
 
 import "./launch-ceremony.css"
 
-const REDIRECT_DELAY_MS = 4200
+const REDIRECT_DELAY_MS = 2100
 
-const PROGRESS_STEPS = [
+const SPARK_WORDS = ["Power", "Precision", "Presence"] as const
+
+const STORE_CATEGORIES = [
   {
-    title: "Provisioning live infrastructure",
-    detail: "Edge nodes and storefront services coming online.",
-    durationMs: 1700,
+    name: "Printers",
+    note: "Office & production",
   },
   {
-    title: "Loading commerce engine",
-    detail: "Catalog, pricing, and merchandising synchronized.",
-    durationMs: 1800,
+    name: "POS",
+    note: "Retail ready",
   },
   {
-    title: "Arming secure checkout",
-    detail: "Payments, sessions, and order flows verified.",
-    durationMs: 1700,
+    name: "Security",
+    note: "Watch & protect",
   },
   {
-    title: "Opening public access",
-    detail: "Routing live traffic to the EBiz storefront.",
-    durationMs: 1500,
+    name: "Office",
+    note: "Everyday tools",
   },
 ] as const
 
-type Phase = "standby" | "countdown" | "progress" | "reveal"
+type Phase = "standby" | "spark" | "constellation" | "signature" | "portal"
+
 type StatusResponse = {
   success?: boolean
   data?: { launched?: boolean; gate_enabled?: boolean }
@@ -86,31 +89,46 @@ export function LaunchCeremony() {
   const [armed, setArmed] = useState(false)
   const [statusMessage, setStatusMessage] = useState("")
   const [phase, setPhase] = useState<Phase>("standby")
-  const [countdown, setCountdown] = useState(3)
-  const [activeStep, setActiveStep] = useState(-1)
-  const [completedSteps, setCompletedSteps] = useState(0)
-  const [revealShown, setRevealShown] = useState({
-    eyebrow: false,
-    logo: false,
-    title: false,
-    badge: false,
-    note: false,
-  })
+
+  const [emberLit, setEmberLit] = useState(false)
+  const [emberGrow, setEmberGrow] = useState(false)
+  const [raysOn, setRaysOn] = useState(false)
+  const [coronaKey, setCoronaKey] = useState(0)
+  const [sparkWord, setSparkWord] = useState("")
+  const [sparkWordKey, setSparkWordKey] = useState(0)
+
+  const [assembleReady, setAssembleReady] = useState(false)
+  const [assembleIn, setAssembleIn] = useState<boolean[]>(() =>
+    STORE_CATEGORIES.map(() => false)
+  )
+  const [assembleFocus, setAssembleFocus] = useState(-1)
+  const [assembleCount, setAssembleCount] = useState(0)
+
+  const [signatureBeam, setSignatureBeam] = useState(false)
+  const [signatureLogo, setSignatureLogo] = useState(false)
+  const [signatureWord, setSignatureWord] = useState(false)
+  const [signatureTag, setSignatureTag] = useState(false)
+  const [signatureFlare, setSignatureFlare] = useState(false)
+
+  const [portalShown, setPortalShown] = useState(false)
+  const [portalTitle, setPortalTitle] = useState(false)
+  const [portalReady, setPortalReady] = useState(false)
+  const [portalOpen, setPortalOpen] = useState(false)
+  const [portalReveal, setPortalReveal] = useState(false)
+  const [portalExit, setPortalExit] = useState(false)
 
   const launchedRef = useRef(false)
   const testModeRef = useRef(false)
   const sequenceIdRef = useRef(0)
 
-  const progressPercent = useMemo(() => {
-    if (phase !== "progress" && phase !== "reveal") return 0
-    return Math.round((completedSteps / PROGRESS_STEPS.length) * 100)
-  }, [completedSteps, phase])
+  const dimStandby = phase !== "standby"
 
   useEffect(() => {
     captureLaunchKeyFromSearch(window.location.search)
     setArmed(Boolean(readLaunchKey()))
 
     let cancelled = false
+    let musicArmed = false
 
     const boot = async () => {
       try {
@@ -120,136 +138,198 @@ export function LaunchCeremony() {
           goToStorefrontHome()
         }
       } catch {
-        /* stay on ceremony if status temporarily fails */
+        /* stay */
       }
     }
     void boot()
+
+    const armAmbientMusic = () => {
+      if (musicArmed || cancelled) return
+      musicArmed = true
+      void startLaunchMusic()
+    }
+
+    window.addEventListener("pointerdown", armAmbientMusic, { once: true })
+    window.addEventListener("keydown", armAmbientMusic, { once: true })
 
     const poll = window.setInterval(async () => {
       if (launchedRef.current || testModeRef.current) return
       try {
         const status = await fetchLaunchStatus()
         if (status?.launched || status?.gate_enabled === false) {
+          stopLaunchMusic(900)
           goToStorefrontHome()
         }
       } catch {
-        /* ignore poll errors */
+        /* ignore */
       }
     }, LAUNCH_STATUS_POLL_MS)
 
     return () => {
       cancelled = true
       window.clearInterval(poll)
+      window.removeEventListener("pointerdown", armAmbientMusic)
+      window.removeEventListener("keydown", armAmbientMusic)
+      stopLaunchMusic(400)
     }
   }, [])
+
+  const resetVisualState = () => {
+    setEmberLit(false)
+    setEmberGrow(false)
+    setRaysOn(false)
+    setCoronaKey(0)
+    setSparkWord("")
+    setSparkWordKey(0)
+    setAssembleReady(false)
+    setAssembleIn(STORE_CATEGORIES.map(() => false))
+    setAssembleFocus(-1)
+    setAssembleCount(0)
+    setSignatureBeam(false)
+    setSignatureLogo(false)
+    setSignatureWord(false)
+    setSignatureTag(false)
+    setSignatureFlare(false)
+    setPortalShown(false)
+    setPortalTitle(false)
+    setPortalReady(false)
+    setPortalOpen(false)
+    setPortalReveal(false)
+    setPortalExit(false)
+  }
 
   const resetUi = useCallback(() => {
     sequenceIdRef.current += 1
     launchedRef.current = false
     testModeRef.current = false
     setPhase("standby")
-    setCountdown(3)
-    setActiveStep(-1)
-    setCompletedSteps(0)
-    setRevealShown({
-      eyebrow: false,
-      logo: false,
-      title: false,
-      badge: false,
-      note: false,
-    })
+    resetVisualState()
     setStatusMessage("")
     setArmed(Boolean(readLaunchKey()))
+    stopLaunchMusic(200)
+    window.setTimeout(() => {
+      void startLaunchMusic()
+    }, 260)
   }, [])
 
-  const runCeremony = useCallback(
-    async (asTest: boolean) => {
-      if (launchedRef.current) return
+  const runCeremony = useCallback(async (asTest: boolean) => {
+    if (launchedRef.current) return
 
-      const secret = readLaunchKey()
-      testModeRef.current = asTest
+    const secret = readLaunchKey()
+    testModeRef.current = asTest
 
-      if (!asTest) {
-        if (!secret) {
-          setStatusMessage(
-            "Official launch key required. Open /launch?launch_key=YOUR_SECRET on the ceremony laptop."
-          )
-          return
-        }
-        try {
-          setStatusMessage("Authorizing launch…")
-          await unlockLaunch(secret)
-          setStatusMessage("")
-        } catch (error) {
-          setStatusMessage(
-            error instanceof Error ? error.message : "Unlock failed."
-          )
-          return
-        }
-      } else {
-        setStatusMessage("Test mode — animation only. The shop stays locked.")
-      }
-
-      launchedRef.current = true
-      const sequenceId = ++sequenceIdRef.current
-
-      await armLaunchAudio()
-      playSystemCharge()
-
-      setPhase("countdown")
-      for (const value of [3, 2, 1]) {
-        if (sequenceIdRef.current !== sequenceId) return
-        setCountdown(value)
-        playCountTick()
-        await wait(900)
-      }
-
-      if (sequenceIdRef.current !== sequenceId) return
-      setPhase("progress")
-      setActiveStep(-1)
-      setCompletedSteps(0)
-
-      for (let index = 0; index < PROGRESS_STEPS.length; index++) {
-        if (sequenceIdRef.current !== sequenceId) return
-        setActiveStep(index)
-        await wait(PROGRESS_STEPS[index].durationMs)
-        setCompletedSteps(index + 1)
-        playStepDone()
-      }
-
-      if (sequenceIdRef.current !== sequenceId) return
-      setPhase("reveal")
-      playCinematicBoom()
-      setRevealShown({
-        eyebrow: false,
-        logo: false,
-        title: false,
-        badge: false,
-        note: false,
-      })
-      await wait(200)
-      playRevealHarmonics()
-      setRevealShown((prev) => ({ ...prev, eyebrow: true }))
-      await wait(220)
-      setRevealShown((prev) => ({ ...prev, logo: true }))
-      await wait(260)
-      setRevealShown((prev) => ({ ...prev, title: true }))
-      await wait(280)
-      setRevealShown((prev) => ({ ...prev, badge: true }))
-      await wait(320)
-      setRevealShown((prev) => ({ ...prev, note: true }))
-
-      if (asTest) {
-        setStatusMessage("Test mode complete — press R to reset.")
+    if (!asTest) {
+      if (!secret) {
+        setStatusMessage(
+          "Official launch key required. Open /launch?launch_key=YOUR_SECRET on the ceremony laptop."
+        )
         return
       }
+      try {
+        setStatusMessage("Authorizing…")
+        await unlockLaunch(secret)
+        setStatusMessage("")
+      } catch (error) {
+        setStatusMessage(
+          error instanceof Error ? error.message : "Unlock failed."
+        )
+        return
+      }
+    } else {
+      setStatusMessage("Test mode — animation only. The shop stays locked.")
+    }
 
-      await wait(REDIRECT_DELAY_MS)
+    launchedRef.current = true
+    const sequenceId = ++sequenceIdRef.current
+    resetVisualState()
+
+    await armLaunchAudio()
+    await startLaunchMusic()
+    playSystemCharge()
+
+    // ── Act I: Spark ───────────────────────────────
+    setPhase("spark")
+    await wait(280)
+    setEmberLit(true)
+    playIgnitePulse()
+    await wait(700)
+    setRaysOn(true)
+    setEmberGrow(true)
+
+    for (let i = 0; i < SPARK_WORDS.length; i++) {
       if (sequenceIdRef.current !== sequenceId) return
-      goToStorefrontHome()
-    },
-    []
-  )
+      setEmberLit(false)
+      setEmberGrow(false)
+      setSparkWord(SPARK_WORDS[i])
+      setSparkWordKey((k) => k + 1)
+      setCoronaKey((k) => k + 1)
+      playSparkWord(i)
+      await wait(980)
+    }
+
+    await wait(420)
+
+    // ── Act II: Assemble store ─────────────────────
+    if (sequenceIdRef.current !== sequenceId) return
+    setPhase("constellation")
+    await wait(280)
+    setAssembleReady(true)
+    playOrbitChime()
+    await wait(420)
+
+    for (let i = 0; i < STORE_CATEGORIES.length; i++) {
+      if (sequenceIdRef.current !== sequenceId) return
+      setAssembleIn((prev) => prev.map((v, idx) => (idx === i ? true : v)))
+      setAssembleFocus(i)
+      setAssembleCount(i + 1)
+      playOrbitChime()
+      await wait(780)
+    }
+    setAssembleFocus(-1)
+    await wait(700)
+
+    // ── Act III: Signature ─────────────────────────
+    if (sequenceIdRef.current !== sequenceId) return
+    setPhase("signature")
+    setSignatureBeam(true)
+    await wait(480)
+    playSignatureSwell()
+    setSignatureLogo(true)
+    await wait(360)
+    setSignatureFlare(true)
+    await wait(260)
+    setSignatureWord(true)
+    await wait(220)
+    setSignatureTag(true)
+    await wait(1500)
+
+    // ── Act IV: Portal → storefront ────────────────
+    if (sequenceIdRef.current !== sequenceId) return
+    setPhase("portal")
+    setPortalShown(true)
+    await wait(480)
+    setPortalTitle(true)
+    await wait(900)
+    setPortalReady(true)
+    await wait(1100)
+    playPortalWhoosh()
+    setPortalOpen(true)
+    await wait(700)
+    setPortalReveal(true)
+    await wait(1400)
+    playCinematicBoom()
+
+    if (asTest) {
+      setStatusMessage("Test mode complete — press R to reset.")
+      return
+    }
+
+    setPortalExit(true)
+    stopLaunchMusic(1000)
+    await wait(REDIRECT_DELAY_MS)
+    if (sequenceIdRef.current !== sequenceId) return
+    goToStorefrontHome()
+  }, [])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -278,58 +358,111 @@ export function LaunchCeremony() {
 
   return (
     <div className="launch-ceremony-root">
-      <div className="launch-ambient" aria-hidden />
+      <div className={`launch-shell${dimStandby ? " is-dimmed" : ""}`}>
+        <div className="launch-field" aria-hidden>
+          <svg className="launch-field-svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+            <g className="launch-field-lines">
+              <line x1="80" y1="120" x2="260" y2="210" />
+              <line x1="260" y1="210" x2="420" y2="140" />
+              <line x1="420" y1="140" x2="560" y2="260" />
+              <line x1="560" y1="260" x2="760" y2="180" />
+              <line x1="760" y1="180" x2="940" y2="300" />
+              <line x1="940" y1="300" x2="1100" y2="220" />
+              <line x1="180" y1="420" x2="340" y2="360" />
+              <line x1="340" y1="360" x2="520" y2="480" />
+              <line x1="520" y1="480" x2="700" y2="400" />
+              <line x1="700" y1="400" x2="880" y2="520" />
+              <line x1="880" y1="520" x2="1060" y2="440" />
+              <line x1="260" y1="210" x2="340" y2="360" />
+              <line x1="560" y1="260" x2="520" y2="480" />
+              <line x1="760" y1="180" x2="700" y2="400" />
+              <line x1="940" y1="300" x2="880" y2="520" />
+            </g>
+            <g className="launch-field-nodes">
+              <circle cx="80" cy="120" r="3.5" />
+              <circle cx="260" cy="210" r="4.5" />
+              <circle cx="420" cy="140" r="3" />
+              <circle cx="560" cy="260" r="5" />
+              <circle cx="760" cy="180" r="3.5" />
+              <circle cx="940" cy="300" r="4" />
+              <circle cx="1100" cy="220" r="3" />
+              <circle cx="180" cy="420" r="3" />
+              <circle cx="340" cy="360" r="4" />
+              <circle cx="520" cy="480" r="5" />
+              <circle cx="700" cy="400" r="3.5" />
+              <circle cx="880" cy="520" r="4.5" />
+              <circle cx="1060" cy="440" r="3" />
+            </g>
+          </svg>
+          <span className="launch-particle p1" />
+          <span className="launch-particle p2" />
+          <span className="launch-particle p3" />
+          <span className="launch-particle p4" />
+          <span className="launch-particle p5" />
+          <span className="launch-particle p6" />
+          <span className="launch-particle p7" />
+          <span className="launch-particle p8" />
+        </div>
 
-      <div className="launch-shell">
-        <header className="launch-topbar">
-          <div className="launch-brand-row">
-            <img src="/launch/cba-badge.png" alt="CBA" />
-            <span className="launch-brand-name">Ceylon Business Appliances</span>
+        <header className="launch-rail-top">
+          <div className="launch-rail-brand">
+            <img src="/launch/cba-logo.png" alt="CBA" />
+            <span className="launch-rail-divider" aria-hidden />
+            <span className="launch-rail-label">Ceylon Business Appliances</span>
           </div>
-          <div className="launch-status-chip">
+          <span className="launch-status">
             <span className="launch-status-dot" aria-hidden />
-            {phase === "standby" ? "Standby for launch" : "Launch sequence active"}
-          </div>
+            Coming soon
+          </span>
         </header>
 
-        <main className="launch-main">
-          <p className="launch-eyebrow">
-            Official platform unveiling // Live commerce
-          </p>
-
-          <div className="launch-logo-wrap">
-            <div className="launch-logo-glow" aria-hidden />
+        <main className="launch-stage">
+          <section className="launch-copy">
+            <p className="launch-kicker">Online store premiere</p>
             <img
-              className="launch-logo"
-              src="/launch/ebiz-logo-dark.png"
+              className="launch-brand-mark"
+              src="/launch/ebiz-logo.png"
               alt="EBiz"
             />
-          </div>
+            <h1 className="launch-title">
+              Business technology,
+              <span> ready to shop.</span>
+            </h1>
+            <p className="launch-subtitle">
+              A cleaner way to browse printers, POS, security, and office
+              essentials from Ceylon Business Appliances.
+            </p>
 
-          <h1 className="launch-title">Initiate the EBiz launch</h1>
-          <p className="launch-subtitle">
-            Next-generation commerce for Ceylon Business Appliances — built for
-            high-volume corporate buying across Sri Lanka.
-          </p>
-
-          <div className="launch-cta-wrap">
-            <button
-              type="button"
-              className="launch-cta"
-              disabled={busy}
-              onClick={() => void runCeremony(false)}
-            >
-              <span className="launch-cta-core" aria-hidden />
-              Initiate official launch
-            </button>
-
-            <div className="launch-meta">
-              <span>
-                Safety:{" "}
-                <strong>{armed ? "Launch key armed" : "Awaiting launch key"}</strong>
-              </span>
-              <span aria-hidden>·</span>
-              <span>Press Space or click</span>
+            <div className="launch-actions">
+              <button
+                type="button"
+                className="launch-cta"
+                disabled={busy}
+                onClick={() => void runCeremony(false)}
+              >
+                Begin launch
+              </button>
+              <div className="launch-armed">
+                <span
+                  className={`launch-armed-dot${armed ? " is-on" : ""}`}
+                  aria-hidden
+                />
+                <p className="launch-meta">
+                  {armed ? (
+                    <>
+                      Presenter key <strong>armed</strong>
+                      <span className="launch-meta-sep">·</span>
+                      Space to begin
+                    </>
+                  ) : (
+                    <>
+                      Awaiting presenter key
+                      <span className="launch-meta-sep">·</span>
+                      <strong>T</strong> to rehearse
+                    </>
+                  )}
+                </p>
+              </div>
             </div>
 
             {statusMessage ? (
@@ -337,118 +470,239 @@ export function LaunchCeremony() {
                 {statusMessage}
               </p>
             ) : null}
-          </div>
+          </section>
+
+          <section className="launch-visual" aria-label="EBiz categories">
+            <div className="launch-visual-frame">
+              <div className="launch-visual-orbit" aria-hidden />
+              <div className="launch-visual-orbit launch-visual-orbit-2" aria-hidden />
+              <img
+                className="launch-visual-logo"
+                src="/launch/ebiz-logo.png"
+                alt=""
+              />
+              <ul className="launch-visual-tags">
+                <li>Printers</li>
+                <li>POS</li>
+                <li>Security</li>
+                <li>Office</li>
+              </ul>
+            </div>
+          </section>
         </main>
 
-        <div className="launch-hotkeys" aria-hidden={busy}>
-          <span>
-            <kbd>F</kbd> Fullscreen
-          </span>
-          <span>
-            <kbd>Space</kbd> Launch
-          </span>
-          <span>
-            <kbd>R</kbd> Reset
-          </span>
-          <span>
-            <kbd>T</kbd> Test
-          </span>
-        </div>
-      </div>
-
-      <div
-        className={`launch-overlay${phase === "countdown" ? " is-active" : ""}`}
-        aria-hidden={phase !== "countdown"}
-      >
-        <div className="launch-countdown-card">
-          <p className="launch-countdown-label">System launch sequence</p>
-          <p className="launch-countdown-num" key={countdown}>
-            {countdown}
-          </p>
-          <p className="launch-countdown-copy">Transferring to production</p>
-        </div>
-      </div>
-
-      <div
-        className={`launch-overlay${phase === "progress" ? " is-active" : ""}`}
-        aria-hidden={phase !== "progress"}
-      >
-        <div className="launch-progress-card">
-          <h2 className="launch-progress-heading">Production cutover</h2>
-          <p className="launch-progress-sub">
-            Final checks before EBiz goes live for every visitor.
-          </p>
-
-          {PROGRESS_STEPS.map((step, index) => {
-            const isDone = completedSteps > index
-            const isActive = activeStep === index && !isDone
-            return (
-              <div
-                key={step.title}
-                className={`launch-step${isActive ? " is-active" : ""}${
-                  isDone ? " is-done" : ""
-                }`}
-              >
-                <div className="launch-step-mark">
-                  {isDone ? "✓" : index + 1}
-                </div>
-                <div>
-                  <p className="launch-step-title">{step.title}</p>
-                  <p className="launch-step-detail">{step.detail}</p>
-                </div>
-                <div className="launch-step-time">
-                  {(step.durationMs / 1000).toFixed(1)}s
-                </div>
-              </div>
-            )
-          })}
-
-          <div className="launch-progress-bar" aria-hidden>
-            <span style={{ width: `${progressPercent}%` }} />
+        <footer className="launch-rail-bottom" aria-hidden={busy}>
+          <p className="launch-rail-note">Presenter controls</p>
+          <div className="launch-hotkeys">
+            <span>
+              <kbd>F</kbd> Fullscreen
+            </span>
+            <span>
+              <kbd>Space</kbd> Begin
+            </span>
+            <span>
+              <kbd>R</kbd> Reset
+            </span>
+            <span>
+              <kbd>T</kbd> Test
+            </span>
           </div>
+        </footer>
+      </div>
+
+      {/* Act I — Spark */}
+      <div
+        className={`launch-act launch-spark${
+          phase === "spark" ? " is-active" : ""
+        }`}
+        aria-hidden={phase !== "spark"}
+      >
+        <div className="launch-spark-stage">
+          <div
+            className={`launch-spark-rays${raysOn ? " is-on" : ""}`}
+            aria-hidden
+          />
+          <div
+            key={`corona-${coronaKey}`}
+            className={`launch-spark-corona${
+              coronaKey ? " is-pulse" : ""
+            }`}
+            aria-hidden
+          />
+          <div
+            className={`launch-spark-ember${emberLit ? " is-lit" : ""}${
+              emberGrow ? " is-grow" : ""
+            }${sparkWord ? " is-gone" : ""}`}
+            aria-hidden
+          />
+          {sparkWord ? (
+            <p className="launch-spark-word is-shown" key={sparkWordKey}>
+              {sparkWord}
+            </p>
+          ) : null}
         </div>
       </div>
 
+      {/* Act II — Assemble store */}
       <div
-        className={`launch-overlay${phase === "reveal" ? " is-active" : ""}`}
-        aria-hidden={phase !== "reveal"}
+        className={`launch-act launch-constellation${
+          phase === "constellation" ? " is-active" : ""
+        }`}
+        aria-hidden={phase !== "constellation"}
       >
-        <div className="launch-reveal-card">
-          <p
-            className={`launch-reveal-eyebrow${
-              revealShown.eyebrow ? " is-shown" : ""
-            }`}
-          >
-            Deployment successful // Now live
+        <div
+          className={`launch-assemble${assembleReady ? " is-ready" : ""}`}
+        >
+          <p className="launch-constellation-title">Assembling the store</p>
+
+          <div className="launch-assemble-meter" aria-hidden>
+            <div
+              className="launch-assemble-meter-fill"
+              style={{
+                width: `${(assembleCount / STORE_CATEGORIES.length) * 100}%`,
+              }}
+            />
+            <div className="launch-assemble-meter-ticks">
+              {STORE_CATEGORIES.map((item, index) => (
+                <span
+                  key={item.name}
+                  className={assembleCount > index ? "is-on" : undefined}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="launch-assemble-grid">
+            {STORE_CATEGORIES.map((item, index) => (
+              <article
+                key={item.name}
+                className={`launch-assemble-cell${
+                  assembleIn[index] ? " is-in" : ""
+                }${assembleFocus === index ? " is-focus" : ""}`}
+              >
+                <div className="launch-assemble-cell-scan" aria-hidden />
+                <span className="launch-assemble-index">0{index + 1}</span>
+                <h3 className="launch-assemble-name">{item.name}</h3>
+                <p className="launch-assemble-note">{item.note}</p>
+                <span className="launch-assemble-check" aria-hidden>
+                  {assembleIn[index] ? "Added" : "Waiting"}
+                </span>
+              </article>
+            ))}
+          </div>
+
+          <p className="launch-assemble-status">
+            {assembleCount === 0
+              ? "Preparing catalog…"
+              : assembleCount < STORE_CATEGORIES.length
+                ? `${assembleCount} of ${STORE_CATEGORIES.length} departments live`
+                : "Catalog ready"}
           </p>
+        </div>
+      </div>
+
+      {/* Act III — Signature */}
+      <div
+        className={`launch-act launch-signature${
+          phase === "signature" ? " is-active" : ""
+        }`}
+        aria-hidden={phase !== "signature"}
+      >
+        <div
+          className={`launch-signature-beam${signatureBeam ? " is-on" : ""}`}
+          aria-hidden
+        />
+        <div
+          className={`launch-signature-flare${signatureFlare ? " is-on" : ""}`}
+          aria-hidden
+        />
+        <div className="launch-signature-mark">
           <img
-            className={`launch-reveal-logo${revealShown.logo ? " is-shown" : ""}`}
-            src="/launch/ebiz-logo-dark.png"
+            className={`launch-signature-logo${
+              signatureLogo ? " is-shown" : ""
+            }`}
+            src="/launch/ebiz-logo.png"
             alt="EBiz"
           />
           <p
-            className={`launch-reveal-title${
-              revealShown.title ? " is-shown" : ""
+            className={`launch-signature-word${
+              signatureWord ? " is-shown" : ""
             }`}
           >
-            Ceylon Business Appliances Pvt Ltd
+            EBiz
           </p>
-          <div
-            className={`launch-reveal-badge${
-              revealShown.badge ? " is-shown" : ""
-            }`}
-          >
-            <span className="launch-reveal-badge-dot" aria-hidden />
-            Platform officially live
-          </div>
           <p
-            className={`launch-reveal-note${
-              revealShown.note ? " is-shown" : ""
+            className={`launch-signature-tag${
+              signatureTag ? " is-shown" : ""
             }`}
           >
-            Opening EBiz storefront…
+            Ceylon Business Appliances
           </p>
         </div>
+      </div>
+
+      {/* Act IV — Portal → storefront */}
+      <div
+        className={`launch-act launch-portal${
+          phase === "portal" ? " is-active" : ""
+        }${portalExit ? " is-exit" : ""}`}
+        aria-hidden={phase !== "portal"}
+      >
+        <div
+          className={`launch-portal-headline${portalTitle ? " is-shown" : ""}${
+            portalExit ? " is-fade" : ""
+          }`}
+        >
+          <p className="launch-portal-eyebrow">Almost there</p>
+          <h2 className="launch-portal-heading">The store is opening</h2>
+        </div>
+
+        <div
+          className={`launch-portal-stage${portalShown ? " is-shown" : ""}${
+            portalExit ? " is-rush" : ""
+          }`}
+        >
+          <div
+            className={`launch-portal-frame${portalShown ? " is-shown" : ""}${
+              portalOpen ? " is-open" : ""
+            }`}
+          >
+            <div className="launch-portal-door launch-portal-door-left">
+              <span className="launch-portal-handle" aria-hidden />
+            </div>
+            <div className="launch-portal-door launch-portal-door-right">
+              <span className="launch-portal-handle" aria-hidden />
+            </div>
+            <div
+              className={`launch-portal-inner${
+                portalReveal ? " is-revealed" : ""
+              }`}
+            >
+              <img
+                className="launch-portal-logo"
+                src="/launch/ebiz-logo.png"
+                alt=""
+              />
+              <p className="launch-portal-store-name">EBiz Store</p>
+              <p className="launch-portal-store-line">
+                Printers · POS · Security · Office
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <p
+          className={`launch-portal-cue${portalReady && !portalOpen ? " is-shown" : ""}`}
+        >
+          Watch the doors
+        </p>
+        <p
+          className={`launch-portal-cue launch-portal-cue-open${
+            portalOpen && !portalExit ? " is-shown" : ""
+          }`}
+        >
+          Welcome in
+        </p>
       </div>
     </div>
   )
