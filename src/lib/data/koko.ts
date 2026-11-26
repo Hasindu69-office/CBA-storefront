@@ -53,7 +53,13 @@ export async function prepareKokoRedirectAction(): Promise<
     } catch {
       return { ok: false, message: "Payment gateway URL is invalid." }
     }
-    const allowedHosts = ["qaapi.paykoko.com", "api.paykoko.com", "paykoko.com", "www.paykoko.com"]
+    const allowedHosts = [
+      "qaapi.paykoko.com",
+      "prodapi.paykoko.com",
+      "api.paykoko.com",
+      "paykoko.com",
+      "www.paykoko.com",
+    ]
     if (!allowedHosts.includes(host)) {
       return { ok: false, message: "Payment gateway URL is not allowed." }
     }
