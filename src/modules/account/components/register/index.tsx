@@ -5,6 +5,7 @@ import { useActionState, useEffect, useState } from "react"
 import { useRecaptchaSubmit } from "@lib/hooks/use-recaptcha-submit"
 import type { AccountAuthSettings } from "@lib/data/account-auth"
 import { LOGIN_VIEW } from "@modules/account/templates/login-template"
+import { useAuthModal } from "@modules/account/context/auth-modal-context"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import { SubmitButton } from "@modules/checkout/components/submit-button"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
@@ -34,6 +35,7 @@ type Props = {
 const INITIAL_STATE: AuthActionState = { status: "idle", message: null }
 
 const Register = ({ setCurrentView, settings, countryCode, onAuthenticated, returnTo = "/account", showTitle = true }: Props) => {
+  const { close } = useAuthModal()
   const [result, formAction] = useActionState(signup, INITIAL_STATE)
   const [socialMessage, socialAction] = useActionState(startOAuthLogin, null)
   const [clientError, setClientError] = useState<string | null>(null)
@@ -152,11 +154,19 @@ const Register = ({ setCurrentView, settings, countryCode, onAuthenticated, retu
           />
           <span>
             I agree to the{" "}
-            <LocalizedClientLink href="/content/terms-of-use" className="font-semibold text-[#ff5c0e]">
+            <LocalizedClientLink
+              href="/terms-and-conditions"
+              className="font-semibold text-[#ff5c0e]"
+              onClick={() => close()}
+            >
               Terms & Conditions
             </LocalizedClientLink>{" "}
             and{" "}
-            <LocalizedClientLink href="/content/privacy-policy" className="font-semibold text-[#ff5c0e]">
+            <LocalizedClientLink
+              href="/privacy-policy"
+              className="font-semibold text-[#ff5c0e]"
+              onClick={() => close()}
+            >
               Privacy Policy
             </LocalizedClientLink>
           </span>
